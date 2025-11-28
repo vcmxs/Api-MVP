@@ -1,22 +1,14 @@
 // db.js
 const { Pool } = require('pg');
 
-// const pool = new Pool({
-//   user: 'postgres',
-//   host: 'localhost',
-//   database: 'gym_training_app',
-//   password: '9426242801', 
-//   port: 5432,
-// });
-
 const pool = new Pool({
   // En producción usa DATABASE_URL, en desarrollo usa tu config local
   connectionString: process.env.DATABASE_URL || undefined,
   host: process.env.DATABASE_URL ? undefined : 'localhost',
   port: process.env.DATABASE_URL ? undefined : 5432,
   user: process.env.DATABASE_URL ? undefined : 'postgres',
-  password: process.env.DATABASE_URL ? undefined : 'Kevincr7',
-  database: process.env.DATABASE_URL ? undefined : 'gym_training',
+  password: process.env.DATABASE_URL ? undefined : '9426242801',
+  database: process.env.DATABASE_URL ? undefined : 'gym_training_app',
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
@@ -43,7 +35,15 @@ const createTables = async () => {
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        role VARCHAR(50) NOT NULL CHECK (role IN ('coach', 'trainee')),
+        role VARCHAR(50) NOT NULL CHECK (role IN ('coach', 'trainee', 'admin')),
+        age INTEGER,
+        sex VARCHAR(20),
+        phone VARCHAR(50),
+        gym VARCHAR(255),
+        notes TEXT,
+        profile_pic_url TEXT,
+        subscription_status VARCHAR(50) DEFAULT 'inactive' CHECK (subscription_status IN ('active', 'inactive', 'trial')),
+        status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
