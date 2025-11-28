@@ -180,7 +180,7 @@ function AdminDashboard({ token, userId, userRole }) {
                         {/* Profile Picture */}
                         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                             <img
-                                src={userDetails.profile_pic_url ? `http://localhost:3000${userDetails.profile_pic_url}` : 'https://via.placeholder.com/150'}
+                                src={userDetails.profile_pic_url ? `${BASE_URL}${userDetails.profile_pic_url}` : 'https://via.placeholder.com/150'}
                                 alt={userDetails.name}
                                 className="profile-pic"
                             />

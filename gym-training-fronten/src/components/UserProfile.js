@@ -123,7 +123,7 @@ function UserProfile({ userId, editable, onUpdate }) {
             <div className="profile-header">
                 <div className="profile-pic-container">
                     <img
-                        src={profilePicPreview || (profilePicUrl ? `http://localhost:3000${profilePicUrl}` : 'https://via.placeholder.com/150')}
+                        src={profilePicPreview || (profilePicUrl ? `${BASE_URL}${profilePicUrl}` : 'https://via.placeholder.com/150')}
                         alt="Profile"
                         className="profile-pic"
                     />
