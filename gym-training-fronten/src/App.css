@@ -1,0 +1,867 @@
+/* src/App.css */
+
+:root {
+  /* Chain Summit Theme Variables */
+  --primary: #00ffff;
+  --secondary: #ff00ff;
+  --accent: #7c3aed;
+  --dark: #0a0a0f;
+  --darker: #050508;
+  --light: #ffffff;
+  --gray: #6b7280;
+  --success: #00ff88;
+  --danger: #ff4757;
+
+  /* Mappings for existing app structure */
+  --bg-primary: var(--dark);
+  --bg-secondary: rgba(255, 255, 255, 0.05);
+  --bg-tertiary: rgba(255, 255, 255, 0.02);
+  --text-primary: var(--light);
+  --text-secondary: var(--gray);
+  --accent-primary: var(--primary);
+  --border-color: rgba(0, 255, 255, 0.1);
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--dark);
+  color: var(--light);
+  min-height: 100vh;
+  background: linear-gradient(45deg, var(--dark) 0%, var(--darker) 50%, var(--dark) 100%);
+  overflow-x: hidden;
+}
+
+/* Background Animation Simulation */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 40%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.app-header {
+  background: rgba(10, 10, 15, 0.9);
+  backdrop-filter: blur(20px);
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-header h1 {
+  font-size: 1.8rem;
+  font-weight: bold;
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.user-info span {
+  color: var(--light);
+  font-weight: 500;
+}
+
+.btn-logout {
+  padding: 0.5rem 1.2rem;
+  background: rgba(255, 71, 87, 0.2);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.btn-logout:hover {
+  background: var(--danger);
+  color: white;
+  box-shadow: 0 0 15px rgba(255, 71, 87, 0.4);
+}
+
+.app-main {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Dashboard Styles */
+.dashboard {
+  background: transparent;
+  padding: 0;
+  min-height: 600px;
+}
+
+.dashboard h2 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Tab Navigation (New) */
+.tab-navigation {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 1rem;
+}
+
+.tab-button {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: none;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 25px;
+  position: relative;
+}
+
+.tab-button:hover {
+  color: var(--light);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-button.active {
+  color: var(--dark);
+  background: linear-gradient(45deg, var(--primary), var(--accent));
+  font-weight: 600;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
+
+/* Cards (Glassmorphism) */
+.workout-card,
+.exercise-detail-card,
+.login-card,
+.add-trainee-form,
+.trainee-card,
+.active-workout-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.workout-card:hover,
+.trainee-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary);
+  box-shadow: 0 10px 30px rgba(0, 255, 255, 0.1);
+}
+
+.workout-card h3,
+.exercise-detail-card h4,
+.login-card h2 {
+  color: var(--light);
+  font-size: 1.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.workout-card p,
+.exercise-target,
+.exercise-detail {
+  color: var(--gray);
+}
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(45deg, var(--primary), var(--accent));
+  color: var(--dark);
+  padding: 0.8rem 2rem;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.9rem;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 255, 255, 0.3);
+}
+
+.btn-secondary,
+.btn-back {
+  background: transparent;
+  color: var(--light);
+  border: 1px solid var(--primary);
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.9rem;
+}
+
+.btn-secondary:hover,
+.btn-back:hover {
+  background: var(--primary);
+  color: var(--dark);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+}
+
+.btn-success {
+  background: transparent;
+  color: var(--success);
+  border: 1px solid var(--success);
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-success:hover {
+  background: var(--success);
+  color: var(--dark);
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: white;
+  box-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
+}
+
+.btn-add {
+  background: rgba(0, 255, 255, 0.1);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.8rem 1.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.btn-add:hover {
+  background: var(--primary);
+  color: var(--dark);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
+
+.btn-remove {
+  background: rgba(255, 71, 87, 0.1);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+}
+
+.btn-remove:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  margin-left: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.btn-link:hover {
+  color: var(--secondary);
+  text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+/* Inputs */
+input,
+textarea,
+select {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--light);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  border-radius: 10px;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+}
+
+/* Fix for dropdown options in dark mode */
+option {
+  background-color: var(--dark);
+  color: var(--light);
+}
+
+/* Role Selector Styles */
+.role-selector {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.role-option {
+  flex: 1;
+  cursor: pointer;
+  position: relative;
+}
+
+.role-option input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.role-option span {
+  display: block;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  text-align: center;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.role-option:hover span {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
+}
+
+.role-option input:checked+span {
+  background: rgba(0, 255, 255, 0.1);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+  font-weight: bold;
+}
+
+.active-workout-header {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 255, 0.1) !important;
+  border-radius: 15px;
+}
+
+.active-workout-card {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(0, 255, 255, 0.1) !important;
+}
+
+.exercise-progress h2 {
+  background: linear-gradient(45deg, var(--light), var(--primary)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-size: 2.5rem !important;
+}
+
+.sets-header {
+  color: var(--primary) !important;
+  font-weight: bold;
+  letter-spacing: 2px !important;
+}
+
+.set-row {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.3s ease;
+}
+
+.set-row:hover {
+  border-color: var(--primary) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.set-row input {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  text-align: center;
+  font-family: monospace;
+  font-size: 1.1rem;
+}
+
+.set-row input:focus {
+  border-color: var(--primary) !important;
+}
+
+/* Status Colors */
+.status-assigned {
+  color: var(--primary);
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.status-in_progress {
+  color: var(--secondary);
+  text-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+}
+
+.status-completed {
+  color: var(--success);
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+/* Tables */
+.logs-table,
+.admin-table {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 15px;
+  overflow: hidden;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.logs-table thead,
+.admin-table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.logs-table th,
+.admin-table th {
+  color: var(--primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  padding: 1.2rem;
+  text-align: left;
+}
+
+.logs-table td,
+.admin-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  color: var(--light);
+}
+
+.logs-table tbody tr:hover,
+.admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.no-logs {
+  background: transparent;
+  color: var(--gray);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+/* User Profile Styles */
+.user-profile {
+  animation: fadeIn 0.3s;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.profile-pic-container {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.profile-pic {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.profile-info h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: var(--light);
+}
+
+.profile-role {
+  color: var(--primary);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+}
+
+.profile-email {
+  color: var(--gray);
+}
+
+.profile-details {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 2rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row strong {
+  color: var(--secondary);
+}
+
+.detail-row span {
+  color: var(--light);
+}
+
+/* Admin Specifics */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--secondary);
+  box-shadow: 0 10px 30px rgba(255, 0, 255, 0.15);
+}
+
+.stat-card h3 {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-card p {
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.9rem;
+}
+
+.role-badge {
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.role-admin {
+  background: rgba(255, 0, 255, 0.2);
+  color: var(--secondary);
+  border: 1px solid var(--secondary);
+}
+
+.role-coach {
+  background: rgba(0, 255, 255, 0.2);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.role-trainee {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--light);
+  border: 1px solid var(--gray);
+}
+
+.status-badge {
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.status-active {
+  color: var(--success);
+}
+
+.status-blocked {
+  color: var(--danger);
+}
+
+.status-free {
+  color: var(--gray);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-view {
+  background: rgba(0, 255, 255, 0.1);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.5rem 1rem;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-view:hover {
+  background: var(--primary);
+  color: var(--dark);
+}
+
+.btn-block,
+.btn-delete {
+  background: rgba(255, 71, 87, 0.1);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 0.5rem 1rem;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-block:hover,
+.btn-delete:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-unblock,
+.btn-activate {
+  background: rgba(0, 255, 136, 0.1);
+  color: var(--success);
+  border: 1px solid var(--success);
+  padding: 0.5rem 1rem;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-unblock:hover,
+.btn-activate:hover {
+  background: var(--success);
+  color: var(--dark);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* =========================================
+   MOBILE RESPONSIVENESS (MVP Phase 1)
+   ========================================= */
+
+@media (max-width: 768px) {
+
+  /* Layout Adjustments */
+  .app-header {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .app-main {
+    padding: 1rem;
+  }
+
+  .dashboard h2 {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+
+  /* Navigation */
+  .tab-navigation {
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .tab-button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    width: 100%;
+    /* Full width tabs on mobile */
+  }
+
+  /* Cards */
+  .workout-card,
+  .exercise-detail-card,
+  .login-card,
+  .active-workout-card {
+    padding: 1.5rem;
+  }
+
+  /* Active Workout View */
+  .active-workout-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .exercise-progress h2 {
+    font-size: 1.8rem !important;
+  }
+
+  .sets-header {
+    font-size: 0.7rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .set-row {
+    padding: 0.8rem !important;
+    gap: 0.5rem !important;
+    grid-template-columns: 0.5fr 1fr 1fr 1fr 0.5fr !important;
+    /* Keep grid but tighter */
+  }
+
+  .set-row input {
+    padding: 0.5rem !important;
+    font-size: 1rem !important;
+  }
+
+  /* Buttons */
+  .workout-actions {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-logout {
+    width: 100%;
+    padding: 1rem;
+    /* Larger touch target */
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    grid-template-columns: 1fr;
+    /* Stack cards */
+  }
+
+  /* Tables */
+  .table-container {
+    overflow-x: auto;
+    /* Allow horizontal scroll for tables */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 0.8rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    /* Prevent wrapping causing layout break */
+  }
+
+  /* User Profile */
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile-pic {
+    width: 120px;
+    height: 120px;
+  }
+}
