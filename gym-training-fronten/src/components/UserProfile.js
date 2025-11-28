@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import '../App.css';
 
-const API_URL = 'http://localhost:3000/api/v1';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+const BASE_URL = API_URL.replace('/api/v1', '');
 
 function UserProfile({ userId, editable, onUpdate }) {
     const [profile, setProfile] = useState(null);
