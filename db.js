@@ -145,10 +145,11 @@ const createTables = async () => {
 
     // Insert default users
     await client.query(`
-      INSERT INTO users (id, name, email, password, role)
+      INSERT INTO users (id, name, email, password, role, subscription_status)
       VALUES 
-        (1, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach'),
-        (2, 'John Trainee', 'john@gym.com', 'john123', 'trainee')
+        (1, 'Admin User', 'admin@gym.com', 'admin123', 'admin', 'active'),
+        (2, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach', 'active'),
+        (3, 'John Trainee', 'john@gym.com', 'john123', 'trainee', 'active')
       ON CONFLICT (email) DO NOTHING
     `);
 
