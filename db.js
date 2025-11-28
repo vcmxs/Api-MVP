@@ -88,6 +88,66 @@ const createTables = async () => {
         target_weight DECIMAL(10, 2) NOT NULL,
         weight_unit VARCHAR(10) DEFAULT 'kg',
         rest_time INTEGER,
+        notes TEXT,
+        exercise_order INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Exercise logs table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exercise_logs (
+        id SERIAL PRIMARY KEY,
+        workout_plan_id INTEGER REFERENCES workout_plans(id) ON DELETE CASCADE,
+        exercise_id INTEGER REFERENCES exercises(id) ON DELETE CASCADE,
+        set_number INTEGER NOT NULL,
+        reps_completed INTEGER NOT NULL,
+        weight_used DECIMAL(10, 2) NOT NULL,
+        weight_unit VARCHAR(10) DEFAULT 'kg',
+        notes TEXT,
+        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Exercise Library table (Static list of exercises)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exercise_library (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        muscle_category VARCHAR(50) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Seed Exercise Library if empty
+    const exerciseCount = await client.query('SELECT COUNT(*) FROM exercise_library');
+    if (parseInt(exerciseCount.rows[0].count) === 0) {
+      console.log('Seeding exercise library...');
+      await client.query(`
+        INSERT INTO exercise_library (name, muscle_category, description) VALUES
+        ('Bench Press', 'Chest', 'Barbell bench press for chest development'),
+        ('Incline Dumbbell Press', 'Chest', 'Upper chest isolation'),
+        ('Push Ups', 'Chest', 'Bodyweight chest exercise'),
+        ('Squat', 'Legs', 'Compound leg exercise'),
+        ('Leg Press', 'Legs', 'Machine leg press'),
+        ('Deadlift', 'Back', 'Compound back and posterior chain exercise'),
+        ('Pull Ups', 'Back', 'Upper back bodyweight exercise'),
+        ('Dumbbell Row', 'Back', 'Unilateral back exercise'),
+        ('Overhead Press', 'Shoulders', 'Compound shoulder exercise'),
+        ('Lateral Raises', 'Shoulders', 'Shoulder isolation'),
+        ('Bicep Curls', 'Arms', 'Bicep isolation'),
+        ('Tricep Extensions', 'Arms', 'Tricep isolation'),
+        ('Plank', 'Core', 'Isometric core exercise'),
+        ('Crunches', 'Core', 'Abdominal isolation')
+      `);
+    }
+
+    // Insert default users
+    await client.query(`
+      INSERT INTO users (id, name, email, password, role)
+      VALUES 
+        (1, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach'),
         (2, 'John Trainee', 'john@gym.com', 'john123', 'trainee')
       ON CONFLICT (email) DO NOTHING
     `);
