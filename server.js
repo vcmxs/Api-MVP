@@ -4,6 +4,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Import database (this will trigger table creation)
+const db = require('./db');
+
 // Import modular routes
 const apiRoutes = require('./routes');
 
@@ -87,17 +90,19 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Gym Training API is running on http://localhost:${PORT}`);
-  console.log(`📝 API Documentation: http://localhost:${PORT}/api/v1`);
-  console.log(`✅ All routes loaded successfully`);
-  console.log(`\n📋 Available endpoints:`);
-  console.log(`   - Auth: /api/v1/auth/*`);
-  console.log(`   - Users: /api/v1/users/*`);
-  console.log(`   - Coaches: /api/v1/coaches/*`);
-  console.log(`   - Workouts: /api/v1/workout-plans/*`);
-  console.log(`   - Trainees: /api/v1/trainees/*`);
-  console.log(`   - Admin: /api/v1/admin/*`);
-  console.log(`   - Uploads: /uploads/*`);
-});
+// Wait for database initialization before starting server
+setTimeout(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Gym Training API is running on http://localhost:${PORT}`);
+    console.log(`📝 API Documentation: http://localhost:${PORT}/api/v1`);
+    console.log(`✅ All routes loaded successfully`);
+    console.log(`\n📋 Available endpoints:`);
+    console.log(`   - Auth: /api/v1/auth/*`);
+    console.log(`   - Users: /api/v1/users/*`);
+    console.log(`   - Coaches: /api/v1/coaches/*`);
+    console.log(`   - Workouts: /api/v1/workout-plans/*`);
+    console.log(`   - Trainees: /api/v1/trainees/*`);
+    console.log(`   - Admin: /api/v1/admin/*`);
+    console.log(`   - Uploads: /uploads/*`);
+  });
+}, 3000); // Wait 3 seconds for database tables to be created
