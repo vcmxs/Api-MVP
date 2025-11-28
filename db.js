@@ -88,32 +88,6 @@ const createTables = async () => {
         target_weight DECIMAL(10, 2) NOT NULL,
         weight_unit VARCHAR(10) DEFAULT 'kg',
         rest_time INTEGER,
-        notes TEXT,
-        exercise_order INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Exercise logs table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS exercise_logs (
-        id SERIAL PRIMARY KEY,
-        workout_plan_id INTEGER REFERENCES workout_plans(id) ON DELETE CASCADE,
-        exercise_id INTEGER REFERENCES exercises(id) ON DELETE CASCADE,
-        set_number INTEGER NOT NULL,
-        reps_completed INTEGER NOT NULL,
-        weight_used DECIMAL(10, 2) NOT NULL,
-        weight_unit VARCHAR(10) DEFAULT 'kg',
-        notes TEXT,
-        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Insert default users
-    await client.query(`
-      INSERT INTO users (id, name, email, password, role)
-      VALUES 
-        (1, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach'),
         (2, 'John Trainee', 'john@gym.com', 'john123', 'trainee')
       ON CONFLICT (email) DO NOTHING
     `);
