@@ -1,0 +1,1518 @@
+// server.js
+const express = require('express');
+const cors = require('cors');
+const pool = require('./db');
+require('dotenv').config();
+const { requireAdmin, requireActiveSubscription } = require('./middleware/auth');
+const apiRoutes = require('./routes');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use('/api/v1', apiRoutes);
+// ============================================
+// AUTHENTICATION ROUTES
+// ============================================
+
+// Register endpoint
+app.post('/api/v1/auth/register', async (req, res) => {
+  const { name, email, password, role, age, sex, phone, gym, notes } = req.body;
+
+  // Validation
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'All fields are required: name, email, password, role'
+    });
+  }
+
+  if (role !== 'coach' && role !== 'trainee' && role !== 'admin') {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Role must be "coach", "trainee", or "admin"'
+    });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Password must be at least 6 characters long'
+    });
+  }
+
+  try {
+    // Check if user already exists
+    const existingUser = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Conflict',
+        message: 'Email already registered'
+      });
+    }
+
+    // Insert new user
+    const result = await pool.query(
+      'INSERT INTO users (name, email, password, role, age, sex, phone, gym, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, name, email, role, age, sex, phone, gym, notes',
+      [name, email, password, role, age, sex, phone, gym, notes]
+    );
+
+    const user = result.rows[0];
+    const token = `token_${user.id}_${Date.now()}`;
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Login endpoint
+app.post('/api/v1/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const result = await pool.query(
+      'SELECT id, name, email, role FROM users WHERE email = $1 AND password = $2',
+      [email, password]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid email or password'
+      });
+    }
+
+    const user = result.rows[0];
+    const token = `token_${user.id}_${Date.now()}`;
+
+    res.json({
+      token,
+      user: {
+        id: user.id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// USER ROUTES
+// ============================================
+
+// Get user details (for subscription check)
+app.get('/api/v1/users/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, email, role, subscription_status, subscription_tier FROM users WHERE id = $1',
+      [req.params.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Get user error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Get coach's trainees
+app.get('/api/v1/coaches/:coachId/trainees', async (req, res) => {
+  try {
+    // Get trainees assigned to this coach through coach_trainee relationship
+    const result = await pool.query(
+      `SELECT u.id, u.name, u.email, ct.assigned_at
+       FROM users u
+       INNER JOIN coach_trainee ct ON u.id = ct.trainee_id
+       WHERE ct.coach_id = $1 AND u.role = 'trainee'
+       ORDER BY u.name`,
+      [req.params.coachId]
+    );
+
+    res.json({ trainees: result.rows });
+  } catch (err) {
+    console.error('Get trainees error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Assign trainee to coach
+app.post('/api/v1/coaches/:coachId/trainees', async (req, res) => {
+  const { coachId } = req.params;
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Email is required'
+    });
+  }
+
+  try {
+    // Find trainee by email
+    const traineeResult = await pool.query(
+      'SELECT id, name, email, role FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (traineeResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'No user found with that email'
+      });
+    }
+
+    const trainee = traineeResult.rows[0];
+
+    if (trainee.role !== 'trainee') {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'User is not a trainee'
+      });
+    }
+
+    // Check if already assigned
+    const existingResult = await pool.query(
+      'SELECT id FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2',
+      [coachId, trainee.id]
+    );
+
+    if (existingResult.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Conflict',
+        message: 'Trainee is already assigned to you'
+      });
+    }
+
+    // Assign trainee to coach
+    await pool.query(
+      'INSERT INTO coach_trainee (coach_id, trainee_id) VALUES ($1, $2)',
+      [coachId, trainee.id]
+    );
+
+    res.status(201).json({
+      id: trainee.id,
+      name: trainee.name,
+      email: trainee.email
+    });
+  } catch (err) {
+    console.error('Assign trainee error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// WORKOUT PLAN ROUTES
+// ============================================
+
+// Create workout plan (Coach) - Add requireActiveSubscription
+app.post('/api/v1/workout-plans', requireActiveSubscription, async (req, res) => {
+  const { traineeId, coachId, name, description, scheduledDate, exercises } = req.body;
+
+  if (!traineeId || !coachId || !name || !exercises || exercises.length === 0) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Missing required fields: traineeId, coachId, name, and exercises'
+    });
+  }
+
+
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Insert workout plan
+    const planResult = await client.query(
+      `INSERT INTO workout_plans (trainee_id, coach_id, name, description, scheduled_date, status)
+       VALUES ($1, $2, $3, $4, $5, 'assigned')
+       RETURNING *`,
+      [traineeId, coachId, name, description || '', scheduledDate || new Date().toISOString().split('T')[0]]
+    );
+
+    const workoutPlan = planResult.rows[0];
+
+
+    // Insert exercises
+    const exercisePromises = exercises.map((ex, index) => {
+      return client.query(
+        `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          workoutPlan.id,
+          ex.name,
+          ex.sets,
+          ex.reps,
+          ex.targetWeight || 0,
+          ex.weightUnit || 'kg',
+          ex.restTime || 60,
+          ex.notes || '',
+          index + 1
+        ]
+      );
+    });
+
+    const exerciseResults = await Promise.all(exercisePromises);
+    const insertedExercises = exerciseResults.map(r => r.rows[0]);
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      id: workoutPlan.id.toString(),
+      traineeId: workoutPlan.trainee_id.toString(),
+      name: workoutPlan.name,
+      description: workoutPlan.description,
+      scheduledDate: workoutPlan.scheduled_date,
+      status: workoutPlan.status,
+      createdAt: workoutPlan.created_at,
+      completedAt: workoutPlan.completed_at,
+      exercises: insertedExercises.map(ex => ({
+        id: ex.id.toString(),
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        targetWeight: parseFloat(ex.target_weight),
+        weightUnit: ex.weight_unit,
+        restTime: ex.rest_time,
+        notes: ex.notes,
+        order: ex.exercise_order
+      }))
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Create workout plan error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get workout plans for a trainee
+
+// Update workout plan details (Coach only - assigned workouts only)
+app.put('/api/v1/workout-plans/:planId', requireActiveSubscription, async (req, res) => {
+  const { name, description, scheduledDate } = req.body;
+  const { planId } = req.params;
+
+  try {
+    // Check if workout exists
+    const checkResult = await pool.query(
+      'SELECT status FROM workout_plans WHERE id = $1',
+      [planId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Workout plan not found' });
+    }
+
+    // Update workout plan
+    const result = await pool.query(
+      `UPDATE workout_plans 
+       SET name = $1, description = $2, scheduled_date = $3 
+       WHERE id = $4 
+       RETURNING *`,
+      [name, description, scheduledDate, planId]
+    );
+
+    res.json({ workoutPlan: result.rows[0] });
+  } catch (err) {
+    console.error('Update workout plan error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Add exercises to existing workout plan (Coach only)
+app.post('/api/v1/workout-plans/:planId/exercises', requireActiveSubscription, async (req, res) => {
+  const { exercises } = req.body;
+  const { planId } = req.params;
+
+  if (!exercises || exercises.length === 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'At least one exercise is required' });
+  }
+
+  try {
+    // Check if workout exists
+    const checkResult = await pool.query(
+      'SELECT status FROM workout_plans WHERE id = $1',
+      [planId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Workout plan not found' });
+    }
+
+
+    // Get current max exercise order
+    const maxOrderResult = await pool.query(
+      'SELECT COALESCE(MAX(exercise_order), 0) as max_order FROM exercises WHERE workout_plan_id = $1',
+      [planId]
+    );
+    let currentOrder = maxOrderResult.rows[0].max_order;
+
+    // Insert new exercises
+    const exercisePromises = exercises.map((ex) => {
+      currentOrder++;
+      return pool.query(
+        `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          planId,
+          ex.name,
+          ex.sets,
+          ex.reps,
+          ex.targetWeight || 0,
+          ex.weightUnit || 'kg',
+          ex.restTime || 60,
+          ex.notes || '',
+          currentOrder
+        ]
+      );
+    });
+
+    const results = await Promise.all(exercisePromises);
+    const insertedExercises = results.map(r => r.rows[0]);
+
+    res.json({ exercises: insertedExercises });
+  } catch (err) {
+    console.error('Add exercises error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Delete exercise from workout plan (Coach only)
+app.delete('/api/v1/workout-plans/:planId/exercises/:exerciseId', requireActiveSubscription, async (req, res) => {
+  const { planId, exerciseId } = req.params;
+
+  try {
+    // Check if workout exists
+    const checkResult = await pool.query(
+      'SELECT status FROM workout_plans WHERE id = $1',
+      [planId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Workout plan not found' });
+    }
+
+
+    // Check if this is the last exercise
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as count FROM exercises WHERE workout_plan_id = $1',
+      [planId]
+    );
+
+    if (parseInt(countResult.rows[0].count) <= 1) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Cannot remove the last exercise. Workout must have at least one exercise.'
+      });
+    }
+
+    // Delete the exercise
+    const result = await pool.query(
+      'DELETE FROM exercises WHERE id = $1 AND workout_plan_id = $2 RETURNING *',
+      [exerciseId, planId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Exercise not found' });
+    }
+
+    res.json({ message: 'Exercise deleted successfully', exercise: result.rows[0] });
+  } catch (err) {
+    console.error('Delete exercise error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+app.get('/api/v1/trainees/:traineeId/workout-plans', async (req, res) => {
+  const { traineeId } = req.params;
+  const { status, coachId } = req.query;
+
+  try {
+    let query = `
+      SELECT wp.*, 
+             json_agg(
+               json_build_object(
+                 'id', e.id,
+                 'name', e.name,
+                 'sets', e.sets,
+                 'reps', e.reps,
+                 'targetWeight', e.target_weight,
+                 'weightUnit', e.weight_unit,
+                 'restTime', e.rest_time,
+                 'notes', e.notes,
+                 'order', e.exercise_order
+               ) ORDER BY e.exercise_order
+             ) as exercises
+      FROM workout_plans wp
+      LEFT JOIN exercises e ON wp.id = e.workout_plan_id
+      WHERE wp.trainee_id = $1
+    `;
+
+    const params = [traineeId];
+    let paramIndex = 2;
+
+    if (coachId) {
+      query += ` AND wp.coach_id = $${paramIndex}`;
+      params.push(coachId);
+      paramIndex++;
+    }
+
+    if (status) {
+      query += ` AND wp.status = $${paramIndex}`;
+      params.push(status);
+    }
+
+    query += ' GROUP BY wp.id ORDER BY wp.scheduled_date DESC';
+
+    const result = await pool.query(query, params);
+
+    const workoutPlans = result.rows.map(wp => ({
+      id: wp.id.toString(),
+      traineeId: wp.trainee_id.toString(),
+      name: wp.name,
+      description: wp.description,
+      scheduledDate: wp.scheduled_date,
+      status: wp.status,
+      startedAt: wp.started_at,
+      completedAt: wp.completed_at,
+      overallNotes: wp.overall_notes,
+      rating: wp.rating,
+      createdAt: wp.created_at,
+      exercises: wp.exercises.filter(e => e.id !== null)
+    }));
+
+    res.json({ workoutPlans });
+  } catch (err) {
+    console.error('Get workout plans error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// WORKOUT TEMPLATE ROUTES
+// ============================================
+
+// Create workout template
+app.post('/api/v1/workout-templates', async (req, res) => {
+  const { userId, name, description, exercises } = req.body;
+
+  if (!userId || !name || !exercises || exercises.length === 0) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Missing required fields: userId, name, and exercises'
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Insert template
+    const templateResult = await client.query(
+      `INSERT INTO workout_templates (user_id, name, description)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [userId, name, description || '']
+    );
+
+    const template = templateResult.rows[0];
+
+    // Insert exercises
+    const exercisePromises = exercises.map((ex, index) => {
+      return client.query(
+        `INSERT INTO template_exercises (template_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          template.id,
+          ex.name,
+          ex.sets,
+          ex.reps,
+          ex.targetWeight || 0,
+          ex.weightUnit || 'kg',
+          ex.restTime || 60,
+          ex.notes || '',
+          index + 1
+        ]
+      );
+    });
+
+    const exerciseResults = await Promise.all(exercisePromises);
+    const insertedExercises = exerciseResults.map(r => r.rows[0]);
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      id: template.id.toString(),
+      userId: template.user_id.toString(),
+      name: template.name,
+      description: template.description,
+      createdAt: template.created_at,
+      exercises: insertedExercises.map(ex => ({
+        id: ex.id.toString(),
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        targetWeight: parseFloat(ex.target_weight),
+        weightUnit: ex.weight_unit,
+        restTime: ex.rest_time,
+        notes: ex.notes,
+        order: ex.exercise_order
+      }))
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Create template error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get user's templates
+app.get('/api/v1/users/:userId/workout-templates', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT wt.*, 
+              json_agg(
+                json_build_object(
+                  'id', te.id,
+                  'name', te.name,
+                  'sets', te.sets,
+                  'reps', te.reps,
+                  'targetWeight', te.target_weight,
+                  'weightUnit', te.weight_unit,
+                  'restTime', te.rest_time,
+                  'notes', te.notes,
+                  'order', te.exercise_order
+                ) ORDER BY te.exercise_order
+              ) as exercises
+       FROM workout_templates wt
+       LEFT JOIN template_exercises te ON wt.id = te.template_id
+       WHERE wt.user_id = $1
+       GROUP BY wt.id
+       ORDER BY wt.created_at DESC`,
+      [userId]
+    );
+
+    const templates = result.rows.map(t => ({
+      id: t.id.toString(),
+      userId: t.user_id.toString(),
+      name: t.name,
+      description: t.description,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+      exercises: t.exercises.filter(e => e.id !== null)
+    }));
+
+    res.json({ templates });
+  } catch (err) {
+    console.error('Get templates error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Update template
+app.put('/api/v1/workout-templates/:templateId', async (req, res) => {
+  const { name, description, exercises } = req.body;
+  const { templateId } = req.params;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Update template details
+    const templateResult = await client.query(
+      `UPDATE workout_templates 
+       SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $3 
+       RETURNING *`,
+      [name, description, templateId]
+    );
+
+    if (templateResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Not Found', message: 'Template not found' });
+    }
+
+    // Delete existing exercises
+    await client.query('DELETE FROM template_exercises WHERE template_id = $1', [templateId]);
+
+    // Insert new exercises
+    const exercisePromises = exercises.map((ex, index) => {
+      return client.query(
+        `INSERT INTO template_exercises (template_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          templateId,
+          ex.name,
+          ex.sets,
+          ex.reps,
+          ex.targetWeight || 0,
+          ex.weightUnit || 'kg',
+          ex.restTime || 60,
+          ex.notes || '',
+          index + 1
+        ]
+      );
+    });
+
+    const exerciseResults = await Promise.all(exercisePromises);
+    const insertedExercises = exerciseResults.map(r => r.rows[0]);
+
+    await client.query('COMMIT');
+
+    const template = templateResult.rows[0];
+    res.json({
+      id: template.id.toString(),
+      userId: template.user_id.toString(),
+      name: template.name,
+      description: template.description,
+      updatedAt: template.updated_at,
+      exercises: insertedExercises.map(ex => ({
+        id: ex.id.toString(),
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        targetWeight: parseFloat(ex.target_weight),
+        weightUnit: ex.weight_unit,
+        restTime: ex.rest_time,
+        notes: ex.notes,
+        order: ex.exercise_order
+      }))
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Update template error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Delete template
+app.delete('/api/v1/workout-templates/:templateId', async (req, res) => {
+  const { templateId } = req.params;
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM workout_templates WHERE id = $1 RETURNING *',
+      [templateId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Template not found' });
+    }
+
+    res.json({ message: 'Template deleted successfully' });
+  } catch (err) {
+    console.error('Delete template error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Create workout from template
+app.post('/api/v1/workout-templates/:templateId/use', requireActiveSubscription, async (req, res) => {
+  const { templateId } = req.params;
+  const { traineeId, coachId, scheduledDate } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Get template with exercises
+    const templateResult = await pool.query(
+      `SELECT wt.*, 
+              json_agg(
+                json_build_object(
+                  'name', te.name,
+                  'sets', te.sets,
+                  'reps', te.reps,
+                  'targetWeight', te.target_weight,
+                  'weightUnit', te.weight_unit,
+                  'restTime', te.rest_time,
+                  'notes', te.notes,
+                  'order', te.exercise_order
+                ) ORDER BY te.exercise_order
+              ) as exercises
+       FROM workout_templates wt
+       LEFT JOIN template_exercises te ON wt.id = te.template_id
+       WHERE wt.id = $1
+       GROUP BY wt.id`,
+      [templateId]
+    );
+
+    if (templateResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Not Found', message: 'Template not found' });
+    }
+
+    const template = templateResult.rows[0];
+
+    // Create workout plan from template
+    const planResult = await client.query(
+      `INSERT INTO workout_plans (trainee_id, coach_id, name, description, scheduled_date, status)
+       VALUES ($1, $2, $3, $4, $5, 'assigned')
+       RETURNING *`,
+      [traineeId, coachId, template.name, template.description, scheduledDate || new Date().toISOString().split('T')[0]]
+    );
+
+    const workoutPlan = planResult.rows[0];
+
+    // Insert exercises from template
+    const exercisePromises = template.exercises.filter(e => e.name !== null).map((ex) => {
+      return client.query(
+        `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          workoutPlan.id,
+          ex.name,
+          ex.sets,
+          ex.reps,
+          ex.targetWeight,
+          ex.weightUnit,
+          ex.restTime,
+          ex.notes,
+          ex.order
+        ]
+      );
+    });
+
+    const exerciseResults = await Promise.all(exercisePromises);
+    const insertedExercises = exerciseResults.map(r => r.rows[0]);
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      id: workoutPlan.id.toString(),
+      traineeId: workoutPlan.trainee_id.toString(),
+      name: workoutPlan.name,
+      description: workoutPlan.description,
+      scheduledDate: workoutPlan.scheduled_date,
+      status: workoutPlan.status,
+      exercises: insertedExercises.map(ex => ({
+        id: ex.id.toString(),
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        targetWeight: parseFloat(ex.target_weight),
+        weightUnit: ex.weight_unit,
+        restTime: ex.rest_time,
+        notes: ex.notes,
+        order: ex.exercise_order
+      }))
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Use template error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ============================================
+// USER PROFILE ROUTES
+// ============================================
+
+// Get user profile
+app.get('/api/v1/users/:userId/profile', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, created_at
+       FROM users 
+       WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    res.json({
+      id: user.id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      age: user.age,
+      sex: user.sex,
+      phone: user.phone,
+      gym: user.gym,
+      profilePicUrl: user.profile_pic_url,
+      notes: user.notes,
+      createdAt: user.created_at
+    });
+  } catch (err) {
+    console.error('Get profile error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Update user profile
+app.put('/api/v1/users/:userId/profile', async (req, res) => {
+  const { userId } = req.params;
+  const { name, age, sex, phone, gym, notes } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE users 
+       SET name = COALESCE($1, name),
+           age = COALESCE($2, age),
+           sex = COALESCE($3, sex),
+           phone = COALESCE($4, phone),
+           gym = COALESCE($5, gym),
+           notes = COALESCE($6, notes)
+       WHERE id = $7
+       RETURNING id, name, email, role, age, sex, phone, gym, profile_pic_url, notes`,
+      [name, age, sex, phone, gym, notes, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    res.json({
+      id: user.id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      age: user.age,
+      sex: user.sex,
+      phone: user.phone,
+      gym: user.gym,
+      profilePicUrl: user.profile_pic_url,
+      notes: user.notes
+    });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Update profile picture URL
+app.put('/api/v1/users/:userId/profile-picture', async (req, res) => {
+  const { userId } = req.params;
+  const { profilePicUrl } = req.body;
+
+  if (!profilePicUrl) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Profile picture URL is required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE users 
+       SET profile_pic_url = $1
+       WHERE id = $2
+       RETURNING id, profile_pic_url`,
+      [profilePicUrl, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+    }
+
+    res.json({
+      id: result.rows[0].id.toString(),
+      profilePicUrl: result.rows[0].profile_pic_url
+    });
+  } catch (err) {
+    console.error('Update profile picture error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Get workout plans for a trainee
+app.get('/api/v1/trainees/:traineeId/workout-plans', async (req, res) => {
+  const { traineeId } = req.params;
+  const { status, coachId } = req.query;
+
+  try {
+    let query = `
+      SELECT wp.*, 
+             json_agg(
+               json_build_object(
+                 'id', e.id,
+                 'name', e.name,
+                 'sets', e.sets,
+                 'reps', e.reps,
+                 'targetWeight', e.target_weight,
+                 'weightUnit', e.weight_unit,
+                 'restTime', e.rest_time,
+                 'notes', e.notes,
+                 'order', e.exercise_order
+               ) ORDER BY e.exercise_order
+             ) as exercises
+      FROM workout_plans wp
+      LEFT JOIN exercises e ON wp.id = e.workout_plan_id
+      WHERE wp.trainee_id = $1
+    `;
+
+    const params = [traineeId];
+    let paramIndex = 2;
+
+    if (coachId) {
+      query += ` AND wp.coach_id = $${paramIndex}`;
+      params.push(coachId);
+      paramIndex++;
+    }
+
+    if (status) {
+      query += ` AND wp.status = $${paramIndex}`;
+      params.push(status);
+    }
+
+    query += ' GROUP BY wp.id ORDER BY wp.scheduled_date DESC';
+
+    const result = await pool.query(query, params);
+
+    const workoutPlans = result.rows.map(wp => ({
+      id: wp.id.toString(),
+      traineeId: wp.trainee_id.toString(),
+      name: wp.name,
+      description: wp.description,
+      scheduledDate: wp.scheduled_date,
+      status: wp.status,
+      startedAt: wp.started_at,
+      completedAt: wp.completed_at,
+      overallNotes: wp.overall_notes,
+      rating: wp.rating,
+      createdAt: wp.created_at,
+      exercises: wp.exercises.filter(e => e.id !== null)
+    }));
+
+    res.json({ workoutPlans });
+  } catch (err) {
+    console.error('Get workout plans error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Get specific workout plan
+app.get('/api/v1/workout-plans/:workoutPlanId', async (req, res) => {
+  try {
+    const planResult = await pool.query(
+      'SELECT * FROM workout_plans WHERE id = $1',
+      [req.params.workoutPlanId]
+    );
+
+    if (planResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Workout plan not found'
+      });
+    }
+
+    const exercisesResult = await pool.query(
+      'SELECT * FROM exercises WHERE workout_plan_id = $1 ORDER BY exercise_order',
+      [req.params.workoutPlanId]
+    );
+
+    const workoutPlan = planResult.rows[0];
+
+    res.json({
+      id: workoutPlan.id.toString(),
+      traineeId: workoutPlan.trainee_id.toString(),
+      coachId: workoutPlan.coach_id.toString(),
+      name: workoutPlan.name,
+      description: workoutPlan.description,
+      scheduledDate: workoutPlan.scheduled_date,
+      status: workoutPlan.status,
+      startedAt: workoutPlan.started_at,
+      completedAt: workoutPlan.completed_at,
+      overallNotes: workoutPlan.overall_notes,
+      rating: workoutPlan.rating,
+      exercises: exercisesResult.rows.map(ex => ({
+        id: ex.id.toString(),
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        targetWeight: parseFloat(ex.target_weight),
+        weightUnit: ex.weight_unit,
+        restTime: ex.rest_time,
+        notes: ex.notes,
+        order: ex.exercise_order
+      }))
+    });
+  } catch (err) {
+    console.error('Get workout plan error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Update workout plan
+app.put('/api/v1/workout-plans/:workoutPlanId', async (req, res) => {
+  const { name, description, scheduledDate, exercises } = req.body;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Update workout plan
+    const updateResult = await client.query(
+      `UPDATE workout_plans 
+       SET name = COALESCE($1, name),
+           description = COALESCE($2, description),
+           scheduled_date = COALESCE($3, scheduled_date)
+       WHERE id = $4
+       RETURNING *`,
+      [name, description, scheduledDate, req.params.workoutPlanId]
+    );
+
+    if (updateResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Workout plan not found'
+      });
+    }
+
+    // If exercises provided, update them
+    if (exercises) {
+      await client.query('DELETE FROM exercises WHERE workout_plan_id = $1', [req.params.workoutPlanId]);
+
+      const exercisePromises = exercises.map((ex, index) => {
+        return client.query(
+          `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING *`,
+          [
+            req.params.workoutPlanId,
+            ex.name,
+            ex.sets,
+            ex.reps,
+            ex.targetWeight || 0,
+            ex.weightUnit || 'kg',
+            ex.restTime || 60,
+            ex.notes || '',
+            index + 1
+          ]
+        );
+      });
+
+      await Promise.all(exercisePromises);
+    }
+
+    await client.query('COMMIT');
+
+    // Fetch updated plan with exercises
+    const planResult = await pool.query('SELECT * FROM workout_plans WHERE id = $1', [req.params.workoutPlanId]);
+    const exercisesResult = await pool.query(
+      'SELECT * FROM exercises WHERE workout_plan_id = $1 ORDER BY exercise_order',
+      [req.params.workoutPlanId]
+    );
+
+    const workoutPlan = planResult.rows[0];
+
+    res.json({
+      id: workoutPlan.id.toString(),
+      traineeId: workoutPlan.trainee_id.toString(),
+      name: workoutPlan.name,
+      description: workoutPlan.description,
+      scheduledDate: workoutPlan.scheduled_date,
+      status: workoutPlan.status,
+      exercises: exercisesResult.rows.map(ex => ({
+        id: ex.id.toString(),
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        targetWeight: parseFloat(ex.target_weight),
+        weightUnit: ex.weight_unit
+      }))
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Update workout plan error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Delete workout plan
+app.delete('/api/v1/workout-plans/:workoutPlanId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM workout_plans WHERE id = $1 RETURNING id',
+      [req.params.workoutPlanId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Workout plan not found'
+      });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    console.error('Delete workout plan error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// WORKOUT LOG ROUTES (Trainee)
+// ============================================
+
+// Start workout
+app.post('/api/v1/workout-plans/:workoutPlanId/start', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE workout_plans 
+       SET status = 'in_progress', started_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.workoutPlanId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Workout plan not found'
+      });
+    }
+
+    const plan = result.rows[0];
+
+    res.json({
+      id: plan.id.toString(),
+      status: plan.status,
+      startedAt: plan.started_at
+    });
+  } catch (err) {
+    console.error('Start workout error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Log exercise performance
+app.post('/api/v1/workout-plans/:workoutPlanId/exercises/:exerciseId/logs', async (req, res) => {
+  const { workoutPlanId, exerciseId } = req.params;
+  const { setNumber, repsCompleted, weightUsed, weightUnit, notes } = req.body;
+
+  try {
+    // Verify workout plan exists
+    const planCheck = await pool.query('SELECT id FROM workout_plans WHERE id = $1', [workoutPlanId]);
+    if (planCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Workout plan not found' });
+    }
+
+    // Verify exercise exists
+    const exerciseCheck = await pool.query('SELECT id FROM exercises WHERE id = $1', [exerciseId]);
+    if (exerciseCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Exercise not found' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO exercise_logs (workout_plan_id, exercise_id, set_number, reps_completed, weight_used, weight_unit, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [workoutPlanId, exerciseId, setNumber, repsCompleted, weightUsed, weightUnit || 'kg', notes || '']
+    );
+
+    const log = result.rows[0];
+
+    res.status(201).json({
+      id: log.id.toString(),
+      workoutPlanId: log.workout_plan_id.toString(),
+      exerciseId: log.exercise_id.toString(),
+      setNumber: log.set_number,
+      repsCompleted: log.reps_completed,
+      weightUsed: parseFloat(log.weight_used),
+      weightUnit: log.weight_unit,
+      notes: log.notes,
+      completedAt: log.completed_at
+    });
+  } catch (err) {
+    console.error('Log exercise error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Get exercise logs
+app.get('/api/v1/workout-plans/:workoutPlanId/exercises/:exerciseId/logs', async (req, res) => {
+  const { workoutPlanId, exerciseId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM exercise_logs 
+       WHERE workout_plan_id = $1 AND exercise_id = $2
+       ORDER BY set_number`,
+      [workoutPlanId, exerciseId]
+    );
+
+    const logs = result.rows.map(log => ({
+      id: log.id.toString(),
+      setNumber: log.set_number,
+      repsCompleted: log.reps_completed,
+      weightUsed: parseFloat(log.weight_used),
+      weightUnit: log.weight_unit,
+      notes: log.notes,
+      completedAt: log.completed_at
+    }));
+
+    res.json({ logs });
+  } catch (err) {
+    console.error('Get exercise logs error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Complete workout
+app.post('/api/v1/workout-plans/:workoutPlanId/complete', async (req, res) => {
+  const { overallNotes, rating } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE workout_plans 
+       SET status = 'completed', 
+           completed_at = CURRENT_TIMESTAMP,
+           overall_notes = $1,
+           rating = $2
+       WHERE id = $3
+       RETURNING *`,
+      [overallNotes || '', rating || null, req.params.workoutPlanId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Workout plan not found'
+      });
+    }
+
+    const plan = result.rows[0];
+
+    res.json({
+      id: plan.id.toString(),
+      status: plan.status,
+      completedAt: plan.completed_at,
+      overallNotes: plan.overall_notes,
+      rating: plan.rating
+    });
+  } catch (err) {
+    console.error('Complete workout error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// EXERCISE ROUTES
+// ============================================
+
+// Get all exercises
+app.get('/api/v1/exercises', async (req, res) => {
+  const { category } = req.query;
+
+  try {
+    let query = 'SELECT * FROM exercise_library ORDER BY muscle_category, name';
+    let params = [];
+
+    // Filter by category if provided
+    if (category) {
+      query = 'SELECT * FROM exercise_library WHERE muscle_category = $1 ORDER BY name';
+      params = [category];
+    }
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      exercises: result.rows
+    });
+  } catch (err) {
+    console.error('Get exercises error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Get unique muscle categories
+app.get('/api/v1/exercises/categories', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT DISTINCT muscle_category FROM exercise_library WHERE muscle_category IS NOT NULL AND muscle_category != \'\' ORDER BY muscle_category'
+    );
+
+    const categories = result.rows.map(row => row.muscle_category);
+
+    res.json({
+      categories
+    });
+  } catch (err) {
+    console.error('Get categories error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// ADMIN ROUTES
+// ============================================
+
+
+// Get all users (Admin only)
+app.get('/api/v1/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id, name, email, role, 
+        subscription_status, subscription_tier,
+        subscription_start_date, subscription_end_date,
+        created_at
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+
+    res.json({
+      users: result.rows.map(user => ({
+        id: user.id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        subscriptionStatus: user.subscription_status,
+        subscriptionTier: user.subscription_tier,
+        subscriptionStartDate: user.subscription_start_date,
+        subscriptionEndDate: user.subscription_end_date,
+        createdAt: user.created_at
+      }))
+    });
+  } catch (err) {
+    console.error('Get all users error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Update user role (Admin only)
+app.patch('/api/v1/admin/users/:userId/role', requireAdmin, async (req, res) => {
+  const { role } = req.body;
+
+  if (!['coach', 'trainee', 'admin'].includes(role)) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Invalid role'
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, name, email, role',
+      [role, req.params.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    console.error('Update user role error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Update coach subscription status (Admin only)
+app.patch('/api/v1/admin/users/:userId/subscription', requireAdmin, async (req, res) => {
+  const { status } = req.body;
+
+  if (!['free', 'active'].includes(status)) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Status must be "free" or "active"'
+    });
+  }
+
+  try {
+    // Check if user is a coach
+    const userCheck = await pool.query(
+      'SELECT role FROM users WHERE id = $1',
+      [req.params.userId]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+    }
+
+    if (userCheck.rows[0].role !== 'coach') {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Subscription status can only be changed for coaches'
+      });
+    }
+
+    const result = await pool.query(
+      'UPDATE users SET subscription_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, name, email, role, subscription_status',
+      [status, req.params.userId]
+    );
+
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    console.error('Update subscription error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Get platform statistics (Admin only)
+app.get('/api/v1/admin/stats', requireAdmin, async (req, res) => {
+  try {
+    const stats = await pool.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE role = 'coach') as total_coaches,
+        COUNT(*) FILTER (WHERE role = 'trainee') as total_trainees,
+        COUNT(*) FILTER (WHERE role = 'admin') as total_admins,
+        COUNT(*) FILTER (WHERE subscription_status = 'active') as active_subscriptions,
+        COUNT(*) FILTER (WHERE subscription_status = 'free') as free_users,
+        COUNT(*) as total_users
+      FROM users
+    `);
+
+    res.json({ stats: stats.rows[0] });
+  } catch (err) {
+    console.error('Get stats error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// SERVER START
+// ============================================
+
+app.listen(PORT, () => {
+  console.log(`🚀 Gym Training API is running on http://localhost:${PORT}`);
+  console.log(`📝 Try it out: http://localhost:${PORT}/api/v1/users/1`);
+});
