@@ -60,8 +60,19 @@ exports.register = async (req, res) => {
             profilePicUrl
         });
 
-        // Generate token (simple implementation - use JWT in production)
-        const token = `token_${user.id}_${Date.now()}`;
+        // Generate JWT token
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
+
+        const token = jwt.sign(
+            {
+                id: user.id,
+                email: user.email,
+                role: user.role
+            },
+            JWT_SECRET,
+            { expiresIn: '7d' } // Token expires in 7 days
+        );
 
         res.status(201).json({
             token,
@@ -106,8 +117,19 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Generate token
-        const token = `token_${user.id}_${Date.now()}`;
+        // Generate JWT token
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
+
+        const token = jwt.sign(
+            {
+                id: user.id,
+                email: user.email,
+                role: user.role
+            },
+            JWT_SECRET,
+            { expiresIn: '7d' } // Token expires in 7 days
+        );
 
         res.json({
             token,
