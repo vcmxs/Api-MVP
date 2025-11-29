@@ -108,7 +108,9 @@ exports.login = async (req, res) => {
         }
 
         // Authenticate user
+        console.log(`Login attempt for: '${email}' with password length: ${password.length}`);
         const user = await User.authenticate(email, password);
+        console.log('User found:', user ? 'Yes' : 'No');
 
         if (!user) {
             return res.status(401).json({
