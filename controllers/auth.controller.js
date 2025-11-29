@@ -107,17 +107,34 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Authenticate user
-        console.log(`Login attempt for: '${email}' with password length: ${password.length}`);
-        const user = await User.authenticate(email, password);
-        console.log('User found:', user ? 'Yes' : 'No');
+        // Clean inputs
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanPassword = password.trim();
 
-        if (!user) {
+        // Authenticate user
+        console.log(`Login attempt for: '${cleanEmail}'`);
+
+        // First check if user exists by email (for debugging)
+        const userByEmail = await User.findByEmail(cleanEmail);
+        if (!userByEmail) {
+            console.log('User NOT found by email');
             return res.status(401).json({
                 error: 'Unauthorized',
                 message: 'Invalid email or password'
             });
         }
+
+        // Check password (direct comparison for now as per current DB setup)
+        if (userByEmail.password !== cleanPassword) {
+            console.log(`Password mismatch. Input: '${cleanPassword}', Stored: '${userByEmail.password}'`);
+            return res.status(401).json({
+                error: 'Unauthorized',
+                message: 'Invalid email or password'
+            });
+        }
+
+        const user = userByEmail;
+        console.log('User authenticated successfully');
 
         // Generate JWT token
         const jwt = require('jsonwebtoken');
