@@ -4,9 +4,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Import database (this will trigger table creation)
-const db = require('./db');
-
 // Import modular routes
 const apiRoutes = require('./routes');
 
@@ -14,7 +11,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*', // Allow all origins for now (can be restricted later)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'token']
+}));
 app.use(express.json());
 
 // Serve static files from uploads directory
@@ -90,19 +91,22 @@ app.use((req, res) => {
   });
 });
 
-// Wait for database initialization before starting server
+// Start server
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Gym Training API is running on http://localhost:${PORT}`);
+  console.log(`📝 API Documentation: http://localhost:${PORT}/api/v1`);
+  console.log(`✅ All routes loaded successfully`);
+  console.log(`\n📋 Available endpoints:`);
+  console.log(`   - Auth: /api/v1/auth/*`);
+  console.log(`   - Users: /api/v1/users/*`);
+  console.log(`   - Coaches: /api/v1/coaches/*`);
+  console.log(`   - Workouts: /api/v1/workout-plans/*`);
+  console.log(`   - Trainees: /api/v1/trainees/*`);
+  console.log(`   - Admin: /api/v1/admin/*`);
+  console.log(`   - Uploads: /uploads/*`);
+});
+
+// Add a delay to ensure database connection is ready before accepting requests (optional but helpful in some envs)
 setTimeout(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Gym Training API is running on http://localhost:${PORT}`);
-    console.log(`📝 API Documentation: http://localhost:${PORT}/api/v1`);
-    console.log(`✅ All routes loaded successfully`);
-    console.log(`\n📋 Available endpoints:`);
-    console.log(`   - Auth: /api/v1/auth/*`);
-    console.log(`   - Users: /api/v1/users/*`);
-    console.log(`   - Coaches: /api/v1/coaches/*`);
-    console.log(`   - Workouts: /api/v1/workout-plans/*`);
-    console.log(`   - Trainees: /api/v1/trainees/*`);
-    console.log(`   - Admin: /api/v1/admin/*`);
-    console.log(`   - Uploads: /uploads/*`);
-  });
-}, 3000); // Wait 3 seconds for database tables to be created
+  console.log('Server ready to accept requests');
+}, 1000);
