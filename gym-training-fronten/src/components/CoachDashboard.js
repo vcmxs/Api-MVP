@@ -375,6 +375,8 @@ function CoachDashboard({ token, userId }) {
         description: formData.description,
         scheduledDate: formData.scheduledDate,
         exercises: formData.exercises
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Workout plan created successfully!');
       setShowForm(false);
@@ -405,6 +407,8 @@ function CoachDashboard({ token, userId }) {
         description: personalFormData.description,
         scheduledDate: personalFormData.scheduledDate,
         exercises: personalFormData.exercises
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Personal workout created successfully!');
       setShowPersonalForm(false);
@@ -502,6 +506,8 @@ function CoachDashboard({ token, userId }) {
     try {
       await axios.post(`${API_URL}/coaches/${userId}/trainees`, {
         email: traineeEmail
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Trainee added successfully!');
       setTraineeEmail('');
@@ -518,7 +524,9 @@ function CoachDashboard({ token, userId }) {
       return;
     }
     try {
-      await axios.delete(`${API_URL}/workout-plans/${workoutId}`);
+      await axios.delete(`${API_URL}/workout-plans/${workoutId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert('Workout deleted successfully!');
       if (selectedTrainee) {
         loadTraineeWorkouts(selectedTrainee);
@@ -534,7 +542,9 @@ function CoachDashboard({ token, userId }) {
       return;
     }
     try {
-      await axios.delete(`${API_URL}/workout-plans/${workoutId}`);
+      await axios.delete(`${API_URL}/workout-plans/${workoutId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert('Workout deleted successfully!');
       loadPersonalWorkouts();
     } catch (err) {
@@ -562,6 +572,8 @@ function CoachDashboard({ token, userId }) {
         name: editFormData.name,
         description: editFormData.description,
         scheduledDate: editFormData.scheduledDate
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Workout updated successfully!');
       if (activeTab === 'customers' && selectedTrainee) {
@@ -578,7 +590,9 @@ function CoachDashboard({ token, userId }) {
 
   const startWorkout = async (planId) => {
     try {
-      await axios.post(`${API_URL}/workout-plans/${planId}/start`);
+      await axios.post(`${API_URL}/workout-plans/${planId}/start`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       // Refresh the list
       let workouts = [];
@@ -633,6 +647,9 @@ function CoachDashboard({ token, userId }) {
           weightUsed: weight,
           weightUnit: currentExercise.weightUnit,
           notes: ''
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
 
@@ -655,7 +672,10 @@ function CoachDashboard({ token, userId }) {
     try {
       const currentExercise = activeWorkout.exercises[currentExerciseIndex];
       await axios.delete(
-        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs/${logId}`
+        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs/${logId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
       );
 
       // Refresh logs
@@ -686,6 +706,8 @@ function CoachDashboard({ token, userId }) {
       await axios.post(`${API_URL}/workout-plans/${activeWorkout.id}/complete`, {
         overallNotes: 'Completed via Coach Dashboard',
         rating: 5
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Workout completed! 🎉');
       setActiveWorkout(null);
@@ -711,6 +733,8 @@ function CoachDashboard({ token, userId }) {
     try {
       await axios.post(`${API_URL}/workout-plans/${editingWorkout.id}/exercises`, {
         exercises: [newExercise]
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       const response = await axios.get(`${API_URL}/trainees/${selectedTrainee || userId}/workout-plans?coachId=${userId}`);
@@ -746,7 +770,9 @@ function CoachDashboard({ token, userId }) {
     if (!window.confirm('Are you sure you want to remove this exercise?')) return;
 
     try {
-      await axios.delete(`${API_URL}/workout-plans/${editingWorkout.id}/exercises/${exerciseId}`);
+      await axios.delete(`${API_URL}/workout-plans/${editingWorkout.id}/exercises/${exerciseId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       const updatedExercises = editFormData.exercises.filter(ex => ex.id !== exerciseId);
       setEditFormData({
@@ -796,6 +822,8 @@ function CoachDashboard({ token, userId }) {
         name: data.name,
         description: data.description,
         exercises: data.exercises
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Template saved successfully!');
       loadTemplates();
@@ -830,7 +858,9 @@ function CoachDashboard({ token, userId }) {
     if (!window.confirm('Are you sure you want to delete this template?')) return;
 
     try {
-      await axios.delete(`${API_URL}/workout-templates/${templateId}`);
+      await axios.delete(`${API_URL}/workout-templates/${templateId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert('Template deleted successfully!');
       loadTemplates();
     } catch (err) {
@@ -1861,3 +1891,4 @@ function CoachDashboard({ token, userId }) {
 }
 
 export default CoachDashboard;
+
