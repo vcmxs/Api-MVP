@@ -1289,6 +1289,36 @@ function CoachDashboard({ token, userId }) {
                       />
                     </div>
 
+            
+                    <div className="form-group">
+                      <label>Import Template (Optional)</label>
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const template = templates.find(t => t.id === parseInt(e.target.value));
+                            if (template) {
+                              setFormData({
+                                ...formData,
+                                name: template.name,
+                                description: template.description || '',
+                                exercises: [...template.exercises]
+                              });
+                              alert('Template imported! You can now modify and create the workout.');
+                            }
+                          }
+                        }}
+                        className="template-selector"
+                      >
+                        <option value="">-- Select a template --</option>
+                        {templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name} ({template.exercises?.length || 0} exercises)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <div className="exercises-section">
                       <h4>Exercises</h4>
 
@@ -1893,6 +1923,7 @@ function CoachDashboard({ token, userId }) {
 }
 
 export default CoachDashboard;
+
 
 
 
