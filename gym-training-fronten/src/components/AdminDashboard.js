@@ -146,6 +146,14 @@ function AdminDashboard({ token, userId, userRole }) {
         <div className="dashboard admin-dashboard">
             <h2>🔧 Admin Dashboard</h2>
 
+            {/* DEBUG BANNER - REMOVE AFTER FIXING */}
+            <div style={{ background: '#333', color: '#fff', padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #555' }}>
+                <p><strong>DEBUG INFO:</strong></p>
+                <p>Token Status: {token ? `Present (${token.substring(0, 10)}...)` : '❌ MISSING'}</p>
+                <p>User ID: {userId}</p>
+                <p>Role: {userRole}</p>
+            </div>
+
             {stats && (
                 <div className="stats-grid">
                     <div className="stat-card">
@@ -345,5 +353,7 @@ function AdminDashboard({ token, userId, userRole }) {
 }
 
 export default AdminDashboard;
+
+
 
 
