@@ -140,6 +140,7 @@ exports.login = async (req, res) => {
         const jwt = require('jsonwebtoken');
         const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
 
+        console.log('Generating token...');
         const token = jwt.sign(
             {
                 id: user.id,
@@ -149,8 +150,9 @@ exports.login = async (req, res) => {
             JWT_SECRET,
             { expiresIn: '7d' } // Token expires in 7 days
         );
+        console.log('Token generated successfully');
 
-        res.json({
+        const responseData = {
             token,
             user: {
                 id: user.id.toString(),
@@ -160,7 +162,10 @@ exports.login = async (req, res) => {
                 subscriptionStatus: user.subscription_status,
                 status: user.status
             }
-        });
+        };
+        console.log('Sending response:', JSON.stringify(responseData));
+
+        res.json(responseData);
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({
