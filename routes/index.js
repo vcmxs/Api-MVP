@@ -6,6 +6,7 @@ const coachRoutes = require('./coach.routes');
 const workoutRoutes = require('./workout.routes');
 const traineeRoutes = require('./trainee.routes');
 const adminRoutes = require('./admin.routes');
+const templateRoutes = require('./template.routes');
 
 const router = express.Router();
 
@@ -16,9 +17,9 @@ router.use('/coaches', coachRoutes);
 router.use('/workout-plans', workoutRoutes);
 router.use('/trainees', traineeRoutes);
 router.use('/admin', adminRoutes);
+router.use('/workout-templates', templateRoutes);
 
 // Optional routes (can be added later)
 // router.use('/exercises', exerciseRoutes);
-// router.use('/workout-templates', templateRoutes);
 
 module.exports = router;
