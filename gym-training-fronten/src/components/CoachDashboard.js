@@ -800,7 +800,9 @@ function CoachDashboard({ token, userId }) {
   // Load templates
   const loadTemplates = async () => {
     try {
-      const response = await axios.get(`${API_URL}/workout-templates/users/${userId}`);
+      const response = await axios.get(`${API_URL}/workout-templates/users/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setTemplates(response.data.templates);
     } catch (err) {
       console.error('Load templates error:', err);
@@ -1891,5 +1893,6 @@ function CoachDashboard({ token, userId }) {
 }
 
 export default CoachDashboard;
+
 
 
