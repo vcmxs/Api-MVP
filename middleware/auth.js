@@ -4,12 +4,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_producti
 
 // Middleware to verify JWT token and extract user info
 const authenticateToken = (req, res, next) => {
-    console.log('Auth Middleware - Headers:', JSON.stringify(req.headers, null, 2));
     const token = req.headers.token || req.headers.authorization?.replace('Bearer ', '');
-    console.log('Auth Middleware - Extracted Token:', token);
 
     if (!token) {
-        console.log('Auth Middleware - No token found');
         return res.status(401).json({
             error: 'Unauthorized',
             message: 'Authentication token required'
