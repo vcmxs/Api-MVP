@@ -120,6 +120,18 @@ const createTables = async () => {
       )
     `);
 
+        // Workout Templates table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workout_templates (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        exercises JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Seed Exercise Library if empty
     const exerciseCount = await client.query('SELECT COUNT(*) FROM exercise_library');
     if (parseInt(exerciseCount.rows[0].count) === 0) {
