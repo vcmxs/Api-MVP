@@ -20,7 +20,11 @@ function AdminDashboard({ token, userId, userRole }) {
     const loadUsers = async () => {
         try {
             const response = await axios.get(`${API_URL}/admin/users`, {
-                headers: { userId, userRole }
+                headers: {
+                    token: token,
+                    userId,
+                    userRole
+                }
             });
             setUsers(response.data.users);
             setLoading(false);
@@ -34,7 +38,7 @@ function AdminDashboard({ token, userId, userRole }) {
     const loadStats = async () => {
         try {
             const response = await axios.get(`${API_URL}/admin/stats`, {
-                headers: { userId, userRole }
+                headers: { token, userId, userRole }
             });
             setStats(response.data.stats);
         } catch (err) {
@@ -52,7 +56,7 @@ function AdminDashboard({ token, userId, userRole }) {
             await axios.patch(
                 `${API_URL}/admin/users/${targetUserId}/subscription`,
                 { status: newStatus },
-                { headers: { userId, userRole } }
+                { headers: { token, userId, userRole } }
             );
             alert(`Subscription ${action}d successfully!`);
             loadUsers();
@@ -66,7 +70,7 @@ function AdminDashboard({ token, userId, userRole }) {
         try {
             const response = await axios.get(
                 `${API_URL}/admin/users/${targetUserId}/details`,
-                { headers: { userId, userRole } }
+                { headers: { token, userId, userRole } }
             );
             setUserDetails(response.data.user);
             setSelectedUser(targetUserId);
@@ -90,7 +94,7 @@ function AdminDashboard({ token, userId, userRole }) {
             await axios.patch(
                 `${API_URL}/admin/users/${targetUserId}/block`,
                 { status: newStatus },
-                { headers: { userId, userRole } }
+                { headers: { token, userId, userRole } }
             );
             alert(`User ${action}ed successfully!`);
             loadUsers();
@@ -108,7 +112,7 @@ function AdminDashboard({ token, userId, userRole }) {
         try {
             await axios.delete(
                 `${API_URL}/admin/users/${targetUserId}`,
-                { headers: { userId, userRole } }
+                { headers: { token, userId, userRole } }
             );
             alert('User deleted successfully!');
             loadUsers();
@@ -337,3 +341,4 @@ function AdminDashboard({ token, userId, userRole }) {
 }
 
 export default AdminDashboard;
+
