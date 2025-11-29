@@ -38,7 +38,7 @@ function AdminDashboard({ token, userId, userRole }) {
     const loadStats = async () => {
         try {
             const response = await axios.get(`${API_URL}/admin/stats`, {
-                headers: { Authorization: `Bearer ${token}`, userId, userRole }
+                headers: { Authorization: `Bearer ${token}` }
             });
             setStats(response.data.stats);
         } catch (err) {
@@ -56,7 +56,7 @@ function AdminDashboard({ token, userId, userRole }) {
             await axios.patch(
                 `${API_URL}/admin/users/${targetUserId}/subscription`,
                 { status: newStatus },
-                { headers: { Authorization: `Bearer ${token}`, userId, userRole } }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
             alert(`Subscription ${action}d successfully!`);
             loadUsers();
@@ -70,7 +70,7 @@ function AdminDashboard({ token, userId, userRole }) {
         try {
             const response = await axios.get(
                 `${API_URL}/admin/users/${targetUserId}/details`,
-                { headers: { Authorization: `Bearer ${token}`, userId, userRole } }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
             setUserDetails(response.data.user);
             setSelectedUser(targetUserId);
@@ -94,7 +94,7 @@ function AdminDashboard({ token, userId, userRole }) {
             await axios.patch(
                 `${API_URL}/admin/users/${targetUserId}/block`,
                 { status: newStatus },
-                { headers: { Authorization: `Bearer ${token}`, userId, userRole } }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
             alert(`User ${action}ed successfully!`);
             loadUsers();
@@ -112,7 +112,7 @@ function AdminDashboard({ token, userId, userRole }) {
         try {
             await axios.delete(
                 `${API_URL}/admin/users/${targetUserId}`,
-                { headers: { Authorization: `Bearer ${token}`, userId, userRole } }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
             alert('User deleted successfully!');
             loadUsers();
@@ -343,8 +343,4 @@ function AdminDashboard({ token, userId, userRole }) {
 }
 
 export default AdminDashboard;
-
-
-
-
 
