@@ -120,7 +120,7 @@ exports.login = async (req, res) => {
             console.log('User NOT found by email');
             return res.status(401).json({
                 error: 'Unauthorized',
-                message: 'Invalid email or password'
+                message: 'User not found with this email'
             });
         }
 
@@ -129,7 +129,7 @@ exports.login = async (req, res) => {
             console.log(`Password mismatch. Input: '${cleanPassword}', Stored: '${userByEmail.password}'`);
             return res.status(401).json({
                 error: 'Unauthorized',
-                message: 'Invalid email or password'
+                message: 'Incorrect password'
             });
         }
 
