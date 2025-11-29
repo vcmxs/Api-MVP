@@ -46,7 +46,7 @@ function App() {
   return (
     <div className="App">
       <header className="app-header">
-        <h1>💪 Gym Training App</h1>
+        <h1>💪 DUPLA</h1>
         {user && (
           <div className="user-info">
             <span>Welcome, {user.name} ({user.role})</span>
