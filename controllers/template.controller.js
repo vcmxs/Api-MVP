@@ -69,6 +69,49 @@ exports.getUserTemplates = async (req, res) => {
 };
 
 /**
+ * Update a template
+ */
+exports.updateTemplate = async (req, res) => {
+    try {
+        const { templateId } = req.params;
+        const { name, description, exercises } = req.body;
+
+        if (!name || !exercises || exercises.length === 0) {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'name and exercises are required'
+            });
+        }
+
+        const result = await pool.query(
+            `UPDATE workout_templates 
+             SET name = $1, description = $2, exercises = $3
+             WHERE id = $4
+             RETURNING *`,
+            [name, description || '', JSON.stringify(exercises), templateId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Not Found',
+                message: 'Template not found'
+            });
+        }
+
+        res.json({
+            message: 'Template updated successfully',
+            template: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Update template error:', err);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: err.message
+        });
+    }
+};
+
+/**
  * Delete a template
  */
 exports.deleteTemplate = async (req, res) => {
@@ -99,3 +142,4 @@ exports.deleteTemplate = async (req, res) => {
         });
     }
 };
+
