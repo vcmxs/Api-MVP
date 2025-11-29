@@ -8,7 +8,6 @@ import TraineeDashboard from './components/TraineeDashboard';
 import SubscriptionBlocked from './components/SubscriptionBlocked';
 
 function App() {
-  // Cache buster: v1.0.1 - Force new build
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
