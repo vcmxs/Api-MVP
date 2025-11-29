@@ -13,6 +13,9 @@ router.post('/', templateController.createTemplate);
 // Get all templates for a user
 router.get('/users/:userId', templateController.getUserTemplates);
 
+// Update a template
+router.put('/:templateId', templateController.updateTemplate);
+
 // Delete a template
 router.delete('/:templateId', templateController.deleteTemplate);
 
