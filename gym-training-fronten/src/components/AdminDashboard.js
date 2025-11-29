@@ -21,9 +21,7 @@ function AdminDashboard({ token, userId, userRole }) {
         try {
             const response = await axios.get(`${API_URL}/admin/users`, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
-                    userId,
-                    userRole
+                  Authorization: `Bearer ${token}`
                 }
             });
             setUsers(response.data.users);
@@ -343,4 +341,5 @@ function AdminDashboard({ token, userId, userRole }) {
 }
 
 export default AdminDashboard;
+
 
