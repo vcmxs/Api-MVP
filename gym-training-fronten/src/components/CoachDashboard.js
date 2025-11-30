@@ -26,7 +26,10 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
       alignItems: 'center',
       padding: '1rem',
       borderRadius: '12px',
-      border: isCompleted ? '1px solid var(--success)' : '1px solid rgba(255, 255, 255, 0.05)'
+      border: isCompleted ? '1px solid var(--success)' : '1px solid rgba(255, 255, 255, 0.05)',
+      backgroundColor: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+      boxShadow: isCompleted ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none',
+      transition: 'all 0.3s ease'
     }}>
       <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--light)', fontSize: '1.1rem' }}>{setNum}</div>
       <div style={{ textAlign: 'center', color: 'var(--gray)', fontSize: '0.9rem' }}>
