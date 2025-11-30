@@ -457,31 +457,17 @@ function TraineeDashboard({ token, userId }) {
   const [editingLogs, setEditingLogs] = useState(false);
 
   const handleUpdateLog = async (exerciseId, logId, field, value) => {
-    console.log('handleUpdateLog called:', { exerciseId, logId, field, value }); // ADD THIS LINE
+    console.log('handleUpdateLog called:', { exerciseId, logId, field, value });
 
     try {
-      // Optimistic update
-      let updatedLog;
-      setWorkoutLogs(prev => {
-        const logToUpdate = prev[exerciseId]?.find(l => l.id === logId);
-        if (!logToUpdate) {
-          console.error('Log not found:', logId);
-          return prev;
-        }
-        updatedLog = { ...logToUpdate, [field]: value };
-
-        return {
-          ...prev,
-          [exerciseId]: prev[exerciseId].map(log =>
-            log.id === logId ? updatedLog : log
-          )
-        };
-      });
-
-      // If log wasn't found, don't try to update backend
-      if (!updatedLog) {
+      // Get the current log to build the full update object
+      const currentLog = workoutLogs[exerciseId]?.find(l => l.id === logId);
+      if (!currentLog) {
+        console.error('Log not found:', logId);
         return;
       }
+
+      const updatedLog = { ...currentLog, [field]: value };
 
       await axios.put(
         `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs/${logId}`,
@@ -493,6 +479,17 @@ function TraineeDashboard({ token, userId }) {
           notes: updatedLog.notes
         }
       );
+
+      // Refresh logs from backend after successful update
+      const response = await axios.get(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs`
+      );
+
+      setWorkoutLogs(prev => ({
+        ...prev,
+        [exerciseId]: response.data.logs
+      }));
+
     } catch (err) {
       console.error('Error updating log:', err);
       alert('Failed to update log');
@@ -617,8 +614,8 @@ function TraineeDashboard({ token, userId }) {
                               {editingLogs ? (
                                 <input
                                   type="number"
-                                  value={log.repsCompleted}
-                                  onBlur={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
+                                  defaultValue={log.repsCompleted}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
                                   style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.repsCompleted}
@@ -627,8 +624,8 @@ function TraineeDashboard({ token, userId }) {
                               {editingLogs ? (
                                 <input
                                   type="number"
-                                  value={log.weightUsed}
-                                  onBlur={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
+                                  defaultValue={log.weightUsed}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
                                   style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.weightUsed}{log.weightUnit}
@@ -637,8 +634,8 @@ function TraineeDashboard({ token, userId }) {
                               {editingLogs ? (
                                 <input
                                   type="text"
-                                  value={log.notes || ''}
-                                  onBlur={(e) => handleUpdateLog(exercise.id, log.id, 'notes', e.target.value)}
+                                  defaultValue={log.notes || ''}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'notes', e.target.value)}
                                   style={{ width: '100%', padding: '2px', color: 'black' }}
                                 />
                               ) : (log.notes || '-')}
