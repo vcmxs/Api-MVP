@@ -453,6 +453,39 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
+  // --- START EDIT LOGS LOGIC ---
+  const [editingLogs, setEditingLogs] = useState(false);
+
+  const handleUpdateLog = async (exerciseId, logId, field, value) => {
+    try {
+      // Optimistic update
+      setWorkoutLogs(prev => ({
+        ...prev,
+        [exerciseId]: prev[exerciseId].map(log =>
+          log.id === logId ? { ...log, [field]: value } : log
+        )
+      }));
+
+      const logToUpdate = workoutLogs[exerciseId].find(l => l.id === logId);
+      const updatedLog = { ...logToUpdate, [field]: value };
+
+      await axios.put(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs/${logId}`,
+        {
+          setNumber: updatedLog.setNumber,
+          repsCompleted: updatedLog.repsCompleted,
+          weightUsed: updatedLog.weightUsed,
+          weightUnit: updatedLog.weightUnit,
+          notes: updatedLog.notes
+        }
+      );
+    } catch (err) {
+      console.error('Error updating log:', err);
+      alert('Failed to update log');
+    }
+  };
+  // --- END EDIT LOGS LOGIC ---
+
   // --- START ADD LOG LOGIC ---
   const handleAddLog = async (exerciseId) => {
     try {
