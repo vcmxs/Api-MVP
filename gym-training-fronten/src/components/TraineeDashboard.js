@@ -494,24 +494,7 @@ function TraineeDashboard({ token, userId }) {
         ? Math.max(...currentLogs.map(l => l.setNumber)) + 1
         : 1;
 
-      // Optimistic update placeholder
-      const tempId = 'temp-' + Date.now();
-      const newLog = {
-        id: tempId,
-        setNumber: nextSetNumber,
-        repsCompleted: 0,
-        weightUsed: 0,
-        weightUnit: 'kg',
-        notes: '',
-        loggedAt: new Date().toISOString()
-      };
-
-      setWorkoutLogs(prev => ({
-        ...prev,
-        [exerciseId]: [...(prev[exerciseId] || []), newLog]
-      }));
-
-      const response = await axios.post(
+      await axios.post(
         `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs`,
         {
           setNumber: nextSetNumber,
@@ -522,10 +505,14 @@ function TraineeDashboard({ token, userId }) {
         }
       );
 
-      // Replace temp log with real one
+      // Refresh logs from backend
+      const response = await axios.get(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs`
+      );
+
       setWorkoutLogs(prev => ({
         ...prev,
-        [exerciseId]: prev[exerciseId].map(l => l.id === tempId ? response.data.log : l)
+        [exerciseId]: response.data.logs
       }));
 
     } catch (err) {
