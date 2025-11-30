@@ -453,38 +453,54 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
-  // --- START EDIT LOGS LOGIC ---
-  const [editingLogs, setEditingLogs] = useState(false);
-
-  const handleUpdateLog = async (exerciseId, logId, field, value) => {
+  // --- START ADD LOG LOGIC ---
+  const handleAddLog = async (exerciseId) => {
     try {
-      // Optimistic update
+      const currentLogs = workoutLogs[exerciseId] || [];
+      const nextSetNumber = currentLogs.length > 0
+        ? Math.max(...currentLogs.map(l => l.setNumber)) + 1
+        : 1;
+
+      // Optimistic update placeholder
+      const tempId = 'temp-' + Date.now();
+      const newLog = {
+        id: tempId,
+        setNumber: nextSetNumber,
+        repsCompleted: 0,
+        weightUsed: 0,
+        weightUnit: 'kg',
+        notes: '',
+        loggedAt: new Date().toISOString()
+      };
+
       setWorkoutLogs(prev => ({
         ...prev,
-        [exerciseId]: prev[exerciseId].map(log =>
-          log.id === logId ? { ...log, [field]: value } : log
-        )
+        [exerciseId]: [...(prev[exerciseId] || []), newLog]
       }));
 
-      const logToUpdate = workoutLogs[exerciseId].find(l => l.id === logId);
-      const updatedLog = { ...logToUpdate, [field]: value };
-
-      await axios.put(
-        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs/${logId}`,
+      const response = await axios.post(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs`,
         {
-          setNumber: updatedLog.setNumber,
-          repsCompleted: updatedLog.repsCompleted,
-          weightUsed: updatedLog.weightUsed,
-          weightUnit: updatedLog.weightUnit,
-          notes: updatedLog.notes
+          setNumber: nextSetNumber,
+          repsCompleted: 0,
+          weightUsed: 0,
+          weightUnit: 'kg',
+          notes: ''
         }
       );
+
+      // Replace temp log with real one
+      setWorkoutLogs(prev => ({
+        ...prev,
+        [exerciseId]: prev[exerciseId].map(l => l.id === tempId ? response.data.log : l)
+      }));
+
     } catch (err) {
-      console.error('Error updating log:', err);
-      alert('Failed to update log');
+      console.error('Error adding log:', err);
+      alert('Failed to add log');
     }
   };
-  // --- END EDIT LOGS LOGIC ---
+  // --- END ADD LOG LOGIC ---
 
   if (activeWorkout) {
     return (
@@ -528,13 +544,24 @@ function TraineeDashboard({ token, userId }) {
                 <div className="logs-section">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <h5>Performance Log:</h5>
-                    <button
-                      onClick={() => setEditingLogs(!editingLogs)}
-                      className="btn-secondary"
-                      style={{ padding: '2px 8px', fontSize: '0.8rem' }}
-                    >
-                      {editingLogs ? 'Done' : 'Edit Logs'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {editingLogs && (
+                        <button
+                          onClick={() => handleAddLog(exercise.id)}
+                          className="btn-primary"
+                          style={{ padding: '2px 8px', fontSize: '0.8rem', backgroundColor: '#28a745' }}
+                        >
+                          + Add Set
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setEditingLogs(!editingLogs)}
+                        className="btn-secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                      >
+                        {editingLogs ? 'Done' : 'Edit Logs'}
+                      </button>
+                    </div>
                   </div>
 
                   {workoutLogs[exercise.id] && workoutLogs[exercise.id].length > 0 ? (
@@ -588,7 +615,9 @@ function TraineeDashboard({ token, userId }) {
                       </tbody>
                     </table>
                   ) : (
-                    <p className="no-logs">No performance data logged yet</p>
+                    <p className="no-logs">
+                      {editingLogs ? 'Click "+ Add Set" to create a log entry.' : 'No performance data logged yet'}
+                    </p>
                   )}
                 </div>
               </div>
