@@ -453,6 +453,55 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
+  // --- START EDIT LOGS LOGIC ---
+  const [editingLogs, setEditingLogs] = useState(false);
+
+  const handleUpdateLog = async (exerciseId, logId, field, value) => {
+    console.log('handleUpdateLog called:', { exerciseId, logId, field, value });
+
+    try {
+      // Get the current log to build the full update object
+      const currentLog = workoutLogs[exerciseId]?.find(l => l.id === logId);
+      if (!currentLog) {
+        console.error('Log not found:', logId);
+        return;
+      }
+
+      const updatedLog = { ...currentLog, [field]: value };
+
+      await axios.put(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs/${logId}`,
+        {
+          setNumber: updatedLog.setNumber,
+          repsCompleted: updatedLog.repsCompleted,
+          weightUsed: updatedLog.weightUsed,
+          weightUnit: updatedLog.weightUnit,
+          notes: updatedLog.notes
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      // Refresh logs from backend after successful update
+      const response = await axios.get(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs`
+      );
+
+      setWorkoutLogs(prev => ({
+        ...prev,
+        [exerciseId]: response.data.logs
+      }));
+
+    } catch (err) {
+      console.error('Error updating log:', err);
+      alert('Failed to update log');
+    }
+  };
+  // --- END EDIT LOGS LOGIC ---
+
   // --- START ADD LOG LOGIC ---
   const handleAddLog = async (exerciseId) => {
     try {
@@ -461,24 +510,7 @@ function TraineeDashboard({ token, userId }) {
         ? Math.max(...currentLogs.map(l => l.setNumber)) + 1
         : 1;
 
-      // Optimistic update placeholder
-      const tempId = 'temp-' + Date.now();
-      const newLog = {
-        id: tempId,
-        setNumber: nextSetNumber,
-        repsCompleted: 0,
-        weightUsed: 0,
-        weightUnit: 'kg',
-        notes: '',
-        loggedAt: new Date().toISOString()
-      };
-
-      setWorkoutLogs(prev => ({
-        ...prev,
-        [exerciseId]: [...(prev[exerciseId] || []), newLog]
-      }));
-
-      const response = await axios.post(
+      await axios.post(
         `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs`,
         {
           setNumber: nextSetNumber,
@@ -489,10 +521,14 @@ function TraineeDashboard({ token, userId }) {
         }
       );
 
-      // Replace temp log with real one
+      // Refresh logs from backend
+      const response = await axios.get(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs`
+      );
+
       setWorkoutLogs(prev => ({
         ...prev,
-        [exerciseId]: prev[exerciseId].map(l => l.id === tempId ? response.data.log : l)
+        [exerciseId]: response.data.logs
       }));
 
     } catch (err) {
@@ -583,8 +619,8 @@ function TraineeDashboard({ token, userId }) {
                               {editingLogs ? (
                                 <input
                                   type="number"
-                                  value={log.repsCompleted}
-                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', e.target.value)}
+                                  defaultValue={log.repsCompleted}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
                                   style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.repsCompleted}
@@ -593,8 +629,8 @@ function TraineeDashboard({ token, userId }) {
                               {editingLogs ? (
                                 <input
                                   type="number"
-                                  value={log.weightUsed}
-                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', e.target.value)}
+                                  defaultValue={log.weightUsed}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
                                   style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.weightUsed}{log.weightUnit}
@@ -603,7 +639,7 @@ function TraineeDashboard({ token, userId }) {
                               {editingLogs ? (
                                 <input
                                   type="text"
-                                  value={log.notes || ''}
+                                  defaultValue={log.notes || ''}
                                   onChange={(e) => handleUpdateLog(exercise.id, log.id, 'notes', e.target.value)}
                                   style={{ width: '100%', padding: '2px', color: 'black' }}
                                 />
@@ -749,4 +785,4 @@ function TraineeDashboard({ token, userId }) {
   );
 }
 
-export default TraineeDashboard;
+export default TraineeDashboard; 
