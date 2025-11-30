@@ -461,7 +461,11 @@ function TraineeDashboard({ token, userId }) {
       // Optimistic update
       let updatedLog;
       setWorkoutLogs(prev => {
-        const logToUpdate = prev[exerciseId].find(l => l.id === logId);
+        const logToUpdate = prev[exerciseId]?.find(l => l.id === logId);
+        if (!logToUpdate) {
+          console.error('Log not found:', logId);
+          return prev;
+        }
         updatedLog = { ...logToUpdate, [field]: value };
 
         return {
@@ -471,6 +475,11 @@ function TraineeDashboard({ token, userId }) {
           )
         };
       });
+
+      // If log wasn't found, don't try to update backend
+      if (!updatedLog) {
+        return;
+      }
 
       await axios.put(
         `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs/${logId}`,
@@ -772,4 +781,4 @@ function TraineeDashboard({ token, userId }) {
   );
 }
 
-export default TraineeDashboard;
+export default TraineeDashboard; 
