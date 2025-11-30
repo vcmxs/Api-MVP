@@ -365,6 +365,52 @@ function CoachDashboard({ token, userId }) {
     }
   };
 
+  // --- Exercise Editing Logic ---
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState(-1);
+  const [editingExerciseData, setEditingExerciseData] = useState({
+    sets: '',
+    reps: '',
+    targetWeight: ''
+  });
+
+  const startEditingExercise = (index, exercise) => {
+    setEditingExerciseIndex(index);
+    setEditingExerciseData({
+      sets: exercise.sets,
+      reps: exercise.reps,
+      targetWeight: exercise.targetWeight
+    });
+  };
+
+  const cancelEditExercise = () => {
+    setEditingExerciseIndex(-1);
+    setEditingExerciseData({ sets: '', reps: '', targetWeight: '' });
+  };
+
+  const saveEditedExercise = () => {
+    if (activeTab === 'customers') {
+      const updatedExercises = [...formData.exercises];
+      updatedExercises[editingExerciseIndex] = {
+        ...updatedExercises[editingExerciseIndex],
+        sets: parseInt(editingExerciseData.sets),
+        reps: parseInt(editingExerciseData.reps),
+        targetWeight: parseInt(editingExerciseData.targetWeight)
+      };
+      setFormData({ ...formData, exercises: updatedExercises });
+    } else {
+      const updatedExercises = [...personalFormData.exercises];
+      updatedExercises[editingExerciseIndex] = {
+        ...updatedExercises[editingExerciseIndex],
+        sets: parseInt(editingExerciseData.sets),
+        reps: parseInt(editingExerciseData.reps),
+        targetWeight: parseInt(editingExerciseData.targetWeight)
+      };
+      setPersonalFormData({ ...personalFormData, exercises: updatedExercises });
+    }
+    cancelEditExercise();
+  };
+  // -----------------------------
+
   const createWorkoutPlan = async (e) => {
     e.preventDefault();
 
@@ -1420,10 +1466,58 @@ function CoachDashboard({ token, userId }) {
                       <div className="exercise-list">
                         {formData.exercises.map((ex, index) => (
                           <div key={index} className="exercise-item">
-                            <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
-                            <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
-                              Remove
-                            </button>
+                            {editingExerciseIndex === index ? (
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
+                                <span style={{ fontWeight: 'bold', marginRight: 'auto' }}>{ex.name}</span>
+                                <input
+                                  type="number"
+                                  value={editingExerciseData.sets}
+                                  onChange={(e) => setEditingExerciseData({ ...editingExerciseData, sets: e.target.value })}
+                                  placeholder="Sets"
+                                  style={{ width: '60px', padding: '5px' }}
+                                />
+                                <span>x</span>
+                                <input
+                                  type="number"
+                                  value={editingExerciseData.reps}
+                                  onChange={(e) => setEditingExerciseData({ ...editingExerciseData, reps: e.target.value })}
+                                  placeholder="Reps"
+                                  style={{ width: '60px', padding: '5px' }}
+                                />
+                                <span>@</span>
+                                <input
+                                  type="number"
+                                  value={editingExerciseData.targetWeight}
+                                  onChange={(e) => setEditingExerciseData({ ...editingExerciseData, targetWeight: e.target.value })}
+                                  placeholder="Kg"
+                                  style={{ width: '60px', padding: '5px' }}
+                                />
+                                <span>{ex.weightUnit}</span>
+                                <button type="button" onClick={saveEditedExercise} className="btn-success" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                  Save
+                                </button>
+                                <button type="button" onClick={cancelEditExercise} className="btn-secondary" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditingExercise(index, ex)}
+                                    className="btn-secondary"
+                                    style={{ marginRight: '0.5rem', padding: '2px 8px', fontSize: '0.8rem' }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
+                                    Remove
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1786,10 +1880,58 @@ function CoachDashboard({ token, userId }) {
                         <div className="exercise-list">
                           {personalFormData.exercises.map((ex, index) => (
                             <div key={index} className="exercise-item">
-                              <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
-                              <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
-                                Remove
-                              </button>
+                              {editingExerciseIndex === index ? (
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
+                                  <span style={{ fontWeight: 'bold', marginRight: 'auto' }}>{ex.name}</span>
+                                  <input
+                                    type="number"
+                                    value={editingExerciseData.sets}
+                                    onChange={(e) => setEditingExerciseData({ ...editingExerciseData, sets: e.target.value })}
+                                    placeholder="Sets"
+                                    style={{ width: '60px', padding: '5px' }}
+                                  />
+                                  <span>x</span>
+                                  <input
+                                    type="number"
+                                    value={editingExerciseData.reps}
+                                    onChange={(e) => setEditingExerciseData({ ...editingExerciseData, reps: e.target.value })}
+                                    placeholder="Reps"
+                                    style={{ width: '60px', padding: '5px' }}
+                                  />
+                                  <span>@</span>
+                                  <input
+                                    type="number"
+                                    value={editingExerciseData.targetWeight}
+                                    onChange={(e) => setEditingExerciseData({ ...editingExerciseData, targetWeight: e.target.value })}
+                                    placeholder="Kg"
+                                    style={{ width: '60px', padding: '5px' }}
+                                  />
+                                  <span>{ex.weightUnit}</span>
+                                  <button type="button" onClick={saveEditedExercise} className="btn-success" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                    Save
+                                  </button>
+                                  <button type="button" onClick={cancelEditExercise} className="btn-secondary" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditingExercise(index, ex)}
+                                      className="btn-secondary"
+                                      style={{ marginRight: '0.5rem', padding: '2px 8px', fontSize: '0.8rem' }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
+                                      Remove
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>
