@@ -235,6 +235,27 @@ class Workout {
     }
 
     /**
+     * Update exercise log
+     */
+    static async updateExerciseLog(logId, logData) {
+        const result = await pool.query(
+            `UPDATE exercise_logs 
+             SET set_number = $1, reps_completed = $2, weight_used = $3, weight_unit = $4, notes = $5
+             WHERE id = $6
+             RETURNING *`,
+            [
+                logData.setNumber,
+                logData.repsCompleted,
+                logData.weightUsed,
+                logData.weightUnit || 'kg',
+                logData.notes || '',
+                logId
+            ]
+        );
+        return result.rows[0];
+    }
+
+    /**
      * Get exercise logs
      */
     static async getExerciseLogs(exerciseId) {
