@@ -459,15 +459,18 @@ function TraineeDashboard({ token, userId }) {
   const handleUpdateLog = async (exerciseId, logId, field, value) => {
     try {
       // Optimistic update
-      setWorkoutLogs(prev => ({
-        ...prev,
-        [exerciseId]: prev[exerciseId].map(log =>
-          log.id === logId ? { ...log, [field]: value } : log
-        )
-      }));
+      let updatedLog;
+      setWorkoutLogs(prev => {
+        const logToUpdate = prev[exerciseId].find(l => l.id === logId);
+        updatedLog = { ...logToUpdate, [field]: value };
 
-      const logToUpdate = workoutLogs[exerciseId].find(l => l.id === logId);
-      const updatedLog = { ...logToUpdate, [field]: value };
+        return {
+          ...prev,
+          [exerciseId]: prev[exerciseId].map(log =>
+            log.id === logId ? updatedLog : log
+          )
+        };
+      });
 
       await axios.put(
         `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs/${logId}`,
