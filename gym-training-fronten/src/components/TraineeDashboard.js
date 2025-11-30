@@ -453,6 +453,39 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
+  // --- START NEW CODE ---
+  const [editingLogs, setEditingLogs] = useState(false);
+
+  const handleUpdateLog = async (exerciseId, logId, field, value) => {
+    try {
+      // Optimistic update
+      setWorkoutLogs(prev => ({
+        ...prev,
+        [exerciseId]: prev[exerciseId].map(log =>
+          log.id === logId ? { ...log, [field]: value } : log
+        )
+      }));
+
+      const logToUpdate = workoutLogs[exerciseId].find(l => l.id === logId);
+      const updatedLog = { ...logToUpdate, [field]: value };
+
+      await axios.put(
+        `${API_URL}/workout-plans/${selectedWorkout.id}/exercises/${exerciseId}/logs/${logId}`,
+        {
+          setNumber: updatedLog.setNumber,
+          repsCompleted: updatedLog.repsCompleted,
+          weightUsed: updatedLog.weightUsed,
+          weightUnit: updatedLog.weightUnit,
+          notes: updatedLog.notes
+        }
+      );
+    } catch (err) {
+      console.error('Error updating log:', err);
+      alert('Failed to update log');
+    }
+  };
+  // --- END NEW CODE ---
+
   if (activeWorkout) {
     return (
       <ActiveWorkoutView
@@ -493,7 +526,17 @@ function TraineeDashboard({ token, userId }) {
                 </p>
                 {exercise.notes && <p className="exercise-notes">Coach notes: {exercise.notes}</p>}
                 <div className="logs-section">
-                  <h5>Performance Log:</h5>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h5>Performance Log:</h5>
+                    <button
+                      onClick={() => setEditingLogs(!editingLogs)}
+                      className="btn-secondary"
+                      style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                    >
+                      {editingLogs ? 'Done' : 'Edit Logs'}
+                    </button>
+                  </div>
+
                   {workoutLogs[exercise.id] && workoutLogs[exercise.id].length > 0 ? (
                     <table className="logs-table">
                       <thead>
@@ -509,9 +552,36 @@ function TraineeDashboard({ token, userId }) {
                         {workoutLogs[exercise.id].map((log) => (
                           <tr key={log.id}>
                             <td>{log.setNumber}</td>
-                            <td>{log.repsCompleted}</td>
-                            <td>{log.weightUsed}{log.weightUnit}</td>
-                            <td>{log.notes || '-'}</td>
+                            <td>
+                              {editingLogs ? (
+                                <input
+                                  type="number"
+                                  value={log.repsCompleted}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', e.target.value)}
+                                  style={{ width: '50px', padding: '2px' }}
+                                />
+                              ) : log.repsCompleted}
+                            </td>
+                            <td>
+                              {editingLogs ? (
+                                <input
+                                  type="number"
+                                  value={log.weightUsed}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', e.target.value)}
+                                  style={{ width: '60px', padding: '2px' }}
+                                />
+                              ) : log.weightUsed}{log.weightUnit}
+                            </td>
+                            <td>
+                              {editingLogs ? (
+                                <input
+                                  type="text"
+                                  value={log.notes || ''}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'notes', e.target.value)}
+                                  style={{ width: '100%', padding: '2px' }}
+                                />
+                              ) : (log.notes || '-')}
+                            </td>
                             <td>{formatTime(log.loggedAt)}</td>
                           </tr>
                         ))}
