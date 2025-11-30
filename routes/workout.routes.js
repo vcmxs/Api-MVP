@@ -23,10 +23,11 @@ router.delete('/:planId/exercises/:exerciseId', requireActiveSubscription, worko
 // Exercise logging
 router.post('/:workoutPlanId/exercises/:exerciseId/logs', workoutController.logExerciseSet);
 router.get('/:workoutPlanId/exercises/:exerciseId/logs', workoutController.getExerciseLogs);
-router.put('/:workoutPlanId/exercises/:exerciseId/logs/:logId', workoutController.updateExerciseLog);
+router.put('/:workoutPlanId/exercises/:exerciseId/logs/:logId', authenticateToken, workoutController.updateExerciseLog);
 router.delete('/:workoutPlanId/exercises/:exerciseId/logs/:logId', workoutController.deleteExerciseLog);
 
 router.get('/users/:userId/progression', workoutController.getProgression);
 router.get('/users/:userId/exercises', workoutController.getUniqueExercises);
 
 module.exports = router;
+
