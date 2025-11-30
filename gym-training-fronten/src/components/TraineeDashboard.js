@@ -616,7 +616,7 @@ function TraineeDashboard({ token, userId }) {
                                 <input
                                   type="number"
                                   value={log.repsCompleted}
-                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', e.target.value)}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
                                   style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.repsCompleted}
@@ -626,7 +626,7 @@ function TraineeDashboard({ token, userId }) {
                                 <input
                                   type="number"
                                   value={log.weightUsed}
-                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', e.target.value)}
+                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
                                   style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.weightUsed}{log.weightUnit}
