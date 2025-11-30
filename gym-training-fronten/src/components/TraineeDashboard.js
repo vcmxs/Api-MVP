@@ -457,6 +457,8 @@ function TraineeDashboard({ token, userId }) {
   const [editingLogs, setEditingLogs] = useState(false);
 
   const handleUpdateLog = async (exerciseId, logId, field, value) => {
+    console.log('handleUpdateLog called:', { exerciseId, logId, field, value });
+
     try {
       // Optimistic update
       let updatedLog;
