@@ -1,7 +1,7 @@
 // routes/workout.routes.js
 const express = require('express');
 const workoutController = require('../controllers/workout.controller');
-const { requireActiveSubscription } = require('../middleware/auth');
+const { requireActiveSubscription, authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -30,4 +30,5 @@ router.get('/users/:userId/progression', workoutController.getProgression);
 router.get('/users/:userId/exercises', workoutController.getUniqueExercises);
 
 module.exports = router;
+
 
