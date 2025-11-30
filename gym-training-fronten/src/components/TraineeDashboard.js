@@ -453,7 +453,7 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
-  // --- START NEW CODE ---
+  // --- START EDIT LOGS LOGIC ---
   const [editingLogs, setEditingLogs] = useState(false);
 
   const handleUpdateLog = async (exerciseId, logId, field, value) => {
@@ -484,7 +484,7 @@ function TraineeDashboard({ token, userId }) {
       alert('Failed to update log');
     }
   };
-  // --- END NEW CODE ---
+  // --- END EDIT LOGS LOGIC ---
 
   if (activeWorkout) {
     return (
@@ -558,7 +558,7 @@ function TraineeDashboard({ token, userId }) {
                                   type="number"
                                   value={log.repsCompleted}
                                   onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', e.target.value)}
-                                  style={{ width: '50px', padding: '2px' }}
+                                  style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.repsCompleted}
                             </td>
@@ -568,7 +568,7 @@ function TraineeDashboard({ token, userId }) {
                                   type="number"
                                   value={log.weightUsed}
                                   onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', e.target.value)}
-                                  style={{ width: '60px', padding: '2px' }}
+                                  style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.weightUsed}{log.weightUnit}
                             </td>
@@ -578,7 +578,7 @@ function TraineeDashboard({ token, userId }) {
                                   type="text"
                                   value={log.notes || ''}
                                   onChange={(e) => handleUpdateLog(exercise.id, log.id, 'notes', e.target.value)}
-                                  style={{ width: '100%', padding: '2px' }}
+                                  style={{ width: '100%', padding: '2px', color: 'black' }}
                                 />
                               ) : (log.notes || '-')}
                             </td>
