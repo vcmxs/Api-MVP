@@ -457,7 +457,7 @@ function TraineeDashboard({ token, userId }) {
   const [editingLogs, setEditingLogs] = useState(false);
 
   const handleUpdateLog = async (exerciseId, logId, field, value) => {
-    console.log('handleUpdateLog called:', { exerciseId, logId, field, value });
+    console.log('handleUpdateLog called:', { exerciseId, logId, field, value }); // ADD THIS LINE
 
     try {
       // Optimistic update
@@ -618,7 +618,7 @@ function TraineeDashboard({ token, userId }) {
                                 <input
                                   type="number"
                                   value={log.repsCompleted}
-                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
+                                  onBlur={(e) => handleUpdateLog(exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
                                   style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.repsCompleted}
@@ -628,7 +628,7 @@ function TraineeDashboard({ token, userId }) {
                                 <input
                                   type="number"
                                   value={log.weightUsed}
-                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
+                                  onBlur={(e) => handleUpdateLog(exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
                                   style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
                                 />
                               ) : log.weightUsed}{log.weightUnit}
@@ -638,7 +638,7 @@ function TraineeDashboard({ token, userId }) {
                                 <input
                                   type="text"
                                   value={log.notes || ''}
-                                  onChange={(e) => handleUpdateLog(exercise.id, log.id, 'notes', e.target.value)}
+                                  onBlur={(e) => handleUpdateLog(exercise.id, log.id, 'notes', e.target.value)}
                                   style={{ width: '100%', padding: '2px', color: 'black' }}
                                 />
                               ) : (log.notes || '-')}
