@@ -299,6 +299,41 @@ exports.logExerciseSet = async (req, res) => {
 };
 
 /**
+ * Update exercise log
+ */
+exports.updateExerciseLog = async (req, res) => {
+    try {
+        const { setNumber, repsCompleted, weightUsed, weightUnit, notes } = req.body;
+        const { logId } = req.params;
+
+        const log = await Workout.updateExerciseLog(logId, {
+            setNumber,
+            repsCompleted,
+            weightUsed,
+            weightUnit,
+            notes
+        });
+
+        if (!log) {
+            return res.status(404).json({ error: 'Not Found', message: 'Log not found' });
+        }
+
+        res.json({
+            id: log.id.toString(),
+            setNumber: log.set_number,
+            repsCompleted: log.reps_completed,
+            weightUsed: parseFloat(log.weight_used),
+            weightUnit: log.weight_unit,
+            notes: log.notes,
+            loggedAt: log.logged_at
+        });
+    } catch (err) {
+        console.error('Update log error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
  * Get exercise logs
  */
 exports.getExerciseLogs = async (req, res) => {
