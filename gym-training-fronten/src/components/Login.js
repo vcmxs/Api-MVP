@@ -97,6 +97,22 @@ function Login({ onLogin, onToggle }) {
             Register here
           </button>
         </div>
+        <div className="app-info-box" style={{
+          marginTop: '2rem',
+          padding: '1.5rem',
+          background: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: '15px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          maxWidth: '400px',
+          textAlign: 'center',
+          color: 'var(--gray)'
+        }}>
+          <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Welcome to Dupla! 🚀</h3>
+          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+            Your ultimate companion for tracking workouts and achieving your fitness goals.
+            Coaches can manage trainees, and trainees can track their progress with ease.
+          </p>
+        </div>
       </div>
     </div>
   );
