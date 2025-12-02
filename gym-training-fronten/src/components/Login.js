@@ -139,10 +139,12 @@ function Login({ onLogin, onToggle }) {
           }}>
             <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Detalles de actualización:</h3>
             <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-              Puede que al iniciar sesión por primera vez, tarde un poco en cargar los datos.
+              Puede que al iniciar sesión, o usarla luego de unas horas de inactividad, tarde un poco en cargar los datos.
             </p>
             <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-              Esto se debe a que el servidor entra en suspension luego de un tiempo sin actividad, tardara 30 segundos en iniciar.   </p>
+              Esto se debe a que el servidor entra en suspension, tardara 30 segundos en iniciar.   </p>
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+              El servidor actual esta en fase de pruebas, sera mejorado en el proceso, gracias por tu paciencia. </p>
           </div>
         </div>
       </div>
