@@ -121,6 +121,22 @@ function Login({ onLogin, onToggle }) {
             Esto se debe a que el servidor esta en suspension, tardara 30 segundos en iniciar.
           </p>
         </div>
+        <div className="app-info-box" style={{
+          marginTop: '2rem',
+          padding: '1.5rem',
+          background: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: '15px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          maxWidth: '400px',
+          textAlign: 'center',
+          color: 'var(--gray)'
+        }}>
+          <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Detalles de actualización:</h3>
+          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+            Puede que al iniciar sesión por primera vez, tarde un poco en cargar los datos.
+            Esto se debe a que el servidor esta en suspension, tardara 30 segundos en iniciar.
+          </p>
+        </div>
       </div>
     </div>
   );
