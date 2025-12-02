@@ -3,7 +3,7 @@ import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
 
-const API_URL = 'http://localhost:3000/api/v1';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
 
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onDelete }) => {
@@ -26,7 +26,10 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
       alignItems: 'center',
       padding: '1rem',
       borderRadius: '12px',
-      border: isCompleted ? '1px solid var(--success)' : '1px solid rgba(255, 255, 255, 0.05)'
+      border: isCompleted ? '1px solid var(--success)' : '1px solid rgba(255, 255, 255, 0.05)',
+      backgroundColor: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+      boxShadow: isCompleted ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none',
+      transition: 'all 0.3s ease'
     }}>
       <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--light)', fontSize: '1.1rem' }}>{setNum}</div>
       <div style={{ textAlign: 'center', color: 'var(--gray)', fontSize: '0.9rem' }}>
@@ -266,6 +269,12 @@ function CoachDashboard({ token, userId }) {
 
   // Template state
   const [templates, setTemplates] = useState([]);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateFormData, setTemplateFormData] = useState({
+    name: '',
+    description: '',
+    exercises: []
+  });
 
   // Progression state
   const [uniqueExercises, setUniqueExercises] = useState([]);
@@ -359,6 +368,124 @@ function CoachDashboard({ token, userId }) {
     }
   };
 
+  // --- Exercise Editing Logic ---
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState(-1);
+  const [editingLogs, setEditingLogs] = useState(false);
+  const [editingExerciseData, setEditingExerciseData] = useState({
+    sets: '',
+    reps: '',
+    targetWeight: ''
+  });
+
+  // --- LOG EDITING LOGIC ---
+  const handleUpdateLog = async (workoutId, exerciseId, logId, field, value) => {
+    try {
+      // Get the current log to build the full update object
+      const currentLog = workoutLogs[exerciseId]?.find(l => l.id === logId);
+      if (!currentLog) return;
+
+      const updatedLog = { ...currentLog, [field]: value };
+
+      await axios.put(
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs/${logId}`,
+        {
+          setNumber: updatedLog.setNumber,
+          repsCompleted: updatedLog.repsCompleted,
+          weightUsed: updatedLog.weightUsed,
+          weightUnit: updatedLog.weightUnit,
+          notes: updatedLog.notes
+        }
+      );
+
+      // Refresh logs
+      const response = await axios.get(
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs`
+      );
+
+      setWorkoutLogs(prev => ({
+        ...prev,
+        [exerciseId]: response.data.logs
+      }));
+
+    } catch (err) {
+      console.error('Error updating log:', err);
+      alert('Failed to update log');
+    }
+  };
+
+  const handleAddLog = async (workoutId, exerciseId) => {
+    try {
+      const currentLogs = workoutLogs[exerciseId] || [];
+      const nextSetNumber = currentLogs.length > 0
+        ? Math.max(...currentLogs.map(l => l.setNumber)) + 1
+        : 1;
+
+      await axios.post(
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs`,
+        {
+          setNumber: nextSetNumber,
+          repsCompleted: 0,
+          weightUsed: 0,
+          weightUnit: 'kg',
+          notes: ''
+        }
+      );
+
+      // Refresh logs
+      const response = await axios.get(
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs`
+      );
+
+      setWorkoutLogs(prev => ({
+        ...prev,
+        [exerciseId]: response.data.logs
+      }));
+
+    } catch (err) {
+      console.error('Error adding log:', err);
+      alert('Failed to add log');
+    }
+  };
+  // -------------------------
+
+  const startEditingExercise = (index, exercise) => {
+    setEditingExerciseIndex(index);
+    setEditingExerciseData({
+      sets: exercise.sets,
+      reps: exercise.reps,
+      targetWeight: exercise.targetWeight
+    });
+  };
+
+  const cancelEditExercise = () => {
+    setEditingExerciseIndex(-1);
+    setEditingExerciseData({ sets: '', reps: '', targetWeight: '' });
+  };
+
+  const saveEditedExercise = () => {
+    if (activeTab === 'customers') {
+      const updatedExercises = [...formData.exercises];
+      updatedExercises[editingExerciseIndex] = {
+        ...updatedExercises[editingExerciseIndex],
+        sets: parseInt(editingExerciseData.sets),
+        reps: parseInt(editingExerciseData.reps),
+        targetWeight: parseInt(editingExerciseData.targetWeight)
+      };
+      setFormData({ ...formData, exercises: updatedExercises });
+    } else {
+      const updatedExercises = [...personalFormData.exercises];
+      updatedExercises[editingExerciseIndex] = {
+        ...updatedExercises[editingExerciseIndex],
+        sets: parseInt(editingExerciseData.sets),
+        reps: parseInt(editingExerciseData.reps),
+        targetWeight: parseInt(editingExerciseData.targetWeight)
+      };
+      setPersonalFormData({ ...personalFormData, exercises: updatedExercises });
+    }
+    cancelEditExercise();
+  };
+  // -----------------------------
+
   const createWorkoutPlan = async (e) => {
     e.preventDefault();
 
@@ -375,6 +502,8 @@ function CoachDashboard({ token, userId }) {
         description: formData.description,
         scheduledDate: formData.scheduledDate,
         exercises: formData.exercises
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Workout plan created successfully!');
       setShowForm(false);
@@ -405,6 +534,8 @@ function CoachDashboard({ token, userId }) {
         description: personalFormData.description,
         scheduledDate: personalFormData.scheduledDate,
         exercises: personalFormData.exercises
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Personal workout created successfully!');
       setShowPersonalForm(false);
@@ -502,6 +633,8 @@ function CoachDashboard({ token, userId }) {
     try {
       await axios.post(`${API_URL}/coaches/${userId}/trainees`, {
         email: traineeEmail
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Trainee added successfully!');
       setTraineeEmail('');
@@ -518,7 +651,9 @@ function CoachDashboard({ token, userId }) {
       return;
     }
     try {
-      await axios.delete(`${API_URL}/workout-plans/${workoutId}`);
+      await axios.delete(`${API_URL}/workout-plans/${workoutId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert('Workout deleted successfully!');
       if (selectedTrainee) {
         loadTraineeWorkouts(selectedTrainee);
@@ -534,7 +669,9 @@ function CoachDashboard({ token, userId }) {
       return;
     }
     try {
-      await axios.delete(`${API_URL}/workout-plans/${workoutId}`);
+      await axios.delete(`${API_URL}/workout-plans/${workoutId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert('Workout deleted successfully!');
       loadPersonalWorkouts();
     } catch (err) {
@@ -562,6 +699,8 @@ function CoachDashboard({ token, userId }) {
         name: editFormData.name,
         description: editFormData.description,
         scheduledDate: editFormData.scheduledDate
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Workout updated successfully!');
       if (activeTab === 'customers' && selectedTrainee) {
@@ -578,7 +717,9 @@ function CoachDashboard({ token, userId }) {
 
   const startWorkout = async (planId) => {
     try {
-      await axios.post(`${API_URL}/workout-plans/${planId}/start`);
+      await axios.post(`${API_URL}/workout-plans/${planId}/start`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       // Refresh the list
       let workouts = [];
@@ -633,6 +774,9 @@ function CoachDashboard({ token, userId }) {
           weightUsed: weight,
           weightUnit: currentExercise.weightUnit,
           notes: ''
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
 
@@ -655,7 +799,10 @@ function CoachDashboard({ token, userId }) {
     try {
       const currentExercise = activeWorkout.exercises[currentExerciseIndex];
       await axios.delete(
-        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs/${logId}`
+        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs/${logId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
       );
 
       // Refresh logs
@@ -686,6 +833,8 @@ function CoachDashboard({ token, userId }) {
       await axios.post(`${API_URL}/workout-plans/${activeWorkout.id}/complete`, {
         overallNotes: 'Completed via Coach Dashboard',
         rating: 5
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Workout completed! 🎉');
       setActiveWorkout(null);
@@ -711,6 +860,8 @@ function CoachDashboard({ token, userId }) {
     try {
       await axios.post(`${API_URL}/workout-plans/${editingWorkout.id}/exercises`, {
         exercises: [newExercise]
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       const response = await axios.get(`${API_URL}/trainees/${selectedTrainee || userId}/workout-plans?coachId=${userId}`);
@@ -746,7 +897,9 @@ function CoachDashboard({ token, userId }) {
     if (!window.confirm('Are you sure you want to remove this exercise?')) return;
 
     try {
-      await axios.delete(`${API_URL}/workout-plans/${editingWorkout.id}/exercises/${exerciseId}`);
+      await axios.delete(`${API_URL}/workout-plans/${editingWorkout.id}/exercises/${exerciseId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       const updatedExercises = editFormData.exercises.filter(ex => ex.id !== exerciseId);
       setEditFormData({
@@ -774,7 +927,9 @@ function CoachDashboard({ token, userId }) {
   // Load templates
   const loadTemplates = async () => {
     try {
-      const response = await axios.get(`${API_URL}/users/${userId}/workout-templates`);
+      const response = await axios.get(`${API_URL}/workout-templates/users/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setTemplates(response.data.templates);
     } catch (err) {
       console.error('Load templates error:', err);
@@ -796,6 +951,8 @@ function CoachDashboard({ token, userId }) {
         name: data.name,
         description: data.description,
         exercises: data.exercises
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       alert('Template saved successfully!');
       loadTemplates();
@@ -825,12 +982,53 @@ function CoachDashboard({ token, userId }) {
     alert('Template loaded! You can now modify and create the workout.');
   };
 
+  // Start editing template
+  const startEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateFormData({
+      name: template.name,
+      description: template.description || '',
+      exercises: [...template.exercises]
+    });
+  };
+
+  // Cancel editing template
+  const cancelEditTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateFormData({
+      name: '',
+      description: '',
+      exercises: []
+    });
+  };
+
+  // Update template
+  const updateTemplate = async () => {
+    try {
+      await axios.put(`${API_URL}/workout-templates/${editingTemplate.id}`, {
+        name: templateFormData.name,
+        description: templateFormData.description,
+        exercises: templateFormData.exercises
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Template updated successfully!');
+      setEditingTemplate(null);
+      loadTemplates();
+    } catch (err) {
+      console.error('Update template error:', err);
+      alert('Error updating template: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   // Delete template
   const deleteTemplate = async (templateId) => {
     if (!window.confirm('Are you sure you want to delete this template?')) return;
 
     try {
-      await axios.delete(`${API_URL}/workout-templates/${templateId}`);
+      await axios.delete(`${API_URL}/workout-templates/${templateId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert('Template deleted successfully!');
       loadTemplates();
     } catch (err) {
@@ -1111,7 +1309,27 @@ function CoachDashboard({ token, userId }) {
                     {exercise.notes && <p className="exercise-notes">Coach notes: {exercise.notes}</p>}
 
                     <div className="logs-section">
-                      <h5>Performance Log:</h5>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h5>Performance Log:</h5>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          {editingLogs && (
+                            <button
+                              onClick={() => handleAddLog(selectedWorkout.id, exercise.id)}
+                              className="btn-primary"
+                              style={{ padding: '2px 8px', fontSize: '0.8rem', backgroundColor: '#28a745' }}
+                            >
+                              + Add Set
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setEditingLogs(!editingLogs)}
+                            className="btn-secondary"
+                            style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                          >
+                            {editingLogs ? 'Done' : 'Edit Logs'}
+                          </button>
+                        </div>
+                      </div>
                       {workoutLogs[exercise.id] && workoutLogs[exercise.id].length > 0 ? (
                         <table className="logs-table">
                           <thead>
@@ -1127,16 +1345,43 @@ function CoachDashboard({ token, userId }) {
                             {workoutLogs[exercise.id].map((log) => (
                               <tr key={log.id}>
                                 <td>{log.setNumber}</td>
-                                <td>{log.repsCompleted}</td>
-                                <td>{log.weightUsed}{log.weightUnit}</td>
-                                <td>{log.notes || '-'}</td>
-                                <td>{formatTime(log.loggedAt)}</td>
+                                <td>
+                                  {editingLogs ? (
+                                    <input
+                                      type="number"
+                                      defaultValue={log.repsCompleted}
+                                      onChange={(e) => handleUpdateLog(selectedWorkout.id, exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
+                                      style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
+                                    />
+                                  ) : log.repsCompleted}
+                                </td>
+                                <td>
+                                  {editingLogs ? (
+                                    <input
+                                      type="number"
+                                      defaultValue={log.weightUsed}
+                                      onChange={(e) => handleUpdateLog(selectedWorkout.id, exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
+                                      style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
+                                    />
+                                  ) : log.weightUsed}{log.weightUnit}
+                                </td>
+                                <td>
+                                  {editingLogs ? (
+                                    <input
+                                      type="text"
+                                      defaultValue={log.notes || ''}
+                                      onChange={(e) => handleUpdateLog(selectedWorkout.id, exercise.id, log.id, 'notes', e.target.value)}
+                                      style={{ width: '100%', padding: '2px', color: 'black' }}
+                                    />
+                                  ) : (log.notes || '-')}
+                                </td>
+                                <td>{formatTime(log.completedAt)}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       ) : (
-                        <p className="no-logs">No performance data logged yet</p>
+                        <p className="no-logs">No logs recorded yet.</p>
                       )}
                     </div>
                   </div>
@@ -1257,6 +1502,36 @@ function CoachDashboard({ token, userId }) {
                       />
                     </div>
 
+                    <div className="form-group">
+                      <label>Import Template (Optional)</label>
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const template = templates.find(t => t.id === parseInt(e.target.value));
+                            if (template) {
+                              setFormData({
+                                ...formData,
+                                name: template.name,
+                                description: template.description || '',
+                                exercises: [...template.exercises]
+                              });
+                              alert('Template imported! You can now modify and create the workout.');
+                            }
+                          }
+                        }}
+                        className="template-selector"
+                      >
+                        <option value="">-- Select a template --</option>
+                        {templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name} ({template.exercises?.length || 0} exercises)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+
                     <div className="exercises-section">
                       <h4>Exercises</h4>
 
@@ -1313,10 +1588,58 @@ function CoachDashboard({ token, userId }) {
                       <div className="exercise-list">
                         {formData.exercises.map((ex, index) => (
                           <div key={index} className="exercise-item">
-                            <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
-                            <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
-                              Remove
-                            </button>
+                            {editingExerciseIndex === index ? (
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
+                                <span style={{ fontWeight: 'bold', marginRight: 'auto' }}>{ex.name}</span>
+                                <input
+                                  type="number"
+                                  value={editingExerciseData.sets}
+                                  onChange={(e) => setEditingExerciseData({ ...editingExerciseData, sets: e.target.value })}
+                                  placeholder="Sets"
+                                  style={{ width: '60px', padding: '5px' }}
+                                />
+                                <span>x</span>
+                                <input
+                                  type="number"
+                                  value={editingExerciseData.reps}
+                                  onChange={(e) => setEditingExerciseData({ ...editingExerciseData, reps: e.target.value })}
+                                  placeholder="Reps"
+                                  style={{ width: '60px', padding: '5px' }}
+                                />
+                                <span>@</span>
+                                <input
+                                  type="number"
+                                  value={editingExerciseData.targetWeight}
+                                  onChange={(e) => setEditingExerciseData({ ...editingExerciseData, targetWeight: e.target.value })}
+                                  placeholder="Kg"
+                                  style={{ width: '60px', padding: '5px' }}
+                                />
+                                <span>{ex.weightUnit}</span>
+                                <button type="button" onClick={saveEditedExercise} className="btn-success" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                  Save
+                                </button>
+                                <button type="button" onClick={cancelEditExercise} className="btn-secondary" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditingExercise(index, ex)}
+                                    className="btn-secondary"
+                                    style={{ marginRight: '0.5rem', padding: '2px 8px', fontSize: '0.8rem' }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
+                                    Remove
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1519,7 +1842,27 @@ function CoachDashboard({ token, userId }) {
                       {exercise.notes && <p className="exercise-notes">Notes: {exercise.notes}</p>}
 
                       <div className="logs-section">
-                        <h5>Performance Log:</h5>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <h5>Performance Log:</h5>
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            {editingLogs && (
+                              <button
+                                onClick={() => handleAddLog(selectedPersonalWorkout.id, exercise.id)}
+                                className="btn-primary"
+                                style={{ padding: '2px 8px', fontSize: '0.8rem', backgroundColor: '#28a745' }}
+                              >
+                                + Add Set
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setEditingLogs(!editingLogs)}
+                              className="btn-secondary"
+                              style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                            >
+                              {editingLogs ? 'Done' : 'Edit Logs'}
+                            </button>
+                          </div>
+                        </div>
                         {personalWorkoutLogs[exercise.id] && personalWorkoutLogs[exercise.id].length > 0 ? (
                           <table className="logs-table">
                             <thead>
@@ -1535,9 +1878,36 @@ function CoachDashboard({ token, userId }) {
                               {personalWorkoutLogs[exercise.id].map((log) => (
                                 <tr key={log.id}>
                                   <td>{log.setNumber}</td>
-                                  <td>{log.repsCompleted}</td>
-                                  <td>{log.weightUsed}{log.weightUnit}</td>
-                                  <td>{log.notes || '-'}</td>
+                                  <td>
+                                    {editingLogs ? (
+                                      <input
+                                        type="number"
+                                        defaultValue={log.repsCompleted}
+                                        onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
+                                        style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
+                                      />
+                                    ) : log.repsCompleted}
+                                  </td>
+                                  <td>
+                                    {editingLogs ? (
+                                      <input
+                                        type="number"
+                                        defaultValue={log.weightUsed}
+                                        onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
+                                        style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
+                                      />
+                                    ) : log.weightUsed}{log.weightUnit}
+                                  </td>
+                                  <td>
+                                    {editingLogs ? (
+                                      <input
+                                        type="text"
+                                        defaultValue={log.notes || ''}
+                                        onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'notes', e.target.value)}
+                                        style={{ width: '100%', padding: '2px', color: 'black' }}
+                                      />
+                                    ) : (log.notes || '-')}
+                                  </td>
                                   <td>{formatTime(log.loggedAt)}</td>
                                 </tr>
                               ))}
@@ -1592,6 +1962,36 @@ function CoachDashboard({ token, userId }) {
                           required
                         />
                       </div>
+
+                      <div className="form-group">
+                        <label>Import Template (Optional)</label>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const template = templates.find(t => t.id === parseInt(e.target.value));
+                              if (template) {
+                                setPersonalFormData({
+                                  ...personalFormData,
+                                  name: template.name,
+                                  description: template.description || '',
+                                  exercises: [...template.exercises]
+                                });
+                                alert('Template imported! You can now modify and create the workout.');
+                              }
+                            }
+                          }}
+                          className="template-selector"
+                        >
+                          <option value="">-- Select a template --</option>
+                          {templates.map((template) => (
+                            <option key={template.id} value={template.id}>
+                              {template.name} ({template.exercises?.length || 0} exercises)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
 
                       <div className="exercises-section">
                         <h4>Exercises</h4>
@@ -1649,10 +2049,58 @@ function CoachDashboard({ token, userId }) {
                         <div className="exercise-list">
                           {personalFormData.exercises.map((ex, index) => (
                             <div key={index} className="exercise-item">
-                              <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
-                              <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
-                                Remove
-                              </button>
+                              {editingExerciseIndex === index ? (
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
+                                  <span style={{ fontWeight: 'bold', marginRight: 'auto' }}>{ex.name}</span>
+                                  <input
+                                    type="number"
+                                    value={editingExerciseData.sets}
+                                    onChange={(e) => setEditingExerciseData({ ...editingExerciseData, sets: e.target.value })}
+                                    placeholder="Sets"
+                                    style={{ width: '60px', padding: '5px' }}
+                                  />
+                                  <span>x</span>
+                                  <input
+                                    type="number"
+                                    value={editingExerciseData.reps}
+                                    onChange={(e) => setEditingExerciseData({ ...editingExerciseData, reps: e.target.value })}
+                                    placeholder="Reps"
+                                    style={{ width: '60px', padding: '5px' }}
+                                  />
+                                  <span>@</span>
+                                  <input
+                                    type="number"
+                                    value={editingExerciseData.targetWeight}
+                                    onChange={(e) => setEditingExerciseData({ ...editingExerciseData, targetWeight: e.target.value })}
+                                    placeholder="Kg"
+                                    style={{ width: '60px', padding: '5px' }}
+                                  />
+                                  <span>{ex.weightUnit}</span>
+                                  <button type="button" onClick={saveEditedExercise} className="btn-success" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                    Save
+                                  </button>
+                                  <button type="button" onClick={cancelEditExercise} className="btn-secondary" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditingExercise(index, ex)}
+                                      className="btn-secondary"
+                                      style={{ marginRight: '0.5rem', padding: '2px 8px', fontSize: '0.8rem' }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button type="button" onClick={() => removeExercise(index)} className="btn-remove">
+                                      Remove
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1742,45 +2190,89 @@ function CoachDashboard({ token, userId }) {
             <h2>My Workout Templates</h2>
             <p>Save and reuse your favorite workout configurations</p>
 
-            {templates.length === 0 ? (
-              <p>No templates yet. Create a workout and click "Save as Template" to get started!</p>
-            ) : (
-              <div className="templates-list">
-                {templates.map((template) => (
-                  <div key={template.id} className="template-card">
-                    <h3>{template.name}</h3>
-                    {template.description && <p>{template.description}</p>}
-                    <p className="template-info">
-                      {template.exercises.length} exercises
-                    </p>
-                    <div className="template-exercises">
-                      {template.exercises.map((ex, idx) => (
-                        <span key={idx} className="exercise-tag">
-                          {ex.name}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="template-actions">
-                      <button
-                        onClick={() => loadTemplate(template)}
-                        className="btn-primary"
-                      >
-                        Use Template
-                      </button>
-                      <button
-                        onClick={() => deleteTemplate(template.id)}
-                        className="btn-danger"
-                        style={{ marginLeft: '0.5rem' }}
-                      >
-                        Delete
-                      </button>
-                    </div>
+            {editingTemplate ? (
+              <div className="workout-form">
+                <h3>Edit Template: {editingTemplate.name}</h3>
+                <form onSubmit={(e) => { e.preventDefault(); updateTemplate(); }}>
+                  <div className="form-group">
+                    <label>Template Name</label>
+                    <input
+                      type="text"
+                      value={templateFormData.name}
+                      onChange={(e) => setTemplateFormData({ ...templateFormData, name: e.target.value })}
+                      required
+                    />
                   </div>
-                ))}
+                  <div className="form-group">
+                    <label>Description</label>
+                    <textarea
+                      value={templateFormData.description}
+                      onChange={(e) => setTemplateFormData({ ...templateFormData, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="exercises-list" style={{ margin: '1rem 0' }}>
+                    <h4>Exercises ({templateFormData.exercises.length})</h4>
+                    <ul style={{ listStyle: 'none', padding: 0 }}>
+                      {templateFormData.exercises.map((ex, idx) => (
+                        <li key={idx} style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '4px' }}>
+                          <strong>{ex.name}</strong> - {ex.sets} sets × {ex.reps} reps
+                        </li>
+                      ))}
+                    </ul>
+                    <p style={{ fontSize: '0.9rem', color: '#aaa', fontStyle: 'italic' }}>
+                      * To modify exercises, please create a new workout from this template, modify it, and save as a new template.
+                    </p>
+                  </div>
+
+                  <div className="form-actions" style={{ display: 'flex', gap: '1rem' }}>
+                    <button type="submit" className="btn-primary">Update Template</button>
+                    <button type="button" onClick={cancelEditTemplate} className="btn-secondary">Cancel</button>
+                  </div>
+                </form>
               </div>
+            ) : (
+              <>
+                {templates.length === 0 ? (
+                  <p>No templates yet. Create a workout and click "Save as Template" to get started!</p>
+                ) : (
+                  <div className="templates-list">
+                    {templates.map((template) => (
+                      <div key={template.id} className="template-card">
+                        <h3>{template.name}</h3>
+                        {template.description && <p>{template.description}</p>}
+                        <p className="template-info">
+                          {template.exercises.length} exercises
+                        </p>
+                        <div className="template-exercises">
+                          {template.exercises.map((ex, idx) => (
+                            <span key={idx} className="exercise-tag">
+                              {ex.name}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="template-actions">
+                          <button
+                            onClick={() => startEditTemplate(template)}
+                            className="btn-primary"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteTemplate(template.id)}
+                            className="btn-danger"
+                            style={{ marginLeft: '0.5rem' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
-
         )
       }
 
