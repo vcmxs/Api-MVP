@@ -2,6 +2,26 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+function Login({ onLogin, onToggle }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false); // Add this
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Add this useEffect
+  React.useEffect(() => {
+    const savedEmail = localStorage.getItem('rememberedEmail');
+    const savedPassword = localStorage.getItem('rememberedPassword');
+    if (savedEmail && savedPassword) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
+  }, []);
+}
+
+
 
 function Login({ onLogin, onToggle }) {
   const [email, setEmail] = useState('');
@@ -19,6 +39,39 @@ function Login({ onLogin, onToggle }) {
         email,
         password
       });
+
+      // Add this block
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+        localStorage.setItem('rememberedPassword', password);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPassword');
+      }
+
+      <div className="form-group">
+        <label>Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </div>
+
+      {/* Add this checkbox group */ }
+      <div className="form-group checkbox-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+        <input
+          type="checkbox"
+          id="rememberMe"
+          checked={rememberMe}
+          onChange={(e) => setRememberMe(e.target.checked)}
+          style={{ width: 'auto', margin: 0 }}
+        />
+        <label htmlFor="rememberMe" style={{ margin: 0, cursor: 'pointer' }}>Remember me</label>
+      </div>
+
+      { error && <div className="error-message">{error}</div> }
 
       onLogin(response.data.user, response.data.token);
     } catch (err) {
