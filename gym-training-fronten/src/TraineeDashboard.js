@@ -26,7 +26,10 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
       alignItems: 'center',
       padding: '1rem',
       borderRadius: '12px',
-      border: isCompleted ? '1px solid var(--success)' : '1px solid rgba(255, 255, 255, 0.05)'
+      border: isCompleted ? '1px solid var(--success)' : '1px solid rgba(255, 255, 255, 0.05)',
+      backgroundColor: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+      boxShadow: isCompleted ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none',
+      transition: 'all 0.3s ease'
     }}>
       <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--light)', fontSize: '1.1rem' }}>{setNum}</div>
       <div style={{ textAlign: 'center', color: 'var(--gray)', fontSize: '0.9rem' }}>
@@ -95,27 +98,23 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
 };
 
 // Active Workout View Component
+// Active Workout View Component
 const ActiveWorkoutView = ({
   activeWorkout,
-  currentExerciseIndex,
   workoutLogs,
   timer,
   onExit,
-  onNext,
-  onPrev,
   onComplete,
   onLogSet,
   onDeleteLog
 }) => {
-  const currentExercise = activeWorkout.exercises[currentExerciseIndex];
-  const exerciseLogs = workoutLogs[currentExercise.id] || [];
-
-  const getSetLog = (setNum) => {
+  const getSetLog = (exerciseId, setNum) => {
+    const exerciseLogs = workoutLogs[exerciseId] || [];
     return exerciseLogs.find(log => log.setNumber === setNum);
   };
 
   return (
-    <div className="dashboard" style={{ maxWidth: '900px', margin: '0 auto' }}>
+    <div className="dashboard" style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '4rem' }}>
       <div className="active-workout-header" style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -123,6 +122,12 @@ const ActiveWorkoutView = ({
         marginBottom: '2rem',
         padding: '1.5rem',
         borderRadius: '20px',
+        position: 'sticky',
+        top: '1rem',
+        zIndex: 100,
+        background: 'rgba(20, 20, 20, 0.95)',
+        backdropFilter: 'blur(10px)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
       }}>
         <button
           onClick={onExit}
@@ -141,97 +146,103 @@ const ActiveWorkoutView = ({
         </div>
       </div>
 
-      <div className="active-workout-card">
-        <div className="exercise-progress" style={{ marginBottom: '3rem', textAlign: 'center' }}>
-          <h2 style={{
-            fontSize: '2.5rem',
-            marginBottom: '1rem',
-            color: 'var(--light)',
-            fontWeight: '800'
-          }}>
-            {currentExercise.name}
-          </h2>
-          <div style={{
-            display: 'inline-block',
-            padding: '0.8rem 1.5rem',
-            background: 'rgba(124, 58, 237, 0.1)',
-            borderRadius: '50px',
-            color: 'var(--accent)',
-            fontWeight: '600',
-            fontSize: '1rem',
-            marginBottom: '1rem',
-            border: '1px solid var(--accent)',
-            boxShadow: '0 0 15px rgba(124, 58, 237, 0.2)'
-          }}>
-            Target: {currentExercise.sets} sets × {currentExercise.reps} reps @ {currentExercise.targetWeight}{currentExercise.weightUnit}
-          </div>
-          {currentExercise.notes && (
-            <p style={{ fontStyle: 'italic', marginTop: '1rem', color: 'var(--gray)' }}>
-              Notes: {currentExercise.notes}
-            </p>
-          )}
-        </div>
+      <div className="exercises-list">
+        {activeWorkout.exercises.map((exercise, index) => (
+          <div key={exercise.id} className="active-workout-card" style={{ marginBottom: '3rem' }}>
+            <div className="exercise-progress" style={{ marginBottom: '2rem', textAlign: 'center' }}>
+              <h2 style={{
+                fontSize: '2rem',
+                marginBottom: '1rem',
+                color: 'var(--light)',
+                fontWeight: '800'
+              }}>
+                {index + 1}. {exercise.name}
+              </h2>
+              <div style={{
+                display: 'inline-block',
+                padding: '0.6rem 1.2rem',
+                background: 'rgba(124, 58, 237, 0.1)',
+                borderRadius: '50px',
+                color: 'var(--accent)',
+                fontWeight: '600',
+                fontSize: '0.9rem',
+                marginBottom: '1rem',
+                border: '1px solid var(--accent)',
+                boxShadow: '0 0 15px rgba(124, 58, 237, 0.2)'
+              }}>
+                Target: {exercise.sets} sets × {exercise.reps} reps @ {exercise.targetWeight}{exercise.weightUnit}
+              </div>
+              {exercise.notes && (
+                <p style={{ fontStyle: 'italic', marginTop: '0.5rem', color: 'var(--gray)' }}>
+                  Notes: {exercise.notes}
+                </p>
+              )}
+            </div>
 
-        <div className="sets-list">
-          <div className="sets-header" style={{
-            display: 'grid',
-            gridTemplateColumns: '0.5fr 1fr 1fr 1fr 0.5fr',
-            gap: '1rem',
-            marginBottom: '1.5rem',
+            <div className="sets-list">
+              <div className="sets-header" style={{
+                display: 'grid',
+                gridTemplateColumns: '0.5fr 1fr 1fr 1fr 0.5fr',
+                gap: '1rem',
+                marginBottom: '1rem',
+                fontWeight: 'bold',
+                fontSize: '0.8rem',
+                color: 'var(--primary)',
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+                textAlign: 'center'
+              }}>
+                <div>SET</div>
+                <div>PREVIOUS</div>
+                <div>KG</div>
+                <div>REPS</div>
+                <div>✓</div>
+              </div>
+
+              {Array.from({ length: exercise.sets }).map((_, idx) => {
+                const setNum = idx + 1;
+                const log = getSetLog(exercise.id, setNum);
+                const isCompleted = !!log;
+
+                return (
+                  <SetRow
+                    key={setNum}
+                    setNum={setNum}
+                    log={log}
+                    isCompleted={isCompleted}
+                    targetWeight={exercise.targetWeight}
+                    targetReps={exercise.reps}
+                    onLog={(s, w, r) => onLogSet(exercise.id, s, w, r)}
+                    onDelete={(logId) => onDeleteLog(activeWorkout.id, exercise.id, logId)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="workout-actions" style={{
+        marginTop: '2rem',
+        padding: '2rem',
+        textAlign: 'center',
+        background: 'rgba(20, 20, 20, 0.8)',
+        borderRadius: '20px',
+        border: '1px solid rgba(255, 255, 255, 0.05)'
+      }}>
+        <button
+          onClick={onComplete}
+          className="btn-success"
+          style={{
+            width: '100%',
+            padding: '1.2rem',
+            fontSize: '1.2rem',
             fontWeight: 'bold',
-            fontSize: '0.8rem',
-            color: 'var(--primary)',
-            textTransform: 'uppercase',
-            letterSpacing: '2px',
-            textAlign: 'center'
-          }}>
-            <div>SET</div>
-            <div>PREVIOUS</div>
-            <div>KG</div>
-            <div>REPS</div>
-            <div>✓</div>
-          </div>
-
-          {Array.from({ length: currentExercise.sets }).map((_, idx) => {
-            const setNum = idx + 1;
-            const log = getSetLog(setNum);
-            const isCompleted = !!log;
-
-            return (
-              <SetRow
-                key={setNum}
-                setNum={setNum}
-                log={log}
-                isCompleted={isCompleted}
-                targetWeight={currentExercise.targetWeight}
-                targetReps={currentExercise.reps}
-                onLog={onLogSet}
-                onDelete={onDeleteLog}
-              />
-            );
-          })}
-        </div>
-
-        <div className="workout-actions" style={{ marginTop: '3rem', display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-          <button
-            onClick={onPrev}
-            className="btn-secondary"
-            disabled={currentExerciseIndex === 0}
-            style={{ opacity: currentExerciseIndex === 0 ? 0.5 : 1, flex: 1 }}
-          >
-            ← Prev
-          </button>
-
-          {currentExerciseIndex < activeWorkout.exercises.length - 1 ? (
-            <button onClick={onNext} className="btn-primary" style={{ flex: 1 }}>
-              Next Exercise →
-            </button>
-          ) : (
-            <button onClick={onComplete} className="btn-success" style={{ flex: 1 }}>
-              Complete Workout ✓
-            </button>
-          )}
-        </div>
+            boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)'
+          }}
+        >
+          Complete Workout 🎉
+        </button>
       </div>
     </div>
   );
@@ -402,9 +413,24 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
-  const handleLogSet = async (setNum, weight, reps) => {
+  const [processingSets, setProcessingSets] = useState(new Set());
+
+  const handleLogSet = async (exerciseId, setNum, weight, reps) => {
+    const setKey = `${exerciseId}-${setNum}`;
+
+    // Prevent duplicate requests
+    if (processingSets.has(setKey)) return;
+
+    // Check if log already exists locally
+    const existingLog = workoutLogs[exerciseId]?.find(l => l.setNumber === setNum);
+    if (existingLog) return;
+
     try {
-      const currentExercise = activeWorkout.exercises[currentExerciseIndex];
+      setProcessingSets(prev => new Set(prev).add(setKey));
+
+      const currentExercise = activeWorkout.exercises.find(ex => ex.id === exerciseId);
+      if (!currentExercise) return;
+
       await axios.post(
         `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs`,
         {
@@ -428,24 +454,29 @@ function TraineeDashboard({ token, userId }) {
 
     } catch (err) {
       alert('Error logging set: ' + err.message);
+    } finally {
+      setProcessingSets(prev => {
+        const next = new Set(prev);
+        next.delete(setKey);
+        return next;
+      });
     }
   };
 
-  const handleDeleteLog = async (logId) => {
+  const handleDeleteLog = async (workoutId, exerciseId, logId) => {
     try {
-      const currentExercise = activeWorkout.exercises[currentExerciseIndex];
       await axios.delete(
-        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs/${logId}`
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs/${logId}`
       );
 
       // Refresh logs
       const response = await axios.get(
-        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs`
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs`
       );
 
       setWorkoutLogs(prev => ({
         ...prev,
-        [currentExercise.id]: response.data.logs
+        [exerciseId]: response.data.logs
       }));
 
     } catch (err) {
@@ -542,12 +573,9 @@ function TraineeDashboard({ token, userId }) {
     return (
       <ActiveWorkoutView
         activeWorkout={activeWorkout}
-        currentExerciseIndex={currentExerciseIndex}
         workoutLogs={workoutLogs}
         timer={timer}
         onExit={() => setActiveWorkout(null)}
-        onNext={nextExercise}
-        onPrev={prevExercise}
         onComplete={completeWorkout}
         onLogSet={handleLogSet}
         onDeleteLog={handleDeleteLog}
