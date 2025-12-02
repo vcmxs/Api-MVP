@@ -97,45 +97,52 @@ function Login({ onLogin, onToggle }) {
             Register here
           </button>
         </div>
-        <div className="app-info-box" style={{
+
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
           marginTop: '2rem',
-          padding: '1.5rem',
-          background: 'rgba(255, 255, 255, 0.05)',
-          borderRadius: '15px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: '400px',
-          textAlign: 'center',
-          color: 'var(--gray)'
+          flexWrap: 'wrap',
+          justifyContent: 'center'
         }}>
-          <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Welcome to Dupla! 🚀</h3>
-          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-            Bienvenido a Dupla, tu compañero ideal para rastrear tus entrenamientos y lograr tus metas de fitness.
-            Los entrenadores pueden gestionar a los alumnos, y los alumnos pueden rastrear su progreso con facilidad.
-          </p>
-          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-            Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
-          </p>
-          <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Detalles de actualización:</h3>
-          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-            Puede que al iniciar sesión por primera vez, tarde un poco en cargar los datos.
-            Esto se debe a que el servidor esta en suspension, tardara 30 segundos en iniciar.
-          </p>
-        </div>
-        <div className="app-info-box" style={{
-          marginTop: '2rem',
-          padding: '1.5rem',
-          background: 'rgba(255, 255, 255, 0.05)',
-          borderRadius: '15px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: '400px',
-          textAlign: 'center',
-          color: 'var(--gray)'
-        }}>
-          <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Detalles de actualización:</h3>
-          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-            Puede que al iniciar sesión por primera vez, tarde un poco en cargar los datos.
-            Esto se debe a que el servidor esta en suspension, tardara 30 segundos en iniciar.
-          </p>
+          <div className="app-info-box" style={{
+            padding: '1.5rem',
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: '15px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            maxWidth: '400px',
+            flex: '1',
+            minWidth: '300px',
+            textAlign: 'center',
+            color: 'var(--gray)'
+          }}>
+            <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Welcome to Dupla! 🚀</h3>
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+              Bienvenido a Dupla, tu compañero ideal para rastrear tus entrenamientos y lograr tus metas de fitness.
+              Los entrenadores pueden gestionar a los alumnos, y los alumnos pueden rastrear su progreso con facilidad.
+            </p>
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+              Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
+            </p>
+          </div>
+
+          <div className="app-info-box" style={{
+            padding: '1.5rem',
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: '15px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            maxWidth: '400px',
+            flex: '1',
+            minWidth: '300px',
+            textAlign: 'center',
+            color: 'var(--gray)'
+          }}>
+            <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Detalles de actualización:</h3>
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+              Puede que al iniciar sesión por primera vez, tarde un poco en cargar los datos.
+              Esto se debe a que el servidor esta en suspension, tardara 30 segundos en iniciar.
+            </p>
+          </div>
         </div>
       </div>
     </div>
