@@ -380,8 +380,12 @@ function CoachDashboard({ token, userId }) {
   // --- LOG EDITING LOGIC ---
   const handleUpdateLog = async (workoutId, exerciseId, logId, field, value) => {
     try {
+      // Determine which log state to use based on which workout is selected
+      const isPersonalWorkout = !!selectedPersonalWorkout;
+      const currentLogs = isPersonalWorkout ? personalWorkoutLogs : workoutLogs;
+
       // Get the current log to build the full update object
-      const currentLog = workoutLogs[exerciseId]?.find(l => l.id === logId);
+      const currentLog = currentLogs[exerciseId]?.find(l => l.id === logId);
       if (!currentLog) return;
 
       const updatedLog = { ...currentLog, [field]: value };
@@ -402,10 +406,18 @@ function CoachDashboard({ token, userId }) {
         `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs`
       );
 
-      setWorkoutLogs(prev => ({
-        ...prev,
-        [exerciseId]: response.data.logs
-      }));
+      // Update the appropriate state
+      if (isPersonalWorkout) {
+        setPersonalWorkoutLogs(prev => ({
+          ...prev,
+          [exerciseId]: response.data.logs
+        }));
+      } else {
+        setWorkoutLogs(prev => ({
+          ...prev,
+          [exerciseId]: response.data.logs
+        }));
+      }
 
     } catch (err) {
       console.error('Error updating log:', err);
@@ -415,7 +427,12 @@ function CoachDashboard({ token, userId }) {
 
   const handleAddLog = async (workoutId, exerciseId) => {
     try {
-      const currentLogs = workoutLogs[exerciseId] || [];
+      // Determine which log state to use based on which workout is selected
+      const isPersonalWorkout = !!selectedPersonalWorkout;
+      const currentLogs = isPersonalWorkout
+        ? (personalWorkoutLogs[exerciseId] || [])
+        : (workoutLogs[exerciseId] || []);
+
       const nextSetNumber = currentLogs.length > 0
         ? Math.max(...currentLogs.map(l => l.setNumber)) + 1
         : 1;
@@ -436,10 +453,18 @@ function CoachDashboard({ token, userId }) {
         `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs`
       );
 
-      setWorkoutLogs(prev => ({
-        ...prev,
-        [exerciseId]: response.data.logs
-      }));
+      // Update the appropriate state
+      if (isPersonalWorkout) {
+        setPersonalWorkoutLogs(prev => ({
+          ...prev,
+          [exerciseId]: response.data.logs
+        }));
+      } else {
+        setWorkoutLogs(prev => ({
+          ...prev,
+          [exerciseId]: response.data.logs
+        }));
+      }
 
     } catch (err) {
       console.error('Error adding log:', err);
@@ -447,6 +472,8 @@ function CoachDashboard({ token, userId }) {
     }
   };
   // -------------------------
+
+
 
   const startEditingExercise = (index, exercise) => {
     setEditingExerciseIndex(index);
@@ -795,28 +822,36 @@ function CoachDashboard({ token, userId }) {
     }
   };
 
-  const handleDeleteLog = async (logId) => {
+  const handleDeleteLog = async (workoutId, exerciseId, logId) => {
     try {
-      const currentExercise = activeWorkout.exercises[currentExerciseIndex];
+      // Determine which log state to use based on which workout is selected
+      const isPersonalWorkout = !!selectedPersonalWorkout;
+
       await axios.delete(
-        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs/${logId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs/${logId}`
       );
 
       // Refresh logs
       const response = await axios.get(
-        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${currentExercise.id}/logs`
+        `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs`
       );
 
-      setWorkoutLogs(prev => ({
-        ...prev,
-        [currentExercise.id]: response.data.logs
-      }));
+      // Update the appropriate state
+      if (isPersonalWorkout) {
+        setPersonalWorkoutLogs(prev => ({
+          ...prev,
+          [exerciseId]: response.data.logs
+        }));
+      } else {
+        setWorkoutLogs(prev => ({
+          ...prev,
+          [exerciseId]: response.data.logs
+        }));
+      }
 
     } catch (err) {
-      alert('Error deleting log: ' + err.message);
+      console.error('Error deleting log:', err);
+      alert('Failed to delete log');
     }
   };
 
@@ -1339,6 +1374,7 @@ function CoachDashboard({ token, userId }) {
                               <th>Weight</th>
                               <th>Notes</th>
                               <th>Time</th>
+                              <th>Delete</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1375,7 +1411,17 @@ function CoachDashboard({ token, userId }) {
                                     />
                                   ) : (log.notes || '-')}
                                 </td>
-                                <td>{formatTime(log.completedAt)}</td>
+                                <td>
+                                  {editingLogs && (
+                                    <button
+                                      onClick={() => handleDeleteLog(selectedWorkout.id, exercise.id, log.id)}
+                                      className="btn-danger"
+                                      style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                                    >
+                                      🗑️
+                                    </button>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -1872,6 +1918,7 @@ function CoachDashboard({ token, userId }) {
                                 <th>Weight</th>
                                 <th>Notes</th>
                                 <th>Time</th>
+                                <th>Delete</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1909,6 +1956,17 @@ function CoachDashboard({ token, userId }) {
                                     ) : (log.notes || '-')}
                                   </td>
                                   <td>{formatTime(log.loggedAt)}</td>
+                                  <td>
+                                    {editingLogs && (
+                                      <button
+                                        onClick={() => handleDeleteLog(selectedPersonalWorkout.id, exercise.id, log.id)}
+                                        className="btn-danger"
+                                        style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                                      >
+                                        🗑️
+                                      </button>
+                                    )}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2353,3 +2411,5 @@ function CoachDashboard({ token, userId }) {
 }
 
 export default CoachDashboard;
+
+
