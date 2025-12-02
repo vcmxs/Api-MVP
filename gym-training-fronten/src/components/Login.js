@@ -109,8 +109,16 @@ function Login({ onLogin, onToggle }) {
         }}>
           <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Welcome to Dupla! 🚀</h3>
           <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-            Your ultimate companion for tracking workouts and achieving your fitness goals.
-            Coaches can manage trainees, and trainees can track their progress with ease.
+            Bienvenido a Dupla, tu compañero ideal para rastrear tus entrenamientos y lograr tus metas de fitness.
+            Los entrenadores pueden gestionar a los alumnos, y los alumnos pueden rastrear su progreso con facilidad.
+          </p>
+          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+            Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
+          </p>
+          <h3 style={{ color: 'var(--light)', marginBottom: '0.5rem' }}>Detalles de actualización:</h3>
+          <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+            Puede que al iniciar sesión por primera vez, tarde un poco en cargar los datos.
+            Esto se debe a que el servidor esta en suspension, tardara 30 segundos en iniciar.
           </p>
         </div>
       </div>
