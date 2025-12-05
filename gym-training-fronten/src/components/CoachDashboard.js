@@ -313,13 +313,11 @@ function CoachDashboard({ token, userId }) {
     weightUnit: 'kg',
     notes: ''
   });
-
   // --- START EXERCISE HISTORY LOGIC ---
   const [exerciseHistory, setExerciseHistory] = useState([]);
 
   useEffect(() => {
     const fetchHistory = async () => {
-      // Only fetch if we have an exercise name and a trainee selected
       if (!newExercise.name || !formData.traineeId) {
         setExerciseHistory([]);
         return;
@@ -329,8 +327,34 @@ function CoachDashboard({ token, userId }) {
         const response = await axios.get(`${API_URL}/workout-plans/users/${formData.traineeId}/progression`, {
           params: { exercise: newExercise.name }
         });
-        // Get the last 3 logs and reverse them to show newest first
-        const history = response.data.progression?.slice(-3).reverse() || [];
+
+        // Group logs by date
+        const rawLogs = response.data.progression || [];
+        const groupedLogs = rawLogs.reduce((acc, log) => {
+          // Create a date string (e.g., "12/5/2025")
+          const date = new Date(log.date).toLocaleDateString();
+
+          if (!acc[date]) {
+            acc[date] = {
+              date: log.date,
+              sets: 0,
+              reps: [],
+              weights: []
+            };
+          }
+
+          acc[date].sets += 1;
+          acc[date].reps.push(log.reps);
+          acc[date].weights.push(log.weight);
+          return acc;
+        }, {});
+
+        // Convert back to array, sort by date, and take last 3 days
+        const history = Object.values(groupedLogs)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(-3)
+          .reverse();
+
         setExerciseHistory(history);
       } catch (err) {
         console.error('Error fetching exercise history:', err);
@@ -1704,13 +1728,15 @@ function CoachDashboard({ token, userId }) {
                           {newExercise.name ? (
                             exerciseHistory.length > 0 ? (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                {exerciseHistory.map((log, idx) => (
+                                {exerciseHistory.map((dayLog, idx) => (
                                   <div key={idx} style={{ fontSize: '0.9rem' }}>
                                     <div style={{ opacity: 0.6, fontSize: '0.8rem', marginBottom: '2px' }}>
-                                      {new Date(log.date).toLocaleDateString()}
+                                      {new Date(dayLog.date).toLocaleDateString()}
                                     </div>
                                     <div style={{ fontWeight: 'bold' }}>
-                                      Sets: {log.sets} • Reps: {log.reps} • Weight: {log.weight}kg
+                                      Sets: {dayLog.sets} •
+                                      Reps: {dayLog.reps.join('-')} •
+                                      Weight: {dayLog.weights.join('-')}kg
                                     </div>
                                   </div>
                                 ))}
