@@ -318,13 +318,21 @@ function CoachDashboard({ token, userId }) {
 
   useEffect(() => {
     const fetchHistory = async () => {
-      if (!newExercise.name || !formData.traineeId) {
+      // Determine target user ID based on active tab
+      let targetUserId = null;
+      if (activeTab === 'customers') {
+        targetUserId = formData.traineeId;
+      } else if (activeTab === 'personal') {
+        targetUserId = userId; // For personal workouts, use the coach's own ID
+      }
+
+      if (!newExercise.name || !targetUserId) {
         setExerciseHistory([]);
         return;
       }
 
       try {
-        const response = await axios.get(`${API_URL}/workout-plans/users/${formData.traineeId}/progression`, {
+        const response = await axios.get(`${API_URL}/workout-plans/users/${targetUserId}/progression`, {
           params: { exercise: newExercise.name }
         });
 
@@ -363,7 +371,7 @@ function CoachDashboard({ token, userId }) {
     };
 
     fetchHistory();
-  }, [newExercise.name, formData.traineeId]);
+  }, [newExercise.name, formData.traineeId, activeTab, userId]);
   // --- END EXERCISE HISTORY LOGIC ---
 
   // Edit workout state
@@ -2174,54 +2182,95 @@ function CoachDashboard({ token, userId }) {
                       <div className="exercises-section">
                         <h4>Exercises</h4>
 
-                        <div className="exercise-input">
-                          <select
-                            value={selectedCategory}
-                            onChange={(e) => {
-                              setSelectedCategory(e.target.value);
-                              setNewExercise({ ...newExercise, name: '' });
-                            }}
-                            className="form-input"
-                          >
-                            <option value="">Select muscle category...</option>
-                            {categories.map(cat => (
-                              <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                          </select>
+                        <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                          <div className="exercise-input" style={{ flex: 1, minWidth: '300px' }}>
+                            <select
+                              value={selectedCategory}
+                              onChange={(e) => {
+                                setSelectedCategory(e.target.value);
+                                setNewExercise({ ...newExercise, name: '' });
+                              }}
+                              className="form-input"
+                            >
+                              <option value="">Select muscle category...</option>
+                              {categories.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </select>
 
-                          <select
-                            value={newExercise.name}
-                            onChange={(e) => setNewExercise({ ...newExercise, name: e.target.value })}
-                            disabled={!selectedCategory}
-                            className="form-input"
-                          >
-                            <option value="">Select exercise...</option>
-                            {filteredExercises.map(ex => (
-                              <option key={ex.id} value={ex.name}>{ex.name}</option>
-                            ))}
-                          </select>
+                            <select
+                              value={newExercise.name}
+                              onChange={(e) => setNewExercise({ ...newExercise, name: e.target.value })}
+                              disabled={!selectedCategory}
+                              className="form-input"
+                            >
+                              <option value="">Select exercise...</option>
+                              {filteredExercises.map(ex => (
+                                <option key={ex.id} value={ex.name}>{ex.name}</option>
+                              ))}
+                            </select>
 
-                          <input
-                            type="number"
-                            placeholder="Sets"
-                            value={newExercise.sets}
-                            onChange={(e) => setNewExercise({ ...newExercise, sets: parseInt(e.target.value) })}
-                          />
-                          <input
-                            type="number"
-                            placeholder="Reps"
-                            value={newExercise.reps}
-                            onChange={(e) => setNewExercise({ ...newExercise, reps: parseInt(e.target.value) })}
-                          />
-                          <input
-                            type="number"
-                            placeholder="Weight"
-                            value={newExercise.targetWeight}
-                            onChange={(e) => setNewExercise({ ...newExercise, targetWeight: parseInt(e.target.value) })}
-                          />
-                          <button type="button" onClick={addExercise} className="btn-add">
-                            Add
-                          </button>
+                            <input
+                              type="number"
+                              placeholder="Sets"
+                              value={newExercise.sets}
+                              onChange={(e) => setNewExercise({ ...newExercise, sets: parseInt(e.target.value) })}
+                            />
+                            <input
+                              type="number"
+                              placeholder="Reps"
+                              value={newExercise.reps}
+                              onChange={(e) => setNewExercise({ ...newExercise, reps: parseInt(e.target.value) })}
+                            />
+                            <input
+                              type="number"
+                              placeholder="Weight"
+                              value={newExercise.targetWeight}
+                              onChange={(e) => setNewExercise({ ...newExercise, targetWeight: parseInt(e.target.value) })}
+                            />
+                            <button type="button" onClick={addExercise} className="btn-add">
+                              Add
+                            </button>
+                          </div>
+
+                          {/* Right Side: History Box (Always visible) */}
+                          <div className="exercise-history-box" style={{
+                            flex: 1,
+                            minWidth: '300px',
+                            background: 'rgba(255, 255, 255, 0.05)', // Gray background matching theme
+                            padding: '1rem',
+                            borderRadius: '10px',
+                            color: 'var(--light)',
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)'
+                          }}>
+                            <h5 style={{ margin: '0 0 1rem 0', fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', color: 'var(--gray)' }}>
+                              {newExercise.name ? `${newExercise.name} History` : 'Exercise History'}
+                            </h5>
+
+                            {newExercise.name ? (
+                              exerciseHistory.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                  {exerciseHistory.map((dayLog, idx) => (
+                                    <div key={idx} style={{ fontSize: '0.9rem' }}>
+                                      <div style={{ opacity: 0.6, fontSize: '0.8rem', marginBottom: '2px' }}>
+                                        {new Date(dayLog.date).toLocaleDateString()}
+                                      </div>
+                                      <div style={{ fontWeight: 'bold' }}>
+                                        Sets: {dayLog.sets} •
+                                        Reps: {dayLog.reps.join('-')} •
+                                        Weight: {dayLog.weights.join('-')}kg
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p style={{ margin: 0, fontStyle: 'italic', opacity: 0.6, fontSize: '0.9rem' }}>No history found for this exercise.</p>
+                              )
+                            ) : (
+                              <p style={{ margin: 0, fontStyle: 'italic', opacity: 0.6, fontSize: '0.9rem' }}>Select an exercise to view history.</p>
+                            )}
+                          </div>
                         </div>
 
                         <div className="exercise-list">
