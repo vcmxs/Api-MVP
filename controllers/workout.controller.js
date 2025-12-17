@@ -396,6 +396,8 @@ exports.getProgression = async (req, res) => {
                 date: log.completed_at || log.scheduled_date,
                 weight: parseFloat(log.weight_used),
                 reps: log.reps_completed,
+                setNumber: log.set_number,
+                workoutPlanId: log.workout_plan_id,
                 oneRepMax: Math.round(oneRepMax * 10) / 10 // Round to 1 decimal
             };
         });
