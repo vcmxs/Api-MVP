@@ -6,7 +6,7 @@ import ProgressionChart from './ProgressionChart';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
 
 // Helper component for Set Row
-const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onDelete }) => {
+const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLog, onLog, onDelete }) => {
   const [weightInput, setWeightInput] = useState(log ? log.weightUsed : targetWeight);
   const [repsInput, setRepsInput] = useState(log ? log.repsCompleted : targetReps);
 
@@ -33,7 +33,7 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
     }}>
       <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--light)', fontSize: '1.1rem' }}>{setNum}</div>
       <div style={{ textAlign: 'center', color: 'var(--gray)', fontSize: '0.9rem' }}>
-        {targetWeight}kg x {targetReps}
+        {previousLog ? `${previousLog.weight}kg x ${previousLog.reps}` : '-'}
       </div>
       <div>
         <input
@@ -101,6 +101,7 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
 const ActiveWorkoutView = ({
   activeWorkout,
   workoutLogs,
+  activeWorkoutHistory,
   timer,
   onExit,
   onComplete,
@@ -203,6 +204,10 @@ const ActiveWorkoutView = ({
                 const log = getSetLog(exercise.id, setNum);
                 const isCompleted = !!log;
 
+                // Get previous log for this specific set
+                const exerciseHistory = activeWorkoutHistory ? activeWorkoutHistory[exercise.id] : [];
+                const previousLog = exerciseHistory ? exerciseHistory.find(l => l.setNumber === setNum) : null;
+
                 return (
                   <SetRow
                     key={setNum}
@@ -211,6 +216,7 @@ const ActiveWorkoutView = ({
                     isCompleted={isCompleted}
                     targetWeight={exercise.targetWeight}
                     targetReps={exercise.reps}
+                    previousLog={previousLog}
                     onLog={(s, w, r) => onLogSet(exercise.id, s, w, r)}
                     onDelete={(logId) => onDeleteLog(activeWorkout.id, exercise.id, logId)}
                   />
@@ -385,6 +391,7 @@ function CoachDashboard({ token, userId }) {
 
   // Active workout state
   const [activeWorkout, setActiveWorkout] = useState(null);
+  const [activeWorkoutHistory, setActiveWorkoutHistory] = useState({}); // Stores previous logs per exercise
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [timer, setTimer] = useState('00:00:00');
 
@@ -401,6 +408,53 @@ function CoachDashboard({ token, userId }) {
     }
     return () => clearInterval(interval);
   }, [activeWorkout]);
+
+  // Fetch previous history for active workout exercises
+  useEffect(() => {
+    const fetchActiveWorkoutHistory = async () => {
+      if (!activeWorkout) {
+        setActiveWorkoutHistory({});
+        return;
+      }
+
+      const historyData = {};
+      const targetUserId = activeWorkout.traineeId || userId;
+
+      for (const exercise of activeWorkout.exercises) {
+        try {
+          const response = await axios.get(`${API_URL}/workout-plans/users/${targetUserId}/progression`, {
+            params: { exercise: exercise.name }
+          });
+
+          const rawLogs = response.data.progression || [];
+
+          // Filter out logs from the current workout (if any exist)
+          const previousLogs = rawLogs.filter(log => log.workoutPlanId !== activeWorkout.id);
+
+          if (previousLogs.length > 0) {
+            // Group by date/workoutPlanId to find the last complete session
+            // We want the most recent previous session's logs
+            // Sort by date descending
+            previousLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // Get the ID of the most recent workout plan in the history
+            const lastWorkoutId = previousLogs[0].workoutPlanId;
+
+            // Get all logs from that workout
+            const lastSessionLogs = previousLogs.filter(l => l.workoutPlanId === lastWorkoutId);
+
+            // Store them
+            historyData[exercise.id] = lastSessionLogs.sort((a, b) => a.setNumber - b.setNumber);
+          }
+        } catch (err) {
+          console.error(`Error fetching history for ${exercise.name}:`, err);
+        }
+      }
+      setActiveWorkoutHistory(historyData);
+    };
+
+    fetchActiveWorkoutHistory();
+  }, [activeWorkout, userId]);
 
   const addExercise = () => {
     if (activeTab === 'customers') {
@@ -1345,6 +1399,7 @@ function CoachDashboard({ token, userId }) {
       <ActiveWorkoutView
         activeWorkout={activeWorkout}
         workoutLogs={workoutLogs}
+        activeWorkoutHistory={activeWorkoutHistory}
         timer={timer}
         onExit={() => setActiveWorkout(null)}
         onComplete={completeWorkout}
