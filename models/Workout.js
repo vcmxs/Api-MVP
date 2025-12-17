@@ -298,7 +298,9 @@ class Workout {
                 el.weight_used, 
                 el.reps_completed, 
                 el.completed_at,
-                wp.scheduled_date
+                el.set_number,
+                wp.scheduled_date,
+                wp.id as workout_plan_id
              FROM exercise_logs el
              JOIN exercises e ON el.exercise_id = e.id
              JOIN workout_plans wp ON e.workout_plan_id = wp.id
