@@ -249,10 +249,6 @@ const ActiveWorkoutView = ({
           Complete Workout 🎉
         </button>
       </div>
-      <div style={{ marginTop: '2rem', padding: '1rem', background: '#333', color: '#0f0', borderRadius: '10px', fontSize: '10px', overflowX: 'auto' }}>
-        <strong>DEBUG INFO (Please screenshot this):</strong>
-        <pre>{JSON.stringify(activeWorkoutHistory, null, 2)}</pre>
-      </div>
     </div>
   );
 };
@@ -429,29 +425,50 @@ function CoachDashboard({ token, userId }) {
           const response = await axios.get(`${API_URL}/workout-plans/users/${targetUserId}/progression`, {
             params: {
               exercise: exercise.name,
-              _: new Date().getTime() // Cache buster to prevent 304 responses
+              _: new Date().getTime()
             }
           });
 
           const rawLogs = response.data.progression || [];
 
-          // Filter out logs from the current workout (if any exist)
-          const previousLogs = rawLogs.filter(log => String(log.workoutPlanId) !== String(activeWorkout.id));
+          // Fallback Logic: Backend might represent old version (missing workoutPlanId/setNumber)
+          // Strategy: Group by Date (YYYY-MM-DD), find most recent previous day, infer set numbers by time.
 
-          if (previousLogs.length > 0) {
-            // Group by date/workoutPlanId to find the last complete session
-            // We want the most recent previous session's logs
-            // Sort by date descending
-            previousLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+          // 1. Group by Day
+          const logsByDay = {};
+          rawLogs.forEach(log => {
+            // Use local date string to avoid timezone splitting issues slightly, 
+            // but ISO split is safer for consistency. 
+            const dateObj = new Date(log.date);
+            const dayStr = dateObj.toISOString().split('T')[0];
+            if (!logsByDay[dayStr]) logsByDay[dayStr] = [];
+            logsByDay[dayStr].push(log);
+          });
 
-            // Get the ID of the most recent workout plan in the history
-            const lastWorkoutId = String(previousLogs[0].workoutPlanId);
+          // 2. Identify "Current" day to exclude
+          const currentDay = new Date(activeWorkout.startedAt || new Date()).toISOString().split('T')[0];
 
-            // Get all logs from that workout
-            const lastSessionLogs = previousLogs.filter(l => String(l.workoutPlanId) === lastWorkoutId);
+          // 3. Find available days (sorted newest first)
+          const distinctDays = Object.keys(logsByDay).sort((a, b) => new Date(b) - new Date(a));
 
-            // Store them
-            historyData[exercise.id] = lastSessionLogs.sort((a, b) => a.setNumber - b.setNumber);
+          // Find the first day that is strictly BEFORE the current day (or just different if we want to be loose)
+          // We'll exclude the current day.
+          const lastSessionDate = distinctDays.find(d => d !== currentDay);
+
+          if (lastSessionDate) {
+            let sessionLogs = logsByDay[lastSessionDate];
+
+            // 4. Sort logs by timestamp ascending to reconstruct set order (Set 1, Set 2...)
+            sessionLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // 5. Augment with setNumber if missing
+            const processedLogs = sessionLogs.map((log, index) => ({
+              ...log,
+              // If backend doesn't send setNumber, infer it from order
+              setNumber: log.setNumber || (index + 1)
+            }));
+
+            historyData[exercise.id] = processedLogs;
           }
         } catch (err) {
           console.error(`Error fetching history for ${exercise.name}:`, err);
