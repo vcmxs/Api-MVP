@@ -422,3 +422,4 @@ exports.getUniqueExercises = async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
+
