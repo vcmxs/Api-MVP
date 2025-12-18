@@ -249,6 +249,10 @@ const ActiveWorkoutView = ({
           Complete Workout 🎉
         </button>
       </div>
+      <div style={{ marginTop: '2rem', padding: '1rem', background: '#333', color: '#0f0', borderRadius: '10px', fontSize: '10px', overflowX: 'auto' }}>
+        <strong>DEBUG INFO (Please screenshot this):</strong>
+        <pre>{JSON.stringify(activeWorkoutHistory, null, 2)}</pre>
+      </div>
     </div>
   );
 };
