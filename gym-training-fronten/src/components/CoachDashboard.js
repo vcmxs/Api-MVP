@@ -422,18 +422,17 @@ function CoachDashboard({ token, userId }) {
 
       for (const exercise of activeWorkout.exercises) {
         try {
-          console.log(`[DEBUG] Fetching history for: ${exercise.name}, User: ${targetUserId}`);
           const response = await axios.get(`${API_URL}/workout-plans/users/${targetUserId}/progression`, {
-            params: { exercise: exercise.name }
+            params: {
+              exercise: exercise.name,
+              _: new Date().getTime() // Cache buster to prevent 304 responses
+            }
           });
 
           const rawLogs = response.data.progression || [];
-          console.log(`[DEBUG] Raw logs found for ${exercise.name}:`, rawLogs);
 
           // Filter out logs from the current workout (if any exist)
-          // We assume workoutPlanId is now available from the backend update
           const previousLogs = rawLogs.filter(log => String(log.workoutPlanId) !== String(activeWorkout.id));
-          console.log(`[DEBUG] Previous logs (excluding current for ${exercise.name}):`, previousLogs);
 
           if (previousLogs.length > 0) {
             // Group by date/workoutPlanId to find the last complete session
@@ -441,24 +440,19 @@ function CoachDashboard({ token, userId }) {
             // Sort by date descending
             previousLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            // Get the ID of the most recent workout plan in the history - Handle type safety
+            // Get the ID of the most recent workout plan in the history
             const lastWorkoutId = String(previousLogs[0].workoutPlanId);
-            console.log(`[DEBUG] Last workout ID for ${exercise.name}:`, lastWorkoutId);
 
             // Get all logs from that workout
             const lastSessionLogs = previousLogs.filter(l => String(l.workoutPlanId) === lastWorkoutId);
-            console.log(`[DEBUG] Logs for last session (${exercise.name}):`, lastSessionLogs);
 
             // Store them
             historyData[exercise.id] = lastSessionLogs.sort((a, b) => a.setNumber - b.setNumber);
-          } else {
-            console.log(`[DEBUG] No previous logs found for ${exercise.name}`);
           }
         } catch (err) {
-          console.error(`[DEBUG] Error fetching history for ${exercise.name}:`, err);
+          console.error(`Error fetching history for ${exercise.name}:`, err);
         }
       }
-      console.log('[DEBUG] Final History Data:', historyData);
       setActiveWorkoutHistory(historyData);
     };
 
