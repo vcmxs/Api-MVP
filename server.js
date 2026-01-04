@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 // Import modular routes
@@ -9,6 +10,30 @@ const apiRoutes = require('./routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Rate limiting configuration
+// General API rate limiter - 100 requests per 15 minutes per IP
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many requests from this IP, please try again after 15 minutes.'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Stricter rate limiter for authentication endpoints - 5 attempts per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login attempts per windowMs
+  message: {
+    error: 'Too Many Login Attempts',
+    message: 'Too many login attempts from this IP, please try again after 15 minutes.'
+  },
+  skipSuccessfulRequests: true, // Don't count successful requests
+});
 
 // Middleware
 app.use(cors({
@@ -20,6 +45,13 @@ app.use(express.json());
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Apply rate limiting to all API routes
+app.use('/api/v1', apiLimiter);
+
+// Apply stricter rate limiting to auth routes
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
 
 // Mount API routes
 app.use('/api/v1', apiRoutes);
