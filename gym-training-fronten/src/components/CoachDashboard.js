@@ -3,7 +3,7 @@ import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
 
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLog, onLog, onDelete }) => {
@@ -2659,3 +2659,4 @@ function CoachDashboard({ token, userId }) {
 }
 
 export default CoachDashboard;
+
