@@ -3,7 +3,7 @@ import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
 
-const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
 
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onDelete }) => {
@@ -249,6 +249,8 @@ const ActiveWorkoutView = ({
 };
 
 function TraineeDashboard({ token, userId }) {
+  console.log('TraineeDashboard RENDER', { token, userId }); // DEBUG
+
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
@@ -263,6 +265,7 @@ function TraineeDashboard({ token, userId }) {
   const [progressionData, setProgressionData] = useState([]);
 
   useEffect(() => {
+    console.log('TraineeDashboard MOUNTED'); // DEBUG
     loadWorkouts();
     loadUniqueExercises();
   }, []);
@@ -271,7 +274,7 @@ function TraineeDashboard({ token, userId }) {
   const loadUniqueExercises = async () => {
     try {
       const response = await axios.get(`${API_URL}/workout-plans/users/${userId}/exercises`);
-      setUniqueExercises(response.data.exercises);
+      setUniqueExercises(response.data.exercises || []);
     } catch (err) {
       console.error('Error loading unique exercises:', err);
     }
@@ -312,7 +315,7 @@ function TraineeDashboard({ token, userId }) {
   const loadWorkouts = async () => {
     try {
       const response = await axios.get(`${API_URL}/trainees/${userId}/workout-plans`);
-      setWorkoutPlans(response.data.workoutPlans);
+      setWorkoutPlans(response.data.workoutPlans || []);
     } catch (err) {
       alert('Error loading workouts: ' + err.message);
     }
@@ -726,7 +729,7 @@ function TraineeDashboard({ token, userId }) {
 
       {activeTab === 'workouts' && (
         <div className="workout-plans">
-          {workoutPlans.length === 0 ? (
+          {workoutPlans?.length === 0 ? (
             <p>No workout plans assigned yet.</p>
           ) : (
             workoutPlans.map((plan) => (
@@ -812,6 +815,5 @@ function TraineeDashboard({ token, userId }) {
     </div>
   );
 }
-
 
 export default TraineeDashboard; 
