@@ -147,7 +147,7 @@ const ActiveWorkoutView = ({
       </div>
 
       <div className="exercises-list">
-        {activeWorkout.exercises.map((exercise, index) => (
+        {activeWorkout.exercises?.map((exercise, index) => (
           <div key={exercise.id} className="active-workout-card" style={{ marginBottom: '3rem' }}>
             <div className="exercise-progress" style={{ marginBottom: '2rem', textAlign: 'center' }}>
               <h2 style={{
@@ -737,7 +737,7 @@ function TraineeDashboard({ token, userId }) {
                 <h3>{plan.name}</h3>
                 <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
                 <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
-                <p>{plan.exercises.length} exercises</p>
+                <p>{plan.exercises?.length || 0} exercises</p>
                 {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
 
                 {plan.status === 'assigned' && (
@@ -817,3 +817,4 @@ function TraineeDashboard({ token, userId }) {
 }
 
 export default TraineeDashboard; 
+
