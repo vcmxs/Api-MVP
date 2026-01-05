@@ -253,7 +253,9 @@ const ActiveWorkoutView = ({
   );
 };
 
-function CoachDashboard({ token, userId }) {
+const CoachDashboard = ({ token, userId }) => {
+  // Use Railway Production URL
+  const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
   // Tab state
   const [activeTab, setActiveTab] = useState('customers');
 
@@ -2638,3 +2640,4 @@ function CoachDashboard({ token, userId }) {
 }
 
 export default CoachDashboard;
+
