@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
 
 function Register({ onRegister, onToggle }) {
   const [formData, setFormData] = useState({
@@ -291,5 +291,6 @@ function Register({ onRegister, onToggle }) {
     </div>
   );
 }
+
 
 export default Register;
