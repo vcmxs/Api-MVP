@@ -315,6 +315,7 @@ function TraineeDashboard({ token, userId }) {
   const loadWorkouts = async () => {
     try {
       const response = await axios.get(`${API_URL}/trainees/${userId}/workout-plans`);
+      console.log('API Response:', response.data); // DEBUG
       setWorkoutPlans(response.data.workoutPlans || []);
     } catch (err) {
       alert('Error loading workouts: ' + err.message);
@@ -817,3 +818,4 @@ function TraineeDashboard({ token, userId }) {
 }
 
 export default TraineeDashboard; 
+
