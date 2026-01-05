@@ -25,6 +25,7 @@ const apiLimiter = rateLimit({
 });
 
 // Stricter rate limiter for authentication endpoints - 5 attempts per 15 minutes
+/*
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 login attempts per windowMs
@@ -34,6 +35,7 @@ const authLimiter = rateLimit({
   },
   skipSuccessfulRequests: true, // Don't count successful requests
 });
+*/
 
 // Middleware
 app.use(cors({
