@@ -209,8 +209,20 @@ class Workout {
     }
 
     /**
-     * Log exercise set
+     * Update exercise (e.g. notes)
      */
+    static async updateExercise(exerciseId, data) {
+        const { notes } = data;
+        const result = await pool.query(
+            `UPDATE exercises 
+             SET notes = $1
+             WHERE id = $2
+             RETURNING *`,
+            [notes, exerciseId]
+        );
+        return result.rows[0];
+    }
+
     /**
      * Log exercise set
      */
