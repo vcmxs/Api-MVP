@@ -255,6 +255,27 @@ exports.deleteExercise = async (req, res) => {
 };
 
 /**
+ * Update exercise details (notes)
+ */
+exports.updateExercise = async (req, res) => {
+    try {
+        const { notes } = req.body;
+        const { exerciseId } = req.params;
+
+        const exercise = await Workout.updateExercise(exerciseId, { notes });
+
+        if (!exercise) {
+            return res.status(404).json({ error: 'Not Found', message: 'Exercise not found' });
+        }
+
+        res.json({ exercise });
+    } catch (err) {
+        console.error('Update exercise error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
  * Log exercise set
  */
 exports.logExerciseSet = async (req, res) => {
