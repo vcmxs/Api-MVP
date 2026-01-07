@@ -117,6 +117,21 @@ exports.getUserProfile = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
+        // If user is a trainee, fetch assigned coach
+        if (user.role === 'trainee') {
+            const coachResult = await pool.query(
+                `SELECT u.name as coach_name 
+                 FROM users u 
+                 INNER JOIN coach_trainee ct ON u.id = ct.coach_id 
+                 WHERE ct.trainee_id = $1`,
+                [req.params.userId]
+            );
+
+            if (coachResult.rows.length > 0) {
+                user.assigned_coach = coachResult.rows[0].coach_name;
+            }
+        }
+
         res.json(user);
     } catch (err) {
         console.error('Get profile error:', err);
