@@ -156,6 +156,12 @@ body::before {
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
 }
 
+/* Exercise Input Form Styles */
+.exercise-input select,
+.exercise-input input {
+  margin-bottom: 0.5rem;
+}
+
 /* Cards (Glassmorphism) - Mobile App Consistency */
 .workout-card,
 .exercise-detail-card,
