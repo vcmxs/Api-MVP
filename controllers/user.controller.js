@@ -76,16 +76,16 @@ exports.assignTrainee = async (req, res) => {
             });
         }
 
-        // Check if already assigned
+        // Check if trainee is already assigned to ANY coach
         const existingResult = await pool.query(
-            'SELECT id FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2',
-            [coachId, trainee.id]
+            'SELECT id FROM coach_trainee WHERE trainee_id = $1',
+            [trainee.id]
         );
 
         if (existingResult.rows.length > 0) {
             return res.status(409).json({
                 error: 'Conflict',
-                message: 'Trainee is already assigned to you'
+                message: 'This trainee is already assigned to a coach. They must leave their current coach before you can add them.'
             });
         }
 
@@ -188,3 +188,35 @@ exports.updateProfilePicture = async (req, res) => {
     }
 };
 
+
+/**
+ * Remove coach-trainee connection
+ */
+exports.removeConnection = async (req, res) => {
+    const { userId } = req.params; // The user initiating the removal
+    const { targetId } = req.body; // The other user to disconnect from
+
+    try {
+        // We need to know who is who.
+        // If userId is coach, targetId is trainee.
+        // If userId is trainee, targetId is coach (or implied if they only have one).
+
+        // Perform deletion matching either combination
+        const result = await pool.query(
+            `DELETE FROM coach_trainee 
+             WHERE (coach_id = $1 AND trainee_id = $2) 
+                OR (coach_id = $2 AND trainee_id = $1)
+             RETURNING id`,
+            [userId, targetId]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
+        }
+
+        res.json({ message: 'Connection removed successfully' });
+    } catch (err) {
+        console.error('Remove connection error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
