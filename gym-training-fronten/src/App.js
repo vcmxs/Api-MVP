@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Login from './components/Login';
@@ -46,7 +48,19 @@ function App() {
   return (
     <div className="App">
       <header className="app-header">
-        <h1>💪 DUPLA</h1>
+        <h1>
+          <img
+            src="/icon.png"
+            alt="Dupla"
+            style={{
+              width: '32px',
+              height: '32px',
+              verticalAlign: 'middle',
+              marginRight: '10px'
+            }}
+          />
+          DUPLA
+        </h1>
         {user && (
           <div className="user-info">
             <span>Welcome, {user.name} ({user.role})</span>
