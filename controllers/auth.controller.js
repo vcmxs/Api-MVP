@@ -1,5 +1,6 @@
 // controllers/auth.controller.js
 const User = require('../models/User');
+const pool = require('../config/database');
 
 /**
  * Register a new user
@@ -131,6 +132,22 @@ exports.login = async (req, res) => {
                 error: 'Unauthorized',
                 message: 'Incorrect password'
             });
+        }
+
+        // Check for subscription expiration
+        if (userByEmail.subscription_status === 'active' && userByEmail.subscription_end_date) {
+            const endDate = new Date(userByEmail.subscription_end_date);
+            if (endDate < new Date()) {
+                console.log(`Subscription expired for user ${userByEmail.id}. Downgrading to free/starter.`);
+                // Downgrade user
+                await pool.query(
+                    "UPDATE users SET subscription_status = 'free', subscription_tier = 'starter' WHERE id = $1",
+                    [userByEmail.id]
+                );
+                // Update local object so response is correct
+                userByEmail.subscription_status = 'free';
+                userByEmail.subscription_tier = 'starter';
+            }
         }
 
         const user = userByEmail;
