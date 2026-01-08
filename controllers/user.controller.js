@@ -1,6 +1,7 @@
 // controllers/user.controller.js
 const User = require('../models/User');
 const pool = require('../config/database');
+const { getTraineeLimit, getTierInfo } = require('../config/subscriptionTiers');
 
 /**
  * Get user details
@@ -59,58 +60,39 @@ exports.assignTrainee = async (req, res) => {
     }
 
     try {
-        // Find trainee by email
-        const trainee = await User.findByEmail(email);
-
-        if (!trainee) {
-            return res.status(404).json({
-                error: 'Not Found',
-                message: 'No user found with that email'
-            });
-        }
-
-        if (trainee.role !== 'trainee') {
-            return res.status(400).json({
-                error: 'Bad Request',
-                message: 'User is not a trainee'
-            });
-        }
-
-        // Check if trainee is already assigned to ANY coach
-        const existingResult = await pool.query(
-            'SELECT id FROM coach_trainee WHERE trainee_id = $1',
-            [trainee.id]
+        // 1. Check Coach's Subscription Limit
+        const coachProfile = await pool.query(
+            'SELECT subscription_status, subscription_tier FROM users WHERE id = $1',
+            [coachId]
         );
 
-        if (existingResult.rows.length > 0) {
-            return res.status(409).json({
-                error: 'Conflict',
-                message: 'This trainee is already assigned to a coach. They must leave their current coach before you can add them.'
-            });
+        if (coachProfile.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Coach not found' });
         }
 
-        // Assign trainee to coach
-        await pool.query(
-            'INSERT INTO coach_trainee (coach_id, trainee_id) VALUES ($1, $2)',
-            [coachId, trainee.id]
+        const { subscription_status, subscription_tier } = coachProfile.rows[0];
+
+        // Only enforce limits if subscription is 'active' (or we can enforce for all, assuming free is restricted)
+        // Default to 'starter' if no tier set
+        const currentTier = subscription_tier || 'starter';
+        const maxTrainees = getTraineeLimit(currentTier);
+
+        const currentTraineeCountResult = await pool.query(
+            'SELECT COUNT(*) FROM coach_trainee WHERE coach_id = $1',
+            [coachId]
         );
+        const currentCount = parseInt(currentTraineeCountResult.rows[0].count);
 
-        res.status(201).json({
-            id: trainee.id,
-            name: trainee.name,
-            email: trainee.email
-        });
-    } catch (err) {
-        console.error('Assign trainee error:', err);
-        res.status(500).json({ error: 'Internal Server Error', message: err.message });
-    }
-};
-
-/**
- * Get user profile
- */
-exports.getUserProfile = async (req, res) => {
-    try {
+        if (currentCount >= maxTrainees) {
+            const tierInfo = getTierInfo(currentTier);
+            return res.status(403).json({
+                error: 'Limit Reached',
+                message: `Your ${tierInfo?.name || currentTier} plan is limited to ${maxTrainees} trainee${maxTrainees > 1 ? 's' : ''}. Upgrade your subscription to add more.`,
+                currentCount,
+                maxAllowed: maxTrainees,
+                tier: currentTier
+            });
+        }
         const user = await User.findById(req.params.userId);
 
         if (!user) {

@@ -1,5 +1,6 @@
 // controllers/admin.controller.js
 const pool = require('../config/database');
+const { SUBSCRIPTION_TIERS, isValidTier } = require('../config/subscriptionTiers');
 
 /**
  * Get all users (Admin only)
@@ -69,14 +70,24 @@ exports.updateUserRole = async (req, res) => {
 /**
  * Update user subscription status (Admin only)
  */
+/**
+ * Update user subscription status and tier (Admin only)
+ */
 exports.updateSubscription = async (req, res) => {
     try {
-        const { status } = req.body;
+        const { status, tier } = req.body;
 
-        if (!['free', 'active'].includes(status)) {
+        if (status && !['free', 'active'].includes(status)) {
             return res.status(400).json({
                 error: 'Bad Request',
                 message: 'Status must be "free" or "active"'
+            });
+        }
+
+        if (tier && !isValidTier(tier)) {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid subscription tier'
             });
         }
 
@@ -93,18 +104,47 @@ exports.updateSubscription = async (req, res) => {
         if (userCheck.rows[0].role !== 'coach') {
             return res.status(400).json({
                 error: 'Bad Request',
-                message: 'Subscription status can only be changed for coaches'
+                message: 'Subscription can only be changed for coaches'
             });
         }
 
-        const result = await pool.query(
-            'UPDATE users SET subscription_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, name, email, role, subscription_status',
-            [status, req.params.userId]
-        );
+        // Build dynamic query
+        let query = 'UPDATE users SET updated_at = CURRENT_TIMESTAMP';
+        const values = [];
+        let valueIndex = 1;
+
+        if (status) {
+            query += `, subscription_status = $${valueIndex}`;
+            values.push(status);
+            valueIndex++;
+        }
+
+        if (tier) {
+            query += `, subscription_tier = $${valueIndex}`;
+            values.push(tier);
+            valueIndex++;
+        }
+
+        query += ` WHERE id = $${valueIndex} RETURNING id, name, email, role, subscription_status, subscription_tier`;
+        values.push(req.params.userId);
+
+        const result = await pool.query(query, values);
 
         res.json({ user: result.rows[0] });
     } catch (err) {
         console.error('Update subscription error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
+ * Get available subscription tiers (Admin only)
+ */
+exports.getSubscriptionTiers = async (req, res) => {
+    try {
+        res.json({ tiers: SUBSCRIPTION_TIERS });
+    } catch (err) {
+        console.error('Get subscription tiers error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
