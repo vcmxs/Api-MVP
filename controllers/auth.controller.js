@@ -177,6 +177,7 @@ exports.login = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 subscriptionStatus: user.subscription_status,
+                subscriptionTier: user.subscription_tier,
                 status: user.status
             }
         };
