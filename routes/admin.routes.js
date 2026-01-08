@@ -12,6 +12,7 @@ router.patch('/users/:userId/role', requireAdmin, adminController.updateUserRole
 router.patch('/users/:userId/subscription', requireAdmin, adminController.updateSubscription);
 router.patch('/users/:userId/block', requireAdmin, adminController.blockUser);
 router.delete('/users/:userId', requireAdmin, adminController.deleteUser);
+router.get('/subscription/tiers', requireAdmin, adminController.getSubscriptionTiers);
 router.get('/stats', requireAdmin, adminController.getStats);
 
 module.exports = router;
