@@ -117,6 +117,11 @@ exports.updateSubscription = async (req, res) => {
             query += `, subscription_status = $${valueIndex}`;
             values.push(status);
             valueIndex++;
+
+            // If activating subscription, set start/end dates (default 30 days)
+            if (status === 'active') {
+                query += `, subscription_start_date = CURRENT_DATE, subscription_end_date = CURRENT_DATE + INTERVAL '30 days'`;
+            }
         }
 
         if (tier) {
