@@ -93,7 +93,7 @@ exports.updateSubscription = async (req, res) => {
 
         // Check if user is a coach
         const userCheck = await pool.query(
-            'SELECT role FROM users WHERE id = $1',
+            'SELECT role, subscription_status, subscription_start_date FROM users WHERE id = $1',
             [req.params.userId]
         );
 
@@ -101,7 +101,9 @@ exports.updateSubscription = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
-        if (userCheck.rows[0].role !== 'coach') {
+        const currentUser = userCheck.rows[0];
+
+        if (currentUser.role !== 'coach') {
             return res.status(400).json({
                 error: 'Bad Request',
                 message: 'Subscription can only be changed for coaches'
@@ -109,19 +111,33 @@ exports.updateSubscription = async (req, res) => {
         }
 
         // Build dynamic query
-        let query = 'UPDATE users SET updated_at = CURRENT_TIMESTAMP';
+        let query = 'UPDATE users SET updated_at = NOW()';
         const values = [];
         let valueIndex = 1;
+        let shouldUpdateDates = false;
+
+        // Determine if logic suggests we should update dates
+        const newStatus = status ? status.toLowerCase() : null;
+        const currentStatus = currentUser.subscription_status;
+        const hasDates = !!currentUser.subscription_start_date;
+
+        // Logic: Update dates if:
+        // 1. Status is being set to 'active' explicitly
+        // 2. Status is NOT changing, but is already 'active', AND dates are missing (self-healing)
+        if (newStatus === 'active') {
+            shouldUpdateDates = true;
+        } else if (!newStatus && currentStatus === 'active' && !hasDates) {
+            shouldUpdateDates = true;
+        }
 
         if (status) {
             query += `, subscription_status = $${valueIndex}`;
-            values.push(status);
+            values.push(status.toLowerCase()); // Ensure lowercase
             valueIndex++;
+        }
 
-            // If activating subscription, set start/end dates (default 30 days)
-            if (status === 'active') {
-                query += `, subscription_start_date = CURRENT_DATE, subscription_end_date = CURRENT_DATE + INTERVAL '30 days'`;
-            }
+        if (shouldUpdateDates) {
+            query += `, subscription_start_date = NOW(), subscription_end_date = NOW() + INTERVAL '30 days'`;
         }
 
         if (tier) {
@@ -130,7 +146,7 @@ exports.updateSubscription = async (req, res) => {
             valueIndex++;
         }
 
-        query += ` WHERE id = $${valueIndex} RETURNING id, name, email, role, subscription_status, subscription_tier`;
+        query += ` WHERE id = $${valueIndex} RETURNING id, name, email, role, subscription_status, subscription_tier, subscription_start_date, subscription_end_date`;
         values.push(req.params.userId);
 
         const result = await pool.query(query, values);
