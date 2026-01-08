@@ -187,7 +187,7 @@ exports.getUserDetails = async (req, res) => {
         // Get user with full profile
         const userResult = await pool.query(`
             SELECT id, name, email, role, age, sex, phone, gym, notes,
-                   subscription_status, subscription_tier, subscription_start_date,
+                   subscription_status, subscription_tier, subscription_start_date, subscription_end_date,
                    status, created_at, profile_pic_url
             FROM users WHERE id = $1
         `, [userId]);
@@ -210,6 +210,7 @@ exports.getUserDetails = async (req, res) => {
             subscriptionStatus: user.subscription_status,
             subscriptionTier: user.subscription_tier,
             subscriptionStartDate: user.subscription_start_date,
+            subscriptionEndDate: user.subscription_end_date,
             status: user.status,
             createdAt: user.created_at,
             profile_pic_url: user.profile_pic_url
