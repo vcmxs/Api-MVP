@@ -193,8 +193,9 @@ exports.updateProfilePicture = async (req, res) => {
  * Remove coach-trainee connection
  */
 exports.removeConnection = async (req, res) => {
-    const { userId } = req.params; // The user initiating the removal
-    const { targetId } = req.body; // The other user to disconnect from
+    const { userId, targetId } = req.params; // Get both from params now
+
+    console.log('Remove Connection Request (Params):', { userId, targetId });
 
     try {
         // We need to know who is who.
