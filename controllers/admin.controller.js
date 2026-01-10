@@ -124,9 +124,13 @@ exports.updateSubscription = async (req, res) => {
         // Logic: Update dates if:
         // 1. Status is being set to 'active' explicitly
         // 2. Status is NOT changing, but is already 'active', AND dates are missing (self-healing)
+        // 3. Tier is being changed (subscription renewal/upgrade)
         if (newStatus === 'active') {
             shouldUpdateDates = true;
         } else if (!newStatus && currentStatus === 'active' && !hasDates) {
+            shouldUpdateDates = true;
+        } else if (tier) {
+            // If tier is being changed, update dates (subscription renewal/upgrade)
             shouldUpdateDates = true;
         }
 
