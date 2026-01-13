@@ -21,7 +21,7 @@ function AdminDashboard({ token, userId, userRole }) {
         try {
             const response = await axios.get(`${API_URL}/admin/users`, {
                 headers: {
-                  Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`
                 }
             });
             setUsers(response.data.users);
@@ -44,25 +44,7 @@ function AdminDashboard({ token, userId, userRole }) {
         }
     };
 
-    const toggleSubscription = async (targetUserId, currentStatus) => {
-        const newStatus = currentStatus === 'active' ? 'free' : 'active';
-        const action = newStatus === 'active' ? 'activate' : 'deactivate';
 
-        if (!window.confirm(`Are you sure you want to ${action} this coach's subscription?`)) return;
-
-        try {
-            await axios.patch(
-                `${API_URL}/admin/users/${targetUserId}/subscription`,
-                { status: newStatus },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            alert(`Subscription ${action}d successfully!`);
-            loadUsers();
-            loadStats();
-        } catch (err) {
-            alert('Error updating subscription: ' + (err.response?.data?.message || err.message));
-        }
-    };
 
     const viewUserDetails = async (targetUserId) => {
         try {
@@ -130,6 +112,17 @@ function AdminDashboard({ token, userId, userRole }) {
             month: 'short',
             day: 'numeric'
         });
+    };
+
+    const getPlanColor = (tier) => {
+        const colors = {
+            starter: '#a0a0a0',
+            bronze: '#cd7f32',
+            silver: '#c0c0c0',
+            gold: '#ffd700',
+            olympian: '#85a9f7ff'
+        };
+        return colors[tier?.toLowerCase()] || '#a0a0a0';
     };
 
     if (loading) {
@@ -213,8 +206,7 @@ function AdminDashboard({ token, userId, userRole }) {
                             <div className="detail-section">
                                 <h4>Subscription Information</h4>
                                 <div className="profile-info-grid">
-                                    <div><strong>Status:</strong> <span className={`status-badge status-${userDetails.subscriptionStatus}`}>{userDetails.subscriptionStatus}</span></div>
-                                    <div><strong>Tier:</strong> {userDetails.subscriptionTier}</div>
+                                    <div><strong>Tier:</strong> <span style={{ color: getPlanColor(userDetails.subscriptionTier), fontWeight: 'bold' }}>{(userDetails.subscriptionTier || 'STARTER').toUpperCase()}</span></div>
                                     <div><strong>Activated:</strong> {formatDate(userDetails.subscriptionStartDate)}</div>
                                 </div>
                             </div>
@@ -248,14 +240,7 @@ function AdminDashboard({ token, userId, userRole }) {
                     )}
 
                     <div className="detail-actions">
-                        {userDetails.role === 'coach' && (
-                            <button
-                                onClick={() => toggleSubscription(userDetails.id, userDetails.subscriptionStatus)}
-                                className={userDetails.subscriptionStatus === 'active' ? 'btn-deactivate' : 'btn-activate'}
-                            >
-                                {userDetails.subscriptionStatus === 'active' ? '🔒 Deactivate Subscription' : '✅ Activate Subscription'}
-                            </button>
-                        )}
+
                         <button
                             onClick={() => blockUser(userDetails.id, userDetails.status)}
                             className={userDetails.status === 'blocked' ? 'btn-unblock' : 'btn-block'}
@@ -282,7 +267,7 @@ function AdminDashboard({ token, userId, userRole }) {
                                     <th>Email</th>
                                     <th>Role</th>
                                     <th>Status</th>
-                                    <th>Subscription</th>
+                                    <th>Plan</th>
                                     <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
@@ -304,9 +289,13 @@ function AdminDashboard({ token, userId, userRole }) {
                                             </span>
                                         </td>
                                         <td>
-                                            <span className={`status-badge status-${user.subscriptionStatus}`}>
-                                                {user.subscriptionStatus}
-                                            </span>
+                                            {user.role === 'coach' ? (
+                                                <span style={{ color: getPlanColor(user.subscriptionTier), fontWeight: 'bold' }}>
+                                                    {(user.subscriptionTier || 'STARTER').toUpperCase()}
+                                                </span>
+                                            ) : (
+                                                <span style={{ color: '#888' }}>-</span>
+                                            )}
                                         </td>
                                         <td>{formatDate(user.createdAt)}</td>
                                         <td className="action-buttons">
@@ -341,6 +330,4 @@ function AdminDashboard({ token, userId, userRole }) {
 }
 
 export default AdminDashboard;
-
-
 
