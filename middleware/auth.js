@@ -65,11 +65,24 @@ const requireActiveSubscription = async (req, res, next) => {
         try {
             const pool = require('../db');
             const result = await pool.query(
-                'SELECT subscription_status FROM users WHERE id = $1',
+                'SELECT subscription_status, subscription_tier FROM users WHERE id = $1',
                 [req.user.id]
             );
 
-            if (result.rows.length === 0 || result.rows[0].subscription_status !== 'active') {
+            if (result.rows.length === 0) {
+                return res.status(403).json({
+                    error: 'Subscription Required',
+                    message: 'User not found'
+                });
+            }
+
+            const { subscription_status, subscription_tier } = result.rows[0];
+
+            // Allow access if active OR if on starter/basic plan (which doesn't require activation)
+            const isActive = subscription_status === 'active';
+            const isStarter = subscription_tier === 'starter' || subscription_tier === 'basic' || !subscription_tier;
+
+            if (!isActive && !isStarter) {
                 return res.status(403).json({
                     error: 'Subscription Required',
                     message: 'Active subscription required to access this feature'
@@ -90,4 +103,3 @@ module.exports = {
     requireCoach,
     requireActiveSubscription
 };
-
