@@ -1775,7 +1775,6 @@ const CoachDashboard = ({ token, userId }) => {
                     <div className="form-group">
                       <label>Scheduled Date</label>
                       <div className="form-group">
-                        <label>Scheduled Date</label>
                         <div
                           className="date-picker-trigger"
                           onClick={() => openDatePicker((date) => setFormData(prev => ({ ...prev, scheduledDate: date })))}
@@ -2815,3 +2814,4 @@ const CoachDashboard = ({ token, userId }) => {
 }
 
 export default CoachDashboard;
+
