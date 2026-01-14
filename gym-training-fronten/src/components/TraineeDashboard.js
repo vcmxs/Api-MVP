@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
+import Calendar from './Calendar';
 
 const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
 
@@ -256,6 +257,7 @@ function TraineeDashboard({ token, userId }) {
   const [workoutLogs, setWorkoutLogs] = useState({});
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('workouts'); // 'workouts', 'profile', 'progression'
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
   const [timer, setTimer] = useState('00:00:00');
 
   // Progression state
@@ -706,6 +708,12 @@ function TraineeDashboard({ token, userId }) {
           🏋️ My Workouts
         </button>
         <button
+          className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('calendar')}
+        >
+          📅 My Calendar
+        </button>
+        <button
           className={`tab-button ${activeTab === 'progression' ? 'active' : ''}`}
           onClick={() => setActiveTab('progression')}
         >
@@ -766,6 +774,46 @@ function TraineeDashboard({ token, userId }) {
         </div>
       )}
 
+      {activeTab === 'calendar' && (
+        <div className="calendar-section">
+          <h2>My Calendar</h2>
+          <Calendar
+            events={workoutPlans}
+            onSelectDate={(date) => setCalendarSelectedDate(date)}
+          />
+
+          {calendarSelectedDate && (
+            <div className="selected-date-workouts">
+              <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
+              {(() => {
+                const dayEvents = workoutPlans.filter(p => {
+                  const d = new Date(p.scheduledDate);
+                  return d.getDate() === calendarSelectedDate.getDate() &&
+                    d.getMonth() === calendarSelectedDate.getMonth() &&
+                    d.getFullYear() === calendarSelectedDate.getFullYear();
+                });
+
+                if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
+
+                return dayEvents.map(plan => (
+                  <div key={plan.id} className="workout-card">
+                    <h4>{plan.name}</h4>
+                    <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
+                    <button onClick={() => {
+                      // Switch to workouts tab and view details
+                      setActiveTab('workouts');
+                      // Ideally we would auto-expand, but for now just switch
+                    }} className="btn-secondary">
+                      Go to Workout
+                    </button>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'progression' && (
         <div className="progression-section">
           <h2>Progression Tracking</h2>
@@ -815,5 +863,3 @@ function TraineeDashboard({ token, userId }) {
 }
 
 export default TraineeDashboard; 
-
-
