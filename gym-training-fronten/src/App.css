@@ -865,3 +865,118 @@ option {
     height: 120px;
   }
 }
+
+/* Calendar Component Styles */
+.calendar-container {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.calendar-header h3 {
+  color: var(--primary);
+  margin: 0;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.calendar-header .btn-icon {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--light);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  font-size: 1.2rem;
+}
+
+.calendar-header .btn-icon:hover {
+  background: var(--primary);
+  color: var(--dark);
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: bold;
+  color: var(--gray);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.calendar-day {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  min-height: 50px;
+  padding: 0.3rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.calendar-day:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
+}
+
+.calendar-day.empty {
+  background: transparent;
+  cursor: default;
+}
+
+.day-number {
+  color: var(--light);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.event-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--secondary);
+  border-radius: 50%;
+  margin-top: auto;
+  margin-bottom: 5px;
+  box-shadow: 0 0 5px var(--secondary);
+}
+
+.calendar-day.has-event {
+  border-color: rgba(255, 0, 255, 0.3);
+}
+
+.calendar-day.has-event:hover {
+  border-color: var(--secondary);
+  background: rgba(255, 0, 255, 0.1);
+}
