@@ -107,8 +107,21 @@ const ActiveWorkoutView = ({
   onExit,
   onComplete,
   onLogSet,
-  onDeleteLog
+  onDeleteLog,
+  onUpdateExercise
 }) => {
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteContent, setNoteContent] = useState('');
+
+  const startEditingNote = (exercise) => {
+    setEditingNoteId(exercise.id);
+    setNoteContent(exercise.notes || '');
+  };
+
+  const saveNote = (exercise) => {
+    onUpdateExercise(exercise.id, { notes: noteContent });
+    setEditingNoteId(null);
+  };
   const getSetLog = (exerciseId, setNum) => {
     const exerciseLogs = workoutLogs[exerciseId] || [];
     return exerciseLogs.find(log => log.setNumber === setNum);
@@ -173,11 +186,53 @@ const ActiveWorkoutView = ({
               }}>
                 Target: {exercise.sets} sets × {exercise.reps} reps @ {exercise.targetWeight}{exercise.weightUnit}
               </div>
-              {exercise.notes && (
-                <p style={{ fontStyle: 'italic', marginTop: '0.5rem', color: 'var(--gray)' }}>
-                  Notes: {exercise.notes}
-                </p>
-              )}
+              <div style={{ marginTop: '1rem', minHeight: '3rem' }}>
+                {editingNoteId === exercise.id ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+                    <textarea
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      placeholder="Add notes..."
+                      style={{
+                        padding: '0.5rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--accent)',
+                        background: 'rgba(0,0,0,0.3)',
+                        color: 'white',
+                        width: '80%',
+                        minHeight: '60px',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <button onClick={() => saveNote(exercise)} className="btn-success" style={{ padding: '0.5rem' }}>💾</button>
+                      <button onClick={() => setEditingNoteId(null)} className="btn-secondary" style={{ padding: '0.5rem' }}>❌</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => startEditingNote(exercise)}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '1rem',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '10px',
+                      border: '1px dashed rgba(255, 255, 255, 0.2)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Click to edit notes"
+                  >
+                    <p style={{
+                      margin: 0,
+                      fontSize: '1.1rem',
+                      color: exercise.notes ? 'var(--light)' : 'var(--gray)',
+                      fontStyle: exercise.notes ? 'normal' : 'italic'
+                    }}>
+                      {exercise.notes ? `📝 ${exercise.notes}` : 'Click to add notes...'}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="sets-list">
@@ -487,6 +542,32 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
+  const handleUpdateExercise = async (exerciseId, updates) => {
+    try {
+      const exercise = activeWorkout.exercises.find(ex => ex.id === exerciseId);
+      if (!exercise) return;
+
+      await axios.put(
+        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${exerciseId}`,
+        {
+          ...exercise,
+          ...updates
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update local state
+      const updatedExercises = activeWorkout.exercises.map(ex =>
+        ex.id === exerciseId ? { ...ex, ...updates } : ex
+      );
+      setActiveWorkout({ ...activeWorkout, exercises: updatedExercises });
+
+    } catch (err) {
+      console.error('Update exercise error:', err);
+      alert('Error updating exercise: ' + err.message);
+    }
+  };
+
   // --- START EDIT LOGS LOGIC ---
   const [editingLogs, setEditingLogs] = useState(false);
 
@@ -582,6 +663,7 @@ function TraineeDashboard({ token, userId }) {
         onComplete={completeWorkout}
         onLogSet={handleLogSet}
         onDeleteLog={handleDeleteLog}
+        onUpdateExercise={handleUpdateExercise}
       />
     );
   }
@@ -797,15 +879,34 @@ function TraineeDashboard({ token, userId }) {
 
                 return dayEvents.map(plan => (
                   <div key={plan.id} className="workout-card">
-                    <h4>{plan.name}</h4>
+                    <h3>{plan.name}</h3>
                     <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
-                    <button onClick={() => {
-                      // Switch to workouts tab and view details
-                      setActiveTab('workouts');
-                      // Ideally we would auto-expand, but for now just switch
-                    }} className="btn-secondary">
-                      Go to Workout
-                    </button>
+                    <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
+                    <p>{plan.exercises?.length || 0} exercises</p>
+                    {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
+
+                    {plan.status === 'assigned' && (
+                      <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                        Start Workout
+                      </button>
+                    )}
+
+                    {plan.status === 'in_progress' && (
+                      <>
+                        <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                          Resume Workout
+                        </button>
+                        <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                          View Details
+                        </button>
+                      </>
+                    )}
+
+                    {plan.status === 'completed' && (
+                      <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                        View Details
+                      </button>
+                    )}
                   </div>
                 ));
               })()}
