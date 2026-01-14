@@ -400,6 +400,28 @@ const CoachDashboard = ({ token, userId }) => {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [timer, setTimer] = useState('00:00:00');
 
+  // --- Calendar Date Picker Modal State ---
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [onDateSelect, setOnDateSelect] = useState(null); // Function to call when date is selected
+
+  const openDatePicker = (callback) => {
+    setOnDateSelect(() => callback);
+    setShowDateModal(true);
+    // Ensure workouts are loaded so the calendar shows context
+    loadAllTraineeWorkouts();
+  };
+
+  const handleDateSelect = (dateObj) => {
+    if (onDateSelect) {
+      // Convert to YYYY-MM-DD using local time logic
+      const offset = dateObj.getTimezoneOffset() * 60000;
+      const dateStr = new Date(dateObj.getTime() - offset).toISOString().split('T')[0];
+      onDateSelect(dateStr);
+    }
+    setShowDateModal(false);
+  };
+  // ----------------------------------------
+
   // Timer effect for active workout
   React.useEffect(() => {
     let interval;
@@ -1646,9 +1668,18 @@ const CoachDashboard = ({ token, userId }) => {
             <>
               <div className="dashboard-actions">
                 <button onClick={() => {
-                  setShowForm(!showForm);
-                  if (!showForm && selectedTrainee) {
-                    setFormData({ ...formData, traineeId: selectedTrainee });
+                  const nextShow = !showForm;
+                  setShowForm(nextShow);
+                  if (nextShow) {
+                    const baseDate = calendarSelectedDate || new Date();
+                    const offset = baseDate.getTimezoneOffset() * 60000;
+                    const dateStr = new Date(baseDate.getTime() - offset).toISOString().split('T')[0];
+
+                    setFormData(prev => ({
+                      ...prev,
+                      traineeId: selectedTrainee || prev.traineeId,
+                      scheduledDate: dateStr
+                    }));
                   }
                 }} className="btn-primary">
                   {showForm ? 'Cancel' : 'Create Workout Plan'}
@@ -1743,12 +1774,16 @@ const CoachDashboard = ({ token, userId }) => {
 
                     <div className="form-group">
                       <label>Scheduled Date</label>
-                      <input
-                        type="date"
-                        value={formData.scheduledDate}
-                        onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                        required
-                      />
+                      <div className="form-group">
+                        <label>Scheduled Date</label>
+                        <div
+                          className="date-picker-trigger"
+                          onClick={() => openDatePicker((date) => setFormData(prev => ({ ...prev, scheduledDate: date })))}
+                        >
+                          <span>{formData.scheduledDate || 'Select Date'}</span>
+                          <span className="icon">📅</span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="form-group">
@@ -1977,11 +2012,16 @@ const CoachDashboard = ({ token, userId }) => {
 
                   <div className="form-group">
                     <label>Scheduled Date</label>
-                    <input
-                      type="date"
-                      value={editFormData.scheduledDate}
-                      onChange={(e) => setEditFormData({ ...editFormData, scheduledDate: e.target.value })}
-                    />
+                    <div className="form-group">
+                      <label>Scheduled Date</label>
+                      <div
+                        className="date-picker-trigger"
+                        onClick={() => openDatePicker((date) => setEditFormData(prev => ({ ...prev, scheduledDate: date })))}
+                      >
+                        <span>{editFormData.scheduledDate || 'Select Date'}</span>
+                        <span className="icon">📅</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="exercises-section">
@@ -2228,7 +2268,16 @@ const CoachDashboard = ({ token, userId }) => {
             ) : (
               <>
                 <div className="dashboard-actions">
-                  <button onClick={() => setShowPersonalForm(!showPersonalForm)} className="btn-primary">
+                  <button onClick={() => {
+                    const nextShow = !showPersonalForm;
+                    setShowPersonalForm(nextShow);
+                    if (nextShow) {
+                      const baseDate = calendarSelectedDate || new Date();
+                      const offset = baseDate.getTimezoneOffset() * 60000;
+                      const dateStr = new Date(baseDate.getTime() - offset).toISOString().split('T')[0];
+                      setPersonalFormData(prev => ({ ...prev, scheduledDate: dateStr }));
+                    }
+                  }} className="btn-primary">
                     {showPersonalForm ? 'Cancel' : 'Create Personal Workout'}
                   </button>
                 </div>
@@ -2259,12 +2308,16 @@ const CoachDashboard = ({ token, userId }) => {
 
                       <div className="form-group">
                         <label>Scheduled Date</label>
-                        <input
-                          type="date"
-                          value={personalFormData.scheduledDate}
-                          onChange={(e) => setPersonalFormData({ ...personalFormData, scheduledDate: e.target.value })}
-                          required
-                        />
+                        <div className="form-group">
+                          <label>Scheduled Date</label>
+                          <div
+                            className="date-picker-trigger"
+                            onClick={() => openDatePicker((date) => setPersonalFormData(prev => ({ ...prev, scheduledDate: date })))}
+                          >
+                            <span>{personalFormData.scheduledDate || 'Select Date'}</span>
+                            <span className="icon">📅</span>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="form-group">
@@ -2736,7 +2789,28 @@ const CoachDashboard = ({ token, userId }) => {
           </div>
         )
       }
-    </div>
+
+
+      {/* Calendar Modal Picker */}
+      {
+        showDateModal && (
+          <div className="calendar-modal-overlay" onClick={() => setShowDateModal(false)}>
+            <div className="calendar-modal-content" onClick={e => e.stopPropagation()}>
+              <div className="calendar-modal-header">
+                <h3>Select Date</h3>
+                <button onClick={() => setShowDateModal(false)} className="btn-close">×</button>
+              </div>
+              <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                <Calendar
+                  events={[...personalWorkouts, ...allTraineeWorkouts]}
+                  onSelectDate={handleDateSelect}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }
 
