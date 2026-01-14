@@ -344,6 +344,18 @@ select {
   font-size: 1rem;
 }
 
+/* Fix for dark mode date picker icon */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 input:focus,
 textarea:focus,
 select:focus {
@@ -979,4 +991,101 @@ option {
 .calendar-day.has-event:hover {
   border-color: var(--secondary);
   background: rgba(255, 0, 255, 0.1);
+}
+
+/* Calendar Modal */
+.calendar-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s;
+}
+
+.calendar-modal-content {
+  background: var(--darker);
+  border: 1px solid var(--primary);
+  border-radius: 20px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 800px;
+  box-shadow: 0 0 50px rgba(0, 255, 255, 0.2);
+  transform: scale(0.95);
+  animation: scaleUp 0.3s forwards;
+}
+
+.calendar-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 1rem;
+}
+
+.calendar-modal-header h3 {
+  color: var(--primary);
+  margin: 0;
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--gray);
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.btn-close:hover {
+  color: var(--light);
+}
+
+.date-picker-trigger {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.date-picker-trigger:hover {
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+}
+
+.date-picker-trigger .icon {
+  font-size: 1.2rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    transform: scale(0.95);
+  }
+
+  to {
+    transform: scale(1);
+  }
 }
