@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
+import Calendar from './Calendar';
 
 const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
 
@@ -253,9 +254,13 @@ const ActiveWorkoutView = ({
   );
 };
 
-function CoachDashboard({ token, userId }) {
-  // Tab state
+const CoachDashboard = ({ token, userId }) => {
+  // Use Railway Production URL
+  const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
+
   const [activeTab, setActiveTab] = useState('customers');
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
+  const [allTraineeWorkouts, setAllTraineeWorkouts] = useState([]);
 
   // Customer workouts state
   const [workoutPlans, setWorkoutPlans] = useState([]);
@@ -793,6 +798,34 @@ function CoachDashboard({ token, userId }) {
       console.error('Error loading exercise logs:', err);
     }
   };
+
+  const loadAllTraineeWorkouts = async () => {
+    if (!trainees || trainees.length === 0) return;
+
+    // Optional: Avoid re-fetching if already loaded, or force refresh?
+    // For now, let's fetch fresh data to be safe.
+
+    const all = [];
+    await Promise.all(trainees.map(async (trainee) => {
+      try {
+        const res = await axios.get(`${API_URL}/trainees/${trainee.id}/workout-plans?coachId=${userId}`);
+        const plans = res.data.workoutPlans.map(p => ({
+          ...p,
+          traineeName: trainee.name // Explicitly attach name
+        }));
+        all.push(...plans);
+      } catch (e) {
+        console.error(`Error loading workouts for trainee ${trainee.id}:`, e);
+      }
+    }));
+    setAllTraineeWorkouts(all);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'calendar') {
+      loadAllTraineeWorkouts();
+    }
+  }, [activeTab, trainees]);
 
   const addTrainee = async (e) => {
     e.preventDefault();
@@ -1450,6 +1483,12 @@ function CoachDashboard({ token, userId }) {
           onClick={() => setActiveTab('personal')}
         >
           My Personal Workouts
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('calendar')}
+        >
+          📅 My Calendar
         </button>
         <button
           className={`tab-button ${activeTab === 'templates' ? 'active' : ''}`}
@@ -2488,6 +2527,49 @@ function CoachDashboard({ token, userId }) {
         )
       }
 
+      {/* Calendar Tab */}
+      {activeTab === 'calendar' && (
+        <div className="calendar-section">
+          <h2>My Calendar</h2>
+          <Calendar
+            events={[...personalWorkouts, ...allTraineeWorkouts]}
+            onSelectDate={(date) => setCalendarSelectedDate(date)}
+          />
+
+          {calendarSelectedDate && (
+            <div className="selected-date-workouts">
+              <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
+              {(() => {
+                const dayEvents = [...personalWorkouts, ...allTraineeWorkouts].filter(p => {
+                  const d = new Date(p.scheduledDate);
+                  return d.getDate() === calendarSelectedDate.getDate() &&
+                    d.getMonth() === calendarSelectedDate.getMonth() &&
+                    d.getFullYear() === calendarSelectedDate.getFullYear();
+                });
+
+                if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
+
+                return dayEvents.map(plan => (
+                  <div key={plan.id} className="workout-card">
+                    <h4>{plan.name} {plan.traineeName ? `(Trainee: ${plan.traineeName})` : '(Personal)'}</h4>
+                    <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
+                    <button onClick={() => {
+                      if (plan.traineeName) {
+                        setActiveTab('customers');
+                      } else {
+                        setActiveTab('personal');
+                      }
+                    }} className="btn-secondary">
+                      Go to Workout
+                    </button>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Templates Tab  */}
 
       {
@@ -2659,4 +2741,3 @@ function CoachDashboard({ token, userId }) {
 }
 
 export default CoachDashboard;
-
