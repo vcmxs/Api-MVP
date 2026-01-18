@@ -10,6 +10,7 @@ router.get('/:userId', userController.getUserById);
 router.get('/:userId/profile', userController.getUserProfile);
 router.put('/:userId/profile', userController.updateUserProfile);
 router.put('/:userId/profile-picture', upload.single('profilePic'), userController.updateProfilePicture);
+router.delete('/:userId/account', userController.deleteOwnAccount);
 router.delete('/:userId/connection/:targetId', userController.removeConnection);
 
 module.exports = router;
