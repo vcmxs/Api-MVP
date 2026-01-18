@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+import Calendar from './Calendar';
 
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLog, onLog, onDelete }) => {
@@ -106,8 +105,21 @@ const ActiveWorkoutView = ({
   onExit,
   onComplete,
   onLogSet,
-  onDeleteLog
+  onDeleteLog,
+  onUpdateExercise
 }) => {
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteContent, setNoteContent] = useState('');
+
+  const startEditingNote = (exercise) => {
+    setEditingNoteId(exercise.id);
+    setNoteContent(exercise.notes || '');
+  };
+
+  const saveNote = (exercise) => {
+    onUpdateExercise(exercise.id, { notes: noteContent });
+    setEditingNoteId(null);
+  };
   const getSetLog = (exerciseId, setNum) => {
     const exerciseLogs = workoutLogs[exerciseId] || [];
     return exerciseLogs.find(log => log.setNumber === setNum);
@@ -172,11 +184,53 @@ const ActiveWorkoutView = ({
               }}>
                 Target: {exercise.sets} sets × {exercise.reps} reps @ {exercise.targetWeight}{exercise.weightUnit}
               </div>
-              {exercise.notes && (
-                <p style={{ fontStyle: 'italic', marginTop: '0.5rem', color: 'var(--gray)' }}>
-                  Notes: {exercise.notes}
-                </p>
-              )}
+              <div style={{ marginTop: '1rem', minHeight: '3rem' }}>
+                {editingNoteId === exercise.id ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+                    <textarea
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      placeholder="Add notes..."
+                      style={{
+                        padding: '0.5rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--accent)',
+                        background: 'rgba(0,0,0,0.3)',
+                        color: 'white',
+                        width: '80%',
+                        minHeight: '60px',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <button onClick={() => saveNote(exercise)} className="btn-success" style={{ padding: '0.5rem' }}>💾</button>
+                      <button onClick={() => setEditingNoteId(null)} className="btn-secondary" style={{ padding: '0.5rem' }}>❌</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => startEditingNote(exercise)}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '1rem',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '10px',
+                      border: '1px dashed rgba(255, 255, 255, 0.2)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Click to edit notes"
+                  >
+                    <p style={{
+                      margin: 0,
+                      fontSize: '1.1rem',
+                      color: exercise.notes ? 'var(--light)' : 'var(--gray)',
+                      fontStyle: exercise.notes ? 'normal' : 'italic'
+                    }}>
+                      {exercise.notes ? `📝 ${exercise.notes}` : 'Click to add notes...'}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="sets-list">
@@ -256,8 +310,10 @@ const ActiveWorkoutView = ({
 const CoachDashboard = ({ token, userId }) => {
   // Use Railway Production URL
   const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
-  // Tab state
+
   const [activeTab, setActiveTab] = useState('customers');
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
+  const [allTraineeWorkouts, setAllTraineeWorkouts] = useState([]);
 
   // Customer workouts state
   const [workoutPlans, setWorkoutPlans] = useState([]);
@@ -397,6 +453,28 @@ const CoachDashboard = ({ token, userId }) => {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [timer, setTimer] = useState('00:00:00');
 
+  // --- Calendar Date Picker Modal State ---
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [onDateSelect, setOnDateSelect] = useState(null); // Function to call when date is selected
+
+  const openDatePicker = (callback) => {
+    setOnDateSelect(() => callback);
+    setShowDateModal(true);
+    // Ensure workouts are loaded so the calendar shows context
+    loadAllTraineeWorkouts();
+  };
+
+  const handleDateSelect = (dateObj) => {
+    if (onDateSelect) {
+      // Convert to YYYY-MM-DD using local time logic
+      const offset = dateObj.getTimezoneOffset() * 60000;
+      const dateStr = new Date(dateObj.getTime() - offset).toISOString().split('T')[0];
+      onDateSelect(dateStr);
+    }
+    setShowDateModal(false);
+  };
+  // ----------------------------------------
+
   // Timer effect for active workout
   React.useEffect(() => {
     let interval;
@@ -427,29 +505,50 @@ const CoachDashboard = ({ token, userId }) => {
           const response = await axios.get(`${API_URL}/workout-plans/users/${targetUserId}/progression`, {
             params: {
               exercise: exercise.name,
-              _: new Date().getTime() // Cache buster to prevent 304 responses
+              _: new Date().getTime()
             }
           });
 
           const rawLogs = response.data.progression || [];
 
-          // Filter out logs from the current workout (if any exist)
-          const previousLogs = rawLogs.filter(log => String(log.workoutPlanId) !== String(activeWorkout.id));
+          // Fallback Logic: Backend might represent old version (missing workoutPlanId/setNumber)
+          // Strategy: Group by Date (YYYY-MM-DD), find most recent previous day, infer set numbers by time.
 
-          if (previousLogs.length > 0) {
-            // Group by date/workoutPlanId to find the last complete session
-            // We want the most recent previous session's logs
-            // Sort by date descending
-            previousLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+          // 1. Group by Day
+          const logsByDay = {};
+          rawLogs.forEach(log => {
+            // Use local date string to avoid timezone splitting issues slightly, 
+            // but ISO split is safer for consistency. 
+            const dateObj = new Date(log.date);
+            const dayStr = dateObj.toISOString().split('T')[0];
+            if (!logsByDay[dayStr]) logsByDay[dayStr] = [];
+            logsByDay[dayStr].push(log);
+          });
 
-            // Get the ID of the most recent workout plan in the history
-            const lastWorkoutId = String(previousLogs[0].workoutPlanId);
+          // 2. Identify "Current" day to exclude
+          const currentDay = new Date(activeWorkout.startedAt || new Date()).toISOString().split('T')[0];
 
-            // Get all logs from that workout
-            const lastSessionLogs = previousLogs.filter(l => String(l.workoutPlanId) === lastWorkoutId);
+          // 3. Find available days (sorted newest first)
+          const distinctDays = Object.keys(logsByDay).sort((a, b) => new Date(b) - new Date(a));
 
-            // Store them
-            historyData[exercise.id] = lastSessionLogs.sort((a, b) => a.setNumber - b.setNumber);
+          // Find the first day that is strictly BEFORE the current day (or just different if we want to be loose)
+          // We'll exclude the current day.
+          const lastSessionDate = distinctDays.find(d => d !== currentDay);
+
+          if (lastSessionDate) {
+            let sessionLogs = logsByDay[lastSessionDate];
+
+            // 4. Sort logs by timestamp ascending to reconstruct set order (Set 1, Set 2...)
+            sessionLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // 5. Augment with setNumber if missing
+            const processedLogs = sessionLogs.map((log, index) => ({
+              ...log,
+              // If backend doesn't send setNumber, infer it from order
+              setNumber: log.setNumber || (index + 1)
+            }));
+
+            historyData[exercise.id] = processedLogs;
           }
         } catch (err) {
           console.error(`Error fetching history for ${exercise.name}:`, err);
@@ -500,7 +599,8 @@ const CoachDashboard = ({ token, userId }) => {
   const [editingExerciseData, setEditingExerciseData] = useState({
     sets: '',
     reps: '',
-    targetWeight: ''
+    targetWeight: '',
+    notes: ''
   });
 
   // --- LOG EDITING LOGIC ---
@@ -606,7 +706,8 @@ const CoachDashboard = ({ token, userId }) => {
     setEditingExerciseData({
       sets: exercise.sets,
       reps: exercise.reps,
-      targetWeight: exercise.targetWeight
+      targetWeight: exercise.targetWeight,
+      notes: exercise.notes || ''
     });
   };
 
@@ -622,7 +723,8 @@ const CoachDashboard = ({ token, userId }) => {
         ...updatedExercises[editingExerciseIndex],
         sets: parseInt(editingExerciseData.sets),
         reps: parseInt(editingExerciseData.reps),
-        targetWeight: parseInt(editingExerciseData.targetWeight)
+        targetWeight: parseInt(editingExerciseData.targetWeight),
+        notes: editingExerciseData.notes
       };
       setFormData({ ...formData, exercises: updatedExercises });
     } else {
@@ -631,7 +733,8 @@ const CoachDashboard = ({ token, userId }) => {
         ...updatedExercises[editingExerciseIndex],
         sets: parseInt(editingExerciseData.sets),
         reps: parseInt(editingExerciseData.reps),
-        targetWeight: parseInt(editingExerciseData.targetWeight)
+        targetWeight: parseInt(editingExerciseData.targetWeight),
+        notes: editingExerciseData.notes
       };
       setPersonalFormData({ ...personalFormData, exercises: updatedExercises });
     }
@@ -774,6 +877,40 @@ const CoachDashboard = ({ token, userId }) => {
       console.error('Error loading exercise logs:', err);
     }
   };
+
+  const loadAllTraineeWorkouts = async () => {
+    if (!trainees || trainees.length === 0) return;
+
+    // Optional: Avoid re-fetching if already loaded, or force refresh?
+    // For now, let's fetch fresh data to be safe.
+
+    const all = [];
+    await Promise.all(trainees.map(async (trainee) => {
+      try {
+        const res = await axios.get(`${API_URL}/trainees/${trainee.id}/workout-plans?coachId=${userId}`);
+        const plans = res.data.workoutPlans.map(p => ({
+          ...p,
+          traineeName: trainee.name // Explicitly attach name
+        }));
+        all.push(...plans);
+      } catch (e) {
+        console.error(`Error loading workouts for trainee ${trainee.id}:`, e);
+      }
+    }));
+    setAllTraineeWorkouts(all);
+  };
+
+  useEffect(() => {
+    if (activeView === 'exercises') {
+      loadUniqueExercises();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+  useEffect(() => {
+    if (activeTab === 'calendar') {
+      loadAllTraineeWorkouts();
+    }
+  }, [activeTab, trainees]);
 
   const addTrainee = async (e) => {
     e.preventDefault();
@@ -999,6 +1136,32 @@ const CoachDashboard = ({ token, userId }) => {
     } catch (err) {
       console.error('Error deleting log:', err);
       alert('Failed to delete log');
+    }
+  };
+
+  const handleUpdateExercise = async (exerciseId, updates) => {
+    try {
+      const exercise = activeWorkout.exercises.find(ex => ex.id === exerciseId);
+      if (!exercise) return;
+
+      await axios.put(
+        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${exerciseId}`,
+        {
+          ...exercise,
+          ...updates
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update local state
+      const updatedExercises = activeWorkout.exercises.map(ex =>
+        ex.id === exerciseId ? { ...ex, ...updates } : ex
+      );
+      setActiveWorkout({ ...activeWorkout, exercises: updatedExercises });
+
+    } catch (err) {
+      console.error('Update exercise error:', err);
+      alert('Error updating exercise: ' + err.message);
     }
   };
 
@@ -1286,7 +1449,8 @@ const CoachDashboard = ({ token, userId }) => {
     loadTemplates();
     loadExerciseData();
     loadUniqueExercises();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const viewWorkoutDetails = async (plan) => {
     setSelectedWorkout(plan);
@@ -1410,6 +1574,7 @@ const CoachDashboard = ({ token, userId }) => {
         onComplete={completeWorkout}
         onLogSet={handleLogSet}
         onDeleteLog={handleDeleteLog}
+        onUpdateExercise={handleUpdateExercise}
       />
     );
   }
@@ -1431,6 +1596,12 @@ const CoachDashboard = ({ token, userId }) => {
           onClick={() => setActiveTab('personal')}
         >
           My Personal Workouts
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('calendar')}
+        >
+          📅 My Calendar
         </button>
         <button
           className={`tab-button ${activeTab === 'templates' ? 'active' : ''}`}
@@ -1470,6 +1641,11 @@ const CoachDashboard = ({ token, userId }) => {
                 {selectedWorkout.overallNotes && (
                   <div className="overall-notes">
                     <strong>Trainee's Overall Notes:</strong> {selectedWorkout.overallNotes}
+                  </div>
+                )}
+                {selectedWorkout.description && (
+                  <div className="workout-description" style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}>
+                    <strong>Description:</strong> {selectedWorkout.description}
                   </div>
                 )}
                 {selectedWorkout.rating && (
@@ -1588,9 +1764,18 @@ const CoachDashboard = ({ token, userId }) => {
             <>
               <div className="dashboard-actions">
                 <button onClick={() => {
-                  setShowForm(!showForm);
-                  if (!showForm && selectedTrainee) {
-                    setFormData({ ...formData, traineeId: selectedTrainee });
+                  const nextShow = !showForm;
+                  setShowForm(nextShow);
+                  if (nextShow) {
+                    const baseDate = calendarSelectedDate || new Date();
+                    const offset = baseDate.getTimezoneOffset() * 60000;
+                    const dateStr = new Date(baseDate.getTime() - offset).toISOString().split('T')[0];
+
+                    setFormData(prev => ({
+                      ...prev,
+                      traineeId: selectedTrainee || prev.traineeId,
+                      scheduledDate: dateStr
+                    }));
                   }
                 }} className="btn-primary">
                   {showForm ? 'Cancel' : 'Create Workout Plan'}
@@ -1685,12 +1870,16 @@ const CoachDashboard = ({ token, userId }) => {
 
                     <div className="form-group">
                       <label>Scheduled Date</label>
-                      <input
-                        type="date"
-                        value={formData.scheduledDate}
-                        onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                        required
-                      />
+                      <div className="form-group">
+
+                        <div
+                          className="date-picker-trigger"
+                          onClick={() => openDatePicker((date) => setFormData(prev => ({ ...prev, scheduledDate: date })))}
+                        >
+                          <span>{formData.scheduledDate || 'Select Date'}</span>
+                          <span className="icon">📅</span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="form-group">
@@ -1773,6 +1962,13 @@ const CoachDashboard = ({ token, userId }) => {
                             value={newExercise.targetWeight}
                             onChange={(e) => setNewExercise({ ...newExercise, targetWeight: parseInt(e.target.value) })}
                           />
+                          <input
+                            type="text"
+                            placeholder="Notes (opt)"
+                            value={newExercise.notes}
+                            onChange={(e) => setNewExercise({ ...newExercise, notes: e.target.value })}
+                            style={{ minWidth: '150px' }}
+                          />
                           <button type="button" onClick={addExercise} className="btn-add">
                             Add
                           </button>
@@ -1849,6 +2045,13 @@ const CoachDashboard = ({ token, userId }) => {
                                   style={{ width: '60px', padding: '5px' }}
                                 />
                                 <span>{ex.weightUnit}</span>
+                                <input
+                                  type="text"
+                                  value={editingExerciseData.notes}
+                                  onChange={(e) => setEditingExerciseData({ ...editingExerciseData, notes: e.target.value })}
+                                  placeholder="Notes"
+                                  style={{ width: '150px', padding: '5px', marginLeft: '5px' }}
+                                />
                                 <button type="button" onClick={saveEditedExercise} className="btn-success" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
                                   Save
                                 </button>
@@ -1858,7 +2061,7 @@ const CoachDashboard = ({ token, userId }) => {
                               </div>
                             ) : (
                               <>
-                                <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
+                                <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit} {ex.notes && <span style={{ fontSize: '0.9em', color: 'var(--gray)' }}>({ex.notes})</span>}</span>
                                 <div>
                                   <button
                                     type="button"
@@ -1919,11 +2122,16 @@ const CoachDashboard = ({ token, userId }) => {
 
                   <div className="form-group">
                     <label>Scheduled Date</label>
-                    <input
-                      type="date"
-                      value={editFormData.scheduledDate}
-                      onChange={(e) => setEditFormData({ ...editFormData, scheduledDate: e.target.value })}
-                    />
+                    <div className="form-group">
+                      <label>Scheduled Date</label>
+                      <div
+                        className="date-picker-trigger"
+                        onClick={() => openDatePicker((date) => setEditFormData(prev => ({ ...prev, scheduledDate: date })))}
+                      >
+                        <span>{editFormData.scheduledDate || 'Select Date'}</span>
+                        <span className="icon">📅</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="exercises-section">
@@ -1931,7 +2139,7 @@ const CoachDashboard = ({ token, userId }) => {
                     <div className="exercise-list">
                       {(editFormData.exercises || []).map((ex) => (
                         <div key={ex.id} className="exercise-item">
-                          <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
+                          <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit} {ex.notes && <span style={{ fontSize: '0.9em', color: 'var(--gray)' }}>({ex.notes})</span>}</span>
                           <button
                             type="button"
                             onClick={() => removeExerciseFromWorkout(ex.id)}
@@ -1988,6 +2196,13 @@ const CoachDashboard = ({ token, userId }) => {
                         placeholder="Weight"
                         value={newExercise.targetWeight}
                         onChange={(e) => setNewExercise({ ...newExercise, targetWeight: parseInt(e.target.value) })}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Notes (opt)"
+                        value={newExercise.notes}
+                        onChange={(e) => setNewExercise({ ...newExercise, notes: e.target.value })}
+                        style={{ minWidth: '150px' }}
                       />
                       <button type="button" onClick={addExerciseToWorkout} className="btn-add">
                         Add Exercise
@@ -2064,6 +2279,11 @@ const CoachDashboard = ({ token, userId }) => {
                     Scheduled: {formatDate(selectedPersonalWorkout.scheduledDate)}
                     {selectedPersonalWorkout.completedAt && ` | Completed: ${formatDate(selectedPersonalWorkout.completedAt, true)}`}
                   </p>
+                  {selectedPersonalWorkout.description && (
+                    <div className="workout-description" style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}>
+                      <strong>Description:</strong> {selectedPersonalWorkout.description}
+                    </div>
+                  )}
                 </div>
 
                 <div className="exercises-details">
@@ -2170,7 +2390,16 @@ const CoachDashboard = ({ token, userId }) => {
             ) : (
               <>
                 <div className="dashboard-actions">
-                  <button onClick={() => setShowPersonalForm(!showPersonalForm)} className="btn-primary">
+                  <button onClick={() => {
+                    const nextShow = !showPersonalForm;
+                    setShowPersonalForm(nextShow);
+                    if (nextShow) {
+                      const baseDate = calendarSelectedDate || new Date();
+                      const offset = baseDate.getTimezoneOffset() * 60000;
+                      const dateStr = new Date(baseDate.getTime() - offset).toISOString().split('T')[0];
+                      setPersonalFormData(prev => ({ ...prev, scheduledDate: dateStr }));
+                    }
+                  }} className="btn-primary">
                     {showPersonalForm ? 'Cancel' : 'Create Personal Workout'}
                   </button>
                 </div>
@@ -2201,12 +2430,16 @@ const CoachDashboard = ({ token, userId }) => {
 
                       <div className="form-group">
                         <label>Scheduled Date</label>
-                        <input
-                          type="date"
-                          value={personalFormData.scheduledDate}
-                          onChange={(e) => setPersonalFormData({ ...personalFormData, scheduledDate: e.target.value })}
-                          required
-                        />
+                        <div className="form-group">
+                          <label>Scheduled Date</label>
+                          <div
+                            className="date-picker-trigger"
+                            onClick={() => openDatePicker((date) => setPersonalFormData(prev => ({ ...prev, scheduledDate: date })))}
+                          >
+                            <span>{personalFormData.scheduledDate || 'Select Date'}</span>
+                            <span className="icon">📅</span>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="form-group">
@@ -2288,6 +2521,13 @@ const CoachDashboard = ({ token, userId }) => {
                               value={newExercise.targetWeight}
                               onChange={(e) => setNewExercise({ ...newExercise, targetWeight: parseInt(e.target.value) })}
                             />
+                            <input
+                              type="text"
+                              placeholder="Notes (opt)"
+                              value={newExercise.notes}
+                              onChange={(e) => setNewExercise({ ...newExercise, notes: e.target.value })}
+                              style={{ minWidth: '150px' }}
+                            />
                             <button type="button" onClick={addExercise} className="btn-add">
                               Add
                             </button>
@@ -2363,6 +2603,13 @@ const CoachDashboard = ({ token, userId }) => {
                                     style={{ width: '60px', padding: '5px' }}
                                   />
                                   <span>{ex.weightUnit}</span>
+                                  <input
+                                    type="text"
+                                    value={editingExerciseData.notes}
+                                    onChange={(e) => setEditingExerciseData({ ...editingExerciseData, notes: e.target.value })}
+                                    placeholder="Notes"
+                                    style={{ width: '150px', padding: '5px', marginLeft: '5px' }}
+                                  />
                                   <button type="button" onClick={saveEditedExercise} className="btn-success" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>
                                     Save
                                   </button>
@@ -2372,7 +2619,7 @@ const CoachDashboard = ({ token, userId }) => {
                                 </div>
                               ) : (
                                 <>
-                                  <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit}</span>
+                                  <span>{ex.name} - {ex.sets}x{ex.reps} @ {ex.targetWeight}{ex.weightUnit} {ex.notes && <span style={{ fontSize: '0.9em', color: 'var(--gray)' }}>({ex.notes})</span>}</span>
                                   <div>
                                     <button
                                       type="button"
@@ -2468,6 +2715,102 @@ const CoachDashboard = ({ token, userId }) => {
 
         )
       }
+
+      {/* Calendar Tab */}
+      {activeTab === 'calendar' && (
+        <div className="calendar-section">
+          <h2>My Calendar</h2>
+          <Calendar
+            events={[...personalWorkouts, ...allTraineeWorkouts]}
+            onSelectDate={(date) => setCalendarSelectedDate(date)}
+          />
+
+          {calendarSelectedDate && (
+            <div className="selected-date-workouts">
+              <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
+              {(() => {
+                const dayEvents = [...personalWorkouts, ...allTraineeWorkouts].filter(p => {
+                  const d = new Date(p.scheduledDate);
+                  return d.getDate() === calendarSelectedDate.getDate() &&
+                    d.getMonth() === calendarSelectedDate.getMonth() &&
+                    d.getFullYear() === calendarSelectedDate.getFullYear();
+                });
+
+                if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
+
+                return dayEvents.map(plan => (
+                  <div key={plan.id} className="workout-card">
+                    <h4>{plan.name} {plan.traineeName ? `(Trainee: ${plan.traineeName})` : '(Personal)'}</h4>
+                    <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
+                    <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
+                    <p>{(plan.exercises || []).length} exercises</p>
+                    {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
+
+                    {/* Personal workout actions */}
+                    {!plan.traineeName && (
+                      <>
+                        {plan.status === 'assigned' && (
+                          <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                            Start Workout
+                          </button>
+                        )}
+
+                        {plan.status === 'in_progress' && (
+                          <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                            Resume Workout
+                          </button>
+                        )}
+
+                        <button onClick={() => viewPersonalWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                          View Details
+                        </button>
+
+                        {plan.status === 'assigned' && (
+                          <>
+                            <button onClick={() => startEditWorkout(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                              ✏️ Edit
+                            </button>
+                            <button onClick={() => deletePersonalWorkout(plan.id)} className="btn-danger" style={{ marginLeft: '0.5rem' }}>
+                              Delete
+                            </button>
+                          </>
+                        )}
+
+                        {plan.status === 'completed' && (
+                          <button onClick={() => deletePersonalWorkout(plan.id)} className="btn-danger" style={{ marginLeft: '0.5rem' }}>
+                            Delete
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {/* Trainee workout actions */}
+                    {plan.traineeName && (
+                      <>
+                        <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                          View Details
+                        </button>
+
+                        {(plan.status === 'assigned' || true) && (
+                          <button onClick={() => startEditWorkout(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                            ✏️ Edit
+                          </button>
+                        )}
+
+                        {plan.status === 'completed' && (
+                          <button onClick={() => deleteWorkout(plan.id)} className="btn-danger" style={{ marginLeft: '0.5rem' }}>
+                            Delete
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Templates Tab  */}
 
@@ -2635,9 +2978,29 @@ const CoachDashboard = ({ token, userId }) => {
           </div>
         )
       }
-    </div>
+
+
+      {/* Calendar Modal Picker */}
+      {
+        showDateModal && (
+          <div className="calendar-modal-overlay" onClick={() => setShowDateModal(false)}>
+            <div className="calendar-modal-content" onClick={e => e.stopPropagation()}>
+              <div className="calendar-modal-header">
+                <h3>Select Date</h3>
+                <button onClick={() => setShowDateModal(false)} className="btn-close">×</button>
+              </div>
+              <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                <Calendar
+                  events={[...personalWorkouts, ...allTraineeWorkouts]}
+                  onSelectDate={handleDateSelect}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }
 
 export default CoachDashboard;
-

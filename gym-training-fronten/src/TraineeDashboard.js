@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
+import Calendar from './Calendar';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
 
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onDelete }) => {
@@ -106,8 +107,21 @@ const ActiveWorkoutView = ({
   onExit,
   onComplete,
   onLogSet,
-  onDeleteLog
+  onDeleteLog,
+  onUpdateExercise
 }) => {
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteContent, setNoteContent] = useState('');
+
+  const startEditingNote = (exercise) => {
+    setEditingNoteId(exercise.id);
+    setNoteContent(exercise.notes || '');
+  };
+
+  const saveNote = (exercise) => {
+    onUpdateExercise(exercise.id, { notes: noteContent });
+    setEditingNoteId(null);
+  };
   const getSetLog = (exerciseId, setNum) => {
     const exerciseLogs = workoutLogs[exerciseId] || [];
     return exerciseLogs.find(log => log.setNumber === setNum);
@@ -172,11 +186,53 @@ const ActiveWorkoutView = ({
               }}>
                 Target: {exercise.sets} sets × {exercise.reps} reps @ {exercise.targetWeight}{exercise.weightUnit}
               </div>
-              {exercise.notes && (
-                <p style={{ fontStyle: 'italic', marginTop: '0.5rem', color: 'var(--gray)' }}>
-                  Notes: {exercise.notes}
-                </p>
-              )}
+              <div style={{ marginTop: '1rem', minHeight: '3rem' }}>
+                {editingNoteId === exercise.id ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+                    <textarea
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      placeholder="Add notes..."
+                      style={{
+                        padding: '0.5rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--accent)',
+                        background: 'rgba(0,0,0,0.3)',
+                        color: 'white',
+                        width: '80%',
+                        minHeight: '60px',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <button onClick={() => saveNote(exercise)} className="btn-success" style={{ padding: '0.5rem' }}>💾</button>
+                      <button onClick={() => setEditingNoteId(null)} className="btn-secondary" style={{ padding: '0.5rem' }}>❌</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => startEditingNote(exercise)}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '1rem',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '10px',
+                      border: '1px dashed rgba(255, 255, 255, 0.2)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Click to edit notes"
+                  >
+                    <p style={{
+                      margin: 0,
+                      fontSize: '1.1rem',
+                      color: exercise.notes ? 'var(--light)' : 'var(--gray)',
+                      fontStyle: exercise.notes ? 'normal' : 'italic'
+                    }}>
+                      {exercise.notes ? `📝 ${exercise.notes}` : 'Click to add notes...'}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="sets-list">
@@ -249,7 +305,6 @@ const ActiveWorkoutView = ({
 };
 
 function TraineeDashboard({ token, userId }) {
-  console.log('TraineeDashboard RENDER', { token, userId }); // DEBUG
 
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [activeWorkout, setActiveWorkout] = useState(null);
@@ -257,6 +312,7 @@ function TraineeDashboard({ token, userId }) {
   const [workoutLogs, setWorkoutLogs] = useState({});
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('workouts'); // 'workouts', 'profile', 'progression'
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
   const [timer, setTimer] = useState('00:00:00');
 
   // Progression state
@@ -265,10 +321,13 @@ function TraineeDashboard({ token, userId }) {
   const [progressionData, setProgressionData] = useState([]);
 
   useEffect(() => {
-    console.log('TraineeDashboard MOUNTED'); // DEBUG
-    loadWorkouts();
-    loadUniqueExercises();
-  }, []);
+    if (activeTab === 'workouts') {
+      loadWorkouts();
+    } else if (activeTab === 'progression') {
+      loadUniqueExercises();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Load unique exercises for progression
   const loadUniqueExercises = async () => {
@@ -390,17 +449,7 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
-  const nextExercise = () => {
-    if (currentExerciseIndex < activeWorkout.exercises.length - 1) {
-      setCurrentExerciseIndex(currentExerciseIndex + 1);
-    }
-  };
 
-  const prevExercise = () => {
-    if (currentExerciseIndex > 0) {
-      setCurrentExerciseIndex(currentExerciseIndex - 1);
-    }
-  };
 
   const completeWorkout = async () => {
     try {
@@ -484,6 +533,32 @@ function TraineeDashboard({ token, userId }) {
 
     } catch (err) {
       alert('Error deleting log: ' + err.message);
+    }
+  };
+
+  const handleUpdateExercise = async (exerciseId, updates) => {
+    try {
+      const exercise = activeWorkout.exercises.find(ex => ex.id === exerciseId);
+      if (!exercise) return;
+
+      await axios.put(
+        `${API_URL}/workout-plans/${activeWorkout.id}/exercises/${exerciseId}`,
+        {
+          ...exercise,
+          ...updates
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update local state
+      const updatedExercises = activeWorkout.exercises.map(ex =>
+        ex.id === exerciseId ? { ...ex, ...updates } : ex
+      );
+      setActiveWorkout({ ...activeWorkout, exercises: updatedExercises });
+
+    } catch (err) {
+      console.error('Update exercise error:', err);
+      alert('Error updating exercise: ' + err.message);
     }
   };
 
@@ -582,6 +657,7 @@ function TraineeDashboard({ token, userId }) {
         onComplete={completeWorkout}
         onLogSet={handleLogSet}
         onDeleteLog={handleDeleteLog}
+        onUpdateExercise={handleUpdateExercise}
       />
     );
   }
@@ -708,6 +784,12 @@ function TraineeDashboard({ token, userId }) {
           🏋️ My Workouts
         </button>
         <button
+          className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('calendar')}
+        >
+          📅 My Calendar
+        </button>
+        <button
           className={`tab-button ${activeTab === 'progression' ? 'active' : ''}`}
           onClick={() => setActiveTab('progression')}
         >
@@ -768,6 +850,65 @@ function TraineeDashboard({ token, userId }) {
         </div>
       )}
 
+      {activeTab === 'calendar' && (
+        <div className="calendar-section">
+          <h2>My Calendar</h2>
+          <Calendar
+            events={workoutPlans}
+            onSelectDate={(date) => setCalendarSelectedDate(date)}
+          />
+
+          {calendarSelectedDate && (
+            <div className="selected-date-workouts">
+              <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
+              {(() => {
+                const dayEvents = workoutPlans.filter(p => {
+                  const d = new Date(p.scheduledDate);
+                  return d.getDate() === calendarSelectedDate.getDate() &&
+                    d.getMonth() === calendarSelectedDate.getMonth() &&
+                    d.getFullYear() === calendarSelectedDate.getFullYear();
+                });
+
+                if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
+
+                return dayEvents.map(plan => (
+                  <div key={plan.id} className="workout-card">
+                    <h3>{plan.name}</h3>
+                    <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
+                    <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
+                    <p>{plan.exercises?.length || 0} exercises</p>
+                    {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
+
+                    {plan.status === 'assigned' && (
+                      <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                        Start Workout
+                      </button>
+                    )}
+
+                    {plan.status === 'in_progress' && (
+                      <>
+                        <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                          Resume Workout
+                        </button>
+                        <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                          View Details
+                        </button>
+                      </>
+                    )}
+
+                    {plan.status === 'completed' && (
+                      <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                        View Details
+                      </button>
+                    )}
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'progression' && (
         <div className="progression-section">
           <h2>Progression Tracking</h2>
@@ -817,4 +958,3 @@ function TraineeDashboard({ token, userId }) {
 }
 
 export default TraineeDashboard; 
-
