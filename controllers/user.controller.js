@@ -34,7 +34,7 @@ exports.getCoachTrainees = async (req, res) => {
        FROM users u
        INNER JOIN coach_trainee ct ON u.id = ct.trainee_id
        WHERE ct.coach_id = $1 AND u.role = 'trainee'
-       ORDER BY u.name`,
+       ORDER BY ct.assigned_at ASC`,
             [req.params.coachId]
         );
 
@@ -93,6 +93,7 @@ exports.assignTrainee = async (req, res) => {
                 tier: currentTier
             });
         }
+
         // 2. Find trainee by email
         const trainee = await User.findByEmail(email);
 
@@ -252,6 +253,37 @@ exports.removeConnection = async (req, res) => {
         res.json({ message: 'Connection removed successfully' });
     } catch (err) {
         console.error('Remove connection error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
+ * Delete own account (authenticated user)
+ */
+exports.deleteOwnAccount = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Security: Verify user is deleting their own account
+        if (req.user.id !== parseInt(userId)) {
+            return res.status(403).json({
+                error: 'Forbidden',
+                message: 'You can only delete your own account'
+            });
+        }
+
+        // Check if user exists
+        const userCheck = await pool.query('SELECT id, name FROM users WHERE id = $1', [userId]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+        }
+
+        // Delete user (cascade will handle related data: workouts, logs, coach_trainee)
+        await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+        res.json({ message: 'Account deleted successfully' });
+    } catch (err) {
+        console.error('Delete own account error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
