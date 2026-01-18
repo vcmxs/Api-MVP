@@ -901,11 +901,11 @@ const CoachDashboard = ({ token, userId }) => {
   };
 
   useEffect(() => {
-    if (activeView === 'exercises') {
+    if (activeTab === 'exercises') {
       loadUniqueExercises();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeView]);
+  }, [activeTab]);
   useEffect(() => {
     if (activeTab === 'calendar') {
       loadAllTraineeWorkouts();
