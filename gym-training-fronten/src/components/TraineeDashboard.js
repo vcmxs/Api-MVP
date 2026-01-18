@@ -428,7 +428,7 @@ function TraineeDashboard({ token, userId }) {
       // Ensure startedAt is set for timer
       plan.startedAt = new Date().toISOString();
       setActiveWorkout(plan);
-      setCurrentExerciseIndex(0);
+
 
       // Load initial logs
       const logs = {};
