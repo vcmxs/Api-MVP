@@ -14,3 +14,5 @@ router.delete('/:userId/account', userController.deleteOwnAccount);
 router.delete('/:userId/connection/:targetId', userController.removeConnection);
 
 module.exports = router;
+
+
