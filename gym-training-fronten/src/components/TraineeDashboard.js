@@ -310,7 +310,7 @@ function TraineeDashboard({ token, userId }) {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [workoutLogs, setWorkoutLogs] = useState({});
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+
   const [activeTab, setActiveTab] = useState('workouts'); // 'workouts', 'profile', 'progression'
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
   const [timer, setTimer] = useState('00:00:00');
