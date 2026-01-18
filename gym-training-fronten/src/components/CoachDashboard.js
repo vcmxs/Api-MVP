@@ -1030,7 +1030,7 @@ const CoachDashboard = ({ token, userId }) => {
         // Ensure startedAt is set for timer
         startedPlan.startedAt = new Date().toISOString();
         setActiveWorkout(startedPlan);
-        setCurrentExerciseIndex(0);
+
 
         // Load initial logs
         const logs = {};
