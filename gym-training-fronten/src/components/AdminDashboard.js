@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import UserProfile from './UserProfile';
 
 const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
 const BASE_URL = API_URL.replace('/api/v1', '');
@@ -15,6 +14,7 @@ function AdminDashboard({ token, userId, userRole }) {
     useEffect(() => {
         loadUsers();
         loadStats();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 
     const loadUsers = async () => {

@@ -321,9 +321,13 @@ function TraineeDashboard({ token, userId }) {
   const [progressionData, setProgressionData] = useState([]);
 
   useEffect(() => {
-    loadWorkouts();
-    loadUniqueExercises();
-  }, []);
+    if (activeTab === 'workouts') {
+      loadWorkouts();
+    } else if (activeTab === 'progression') {
+      loadUniqueExercises();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Load unique exercises for progression
   const loadUniqueExercises = async () => {
@@ -445,17 +449,7 @@ function TraineeDashboard({ token, userId }) {
     }
   };
 
-  const nextExercise = () => {
-    if (currentExerciseIndex < activeWorkout.exercises.length - 1) {
-      setCurrentExerciseIndex(currentExerciseIndex + 1);
-    }
-  };
 
-  const prevExercise = () => {
-    if (currentExerciseIndex > 0) {
-      setCurrentExerciseIndex(currentExerciseIndex - 1);
-    }
-  };
 
   const completeWorkout = async () => {
     try {

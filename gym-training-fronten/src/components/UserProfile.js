@@ -23,6 +23,7 @@ function UserProfile({ userId, editable, onUpdate }) {
 
     useEffect(() => {
         loadProfile();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
     const loadProfile = async () => {
@@ -281,4 +282,3 @@ function UserProfile({ userId, editable, onUpdate }) {
 }
 
 export default UserProfile;
-

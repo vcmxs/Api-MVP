@@ -4,8 +4,6 @@ import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
 import Calendar from './Calendar';
 
-const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
-
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLog, onLog, onDelete }) => {
   const [weightInput, setWeightInput] = useState(log ? log.weightUsed : targetWeight);
@@ -903,6 +901,12 @@ const CoachDashboard = ({ token, userId }) => {
   };
 
   useEffect(() => {
+    if (activeView === 'exercises') {
+      loadUniqueExercises();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+  useEffect(() => {
     if (activeTab === 'calendar') {
       loadAllTraineeWorkouts();
     }
@@ -1163,11 +1167,7 @@ const CoachDashboard = ({ token, userId }) => {
 
 
 
-  const nextExercise = () => {
-    if (currentExerciseIndex < activeWorkout.exercises.length - 1) {
-      setCurrentExerciseIndex(currentExerciseIndex + 1);
-    }
-  };
+
 
   const completeWorkout = async () => {
     try {
@@ -1445,7 +1445,8 @@ const CoachDashboard = ({ token, userId }) => {
     loadTemplates();
     loadExerciseData();
     loadUniqueExercises();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const viewWorkoutDetails = async (plan) => {
     setSelectedWorkout(plan);
