@@ -42,7 +42,7 @@ const createTables = async () => {
         gym VARCHAR(255),
         notes TEXT,
         profile_pic_url TEXT,
-        subscription_status VARCHAR(50) DEFAULT 'inactive' CHECK (subscription_status IN ('active', 'inactive', 'trial')),
+        subscription_status VARCHAR(50) DEFAULT 'active' CHECK (subscription_status IN ('active', 'inactive', 'trial')),
         status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -120,7 +120,7 @@ const createTables = async () => {
       )
     `);
 
-        // Workout Templates table
+    // Workout Templates table
     await client.query(`
       CREATE TABLE IF NOT EXISTS workout_templates (
         id SERIAL PRIMARY KEY,
@@ -157,11 +157,11 @@ const createTables = async () => {
 
     // Insert default users
     await client.query(`
-      INSERT INTO users (id, name, email, password, role, subscription_status)
+      INSERT INTO users (id, name, email, password, role, status, subscription_status)
       VALUES 
-        (1, 'Admin User', 'admin@gym.com', 'admin123', 'admin', 'active'),
-        (2, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach', 'active'),
-        (3, 'John Trainee', 'john@gym.com', 'john123', 'trainee', 'active')
+        (1, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach', 'active', 'active'),
+        (2, 'John Trainee', 'john@gym.com', 'john123', 'trainee', 'active', 'inactive'),
+        (3, 'Super Admin', 'admin@gymtrainer.com', 'admin123', 'admin', 'active', 'active')
       ON CONFLICT (email) DO NOTHING
     `);
 
