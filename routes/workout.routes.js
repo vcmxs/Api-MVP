@@ -19,7 +19,7 @@ router.post('/:workoutPlanId/complete', workoutController.completeWorkout);
 // Exercise management
 router.post('/:planId/exercises', requireActiveSubscription, workoutController.addExercises);
 router.delete('/:planId/exercises/:exerciseId', requireActiveSubscription, workoutController.deleteExercise);
-router.put('/:planId/exercises/:exerciseId', requireActiveSubscription, workoutController.updateExercise);
+router.put('/:planId/exercises/:exerciseId', workoutController.updateExercise);
 
 // Exercise logging
 router.post('/:workoutPlanId/exercises/:exerciseId/logs', workoutController.logExerciseSet);
