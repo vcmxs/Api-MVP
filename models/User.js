@@ -29,7 +29,7 @@ class User {
      */
     static async create(userData) {
         const { name, email, password, role, age, sex, phone, gym, notes, profilePicUrl,
-            subscription_tier = 'starter', subscription_status = 'inactive' } = userData;
+            subscription_tier = 'starter', subscription_status = 'active' } = userData;
 
         const result = await pool.query(
             `INSERT INTO users (name, email, password, role, age, sex, phone, gym, notes, profile_pic_url, subscription_tier, subscription_status) 
