@@ -9,6 +9,7 @@ require('dotenv').config();
 const apiRoutes = require('./routes');
 
 const app = express();
+app.set('trust proxy', 1); // Required for Railway/Heroku to key rate limiting off IP
 const PORT = process.env.PORT || 3000;
 
 // Rate limiting configuration
