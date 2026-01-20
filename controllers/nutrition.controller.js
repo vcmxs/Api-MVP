@@ -176,22 +176,38 @@ const NutritionController = {
     getDailySummary: async (req, res) => {
         try {
             const { date } = req.params;
-            const user_id = req.user.id; // From auth middleware
+            const { userId } = req.query; // Optional userId for coaches
+            let targetUserId = req.user.id;
+
+            // If a specific userId is requested, verify access
+            if (userId && parseInt(userId) !== req.user.id) {
+                // Check if requester is a coach and has this trainee
+                const accessCheck = await pool.query(
+                    `SELECT id FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2`,
+                    [req.user.id, userId]
+                );
+
+                if (accessCheck.rows.length > 0 || req.user.role === 'admin') {
+                    targetUserId = parseInt(userId);
+                } else {
+                    return res.status(403).json({ message: 'Access denied: You are not assigned to this trainee' });
+                }
+            }
 
             // Get summary
             const summaryRes = await pool.query(
                 'SELECT * FROM daily_nutrition_summary WHERE user_id = $1 AND summary_date = $2',
-                [user_id, date]
+                [targetUserId, date]
             );
 
             // Get meals for that day
             const mealsRes = await pool.query(
-                `SELECT ml.*, f.name as food_name, f.serving_unit 
+                `SELECT ml.*, f.name as food_name, f.serving_unit, f.calories, f.proteins, f.carbs, f.fats 
                  FROM meal_logs ml 
                  LEFT JOIN foods f ON ml.food_id = f.id 
                  WHERE ml.user_id = $1 AND ml.logged_date = $2 
                  ORDER BY ml.meal_type, ml.logged_at`,
-                [user_id, date]
+                [targetUserId, date]
             );
 
             const summary = summaryRes.rows[0] || {
