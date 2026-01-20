@@ -28,14 +28,14 @@ class User {
      * Create new user
      */
     static async create(userData) {
-        const { name, email, password, role, age, sex, phone, gym, notes, profilePicUrl,
+        const { name, email, password, role, age, sex, phone, gym, notes, height, weight, profilePicUrl,
             subscription_tier = 'starter', subscription_status = 'active' } = userData;
 
         const result = await pool.query(
-            `INSERT INTO users (name, email, password, role, age, sex, phone, gym, notes, profile_pic_url, subscription_tier, subscription_status) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
-       RETURNING id, name, email, role, age, sex, phone, gym, notes, profile_pic_url, subscription_tier, subscription_status`,
-            [name, email, password, role, age, sex, phone, gym, notes, profilePicUrl, subscription_tier, subscription_status]
+            `INSERT INTO users (name, email, password, role, age, sex, phone, gym, notes, height, weight, profile_pic_url, subscription_tier, subscription_status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+       RETURNING id, name, email, role, age, sex, phone, gym, notes, height, weight, profile_pic_url, subscription_tier, subscription_status`,
+            [name, email, password, role, age, sex, phone, gym, notes, height, weight, profilePicUrl, subscription_tier, subscription_status]
         );
 
         return result.rows[0];
@@ -56,7 +56,7 @@ class User {
      * Update user profile
      */
     static async updateProfile(userId, profileData) {
-        const { name, age, sex, phone, gym, notes } = profileData;
+        const { name, age, sex, phone, gym, notes, height, weight } = profileData;
 
         const result = await pool.query(
             `UPDATE users 
@@ -65,10 +65,12 @@ class User {
            sex = COALESCE($3, sex),
            phone = COALESCE($4, phone),
            gym = COALESCE($5, gym),
-           notes = COALESCE($6, notes)
-       WHERE id = $7
-       RETURNING id, name, email, role, age, sex, phone, gym, profile_pic_url, notes`,
-            [name, age, sex, phone, gym, notes, userId]
+           notes = COALESCE($6, notes),
+           height = COALESCE($7, height),
+           weight = COALESCE($8, weight)
+       WHERE id = $9
+       RETURNING id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, height, weight`,
+            [name, age, sex, phone, gym, notes, height, weight, userId]
         );
 
         return result.rows[0];
