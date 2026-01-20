@@ -1,4 +1,5 @@
 const pool = require('../db');
+const seedNutrition = require('../seed_nutrition');
 
 // Helper to calculate nutrition based on quantity
 const calculateNutrition = (food, quantity) => {
@@ -233,6 +234,18 @@ const NutritionController = {
         } catch (err) {
             console.error(err);
             res.status(500).json({ message: 'Error updating goals' });
+        }
+    },
+
+    // Force seed (manual trigger)
+    forceSeed: async (req, res) => {
+        try {
+            console.log('🌱 Manual seeding triggered via API...');
+            await seedNutrition();
+            res.json({ message: 'Seeding process completed successfully' });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ message: 'Error running seed script', error: err.message });
         }
     }
 };
