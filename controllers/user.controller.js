@@ -190,7 +190,8 @@ exports.updateUserProfile = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
-        res.json(user);
+        // DEBUG: Return received values to prove controller version
+        res.json({ ...user, _debug_received: { height, weight }, _debug_version: '1.2' });
     } catch (err) {
         console.error('Update profile error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
