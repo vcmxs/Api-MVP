@@ -179,10 +179,10 @@ exports.getUserProfile = async (req, res) => {
  */
 exports.updateUserProfile = async (req, res) => {
     const { userId } = req.params;
-    const { name, age, sex, phone, gym, notes } = req.body;
+    const { name, age, sex, phone, gym, notes, height, weight } = req.body;
 
     try {
-        const user = await User.updateProfile(userId, { name, age, sex, phone, gym, notes });
+        const user = await User.updateProfile(userId, { name, age, sex, phone, gym, notes, height, weight });
 
         if (!user) {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
