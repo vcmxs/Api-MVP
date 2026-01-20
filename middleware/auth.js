@@ -18,9 +18,12 @@ const authenticateToken = (req, res, next) => {
         req.user = decoded; // Attach user info to request
         next();
     } catch (err) {
+        console.error('Auth Error:', err.message);
+        console.error('Token:', token ? token.substring(0, 20) + '...' : 'null');
         return res.status(403).json({
             error: 'Forbidden',
-            message: 'Invalid or expired token'
+            message: 'Invalid or expired token',
+            details: err.message
         });
     }
 };
