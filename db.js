@@ -41,6 +41,8 @@ const createTables = async () => {
         phone VARCHAR(50),
         gym VARCHAR(255),
         notes TEXT,
+        height FLOAT,
+        weight FLOAT,
         profile_pic_url TEXT,
         subscription_status VARCHAR(50) DEFAULT 'active' CHECK (subscription_status IN ('active', 'inactive', 'trial')),
         status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
@@ -129,6 +131,59 @@ const createTables = async () => {
         description TEXT,
         exercises JSONB NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Foods table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS foods (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(100),
+        carbs DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        fats DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        proteins DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        calories DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        serving_size DECIMAL(10, 2) NOT NULL DEFAULT 100,
+        serving_unit VARCHAR(20) DEFAULT 'g',
+        is_custom BOOLEAN DEFAULT FALSE,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Meal Logs table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS meal_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        food_id INTEGER REFERENCES foods(id) ON DELETE SET NULL,
+        meal_type VARCHAR(50) NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+        serving_quantity DECIMAL(10, 2) NOT NULL DEFAULT 1,
+        logged_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        food_snapshot JSONB, -- Stores food data at time of logging in case food is deleted/changed
+        notes TEXT
+      )
+    `);
+
+    // Daily Nutrition Summary table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS daily_nutrition_summary (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        summary_date DATE NOT NULL,
+        total_calories DECIMAL(10, 2) DEFAULT 0,
+        total_carbs DECIMAL(10, 2) DEFAULT 0,
+        total_fats DECIMAL(10, 2) DEFAULT 0,
+        total_proteins DECIMAL(10, 2) DEFAULT 0,
+        calorie_goal DECIMAL(10, 2),
+        protein_goal DECIMAL(10, 2),
+        carb_goal DECIMAL(10, 2),
+        fat_goal DECIMAL(10, 2),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, summary_date)
       )
     `);
 
