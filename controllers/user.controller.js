@@ -180,6 +180,8 @@ exports.getUserProfile = async (req, res) => {
 exports.updateUserProfile = async (req, res) => {
     const { userId } = req.params;
     const { name, age, sex, phone, gym, notes, height, weight } = req.body;
+    console.log('Update Profile Req Body:', req.body);
+    console.log('Update Profile Params:', { userId, height, weight });
 
     try {
         const user = await User.updateProfile(userId, { name, age, sex, phone, gym, notes, height, weight });
