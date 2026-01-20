@@ -30,7 +30,7 @@ exports.getUserById = async (req, res) => {
 exports.getCoachTrainees = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT u.id, u.name, u.email, ct.assigned_at
+            `SELECT u.id, u.name, u.email, u.gym, ct.assigned_at
        FROM users u
        INNER JOIN coach_trainee ct ON u.id = ct.trainee_id
        WHERE ct.coach_id = $1 AND u.role = 'trainee'
@@ -272,7 +272,7 @@ exports.deleteOwnAccount = async (req, res) => {
             });
         }
 
-        // Check if user exists..
+        // Check if user exists
         const userCheck = await pool.query('SELECT id, name FROM users WHERE id = $1', [userId]);
         if (userCheck.rows.length === 0) {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
@@ -287,4 +287,3 @@ exports.deleteOwnAccount = async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
-
