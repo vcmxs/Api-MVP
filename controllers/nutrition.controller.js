@@ -181,6 +181,7 @@ const NutritionController = {
 
             // If a specific userId is requested, verify access
             if (userId && parseInt(userId) !== req.user.id) {
+                // User is trying to view ANOTHER user's data
                 // Check if requester is a coach and has this trainee
                 const accessCheck = await pool.query(
                     `SELECT id FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2`,
@@ -192,6 +193,9 @@ const NutritionController = {
                 } else {
                     return res.status(403).json({ message: 'Access denied: You are not assigned to this trainee' });
                 }
+            } else if (userId && parseInt(userId) === req.user.id) {
+                // User is explicitly requesting their own data (which is fine)
+                targetUserId = req.user.id;
             }
 
             // Get summary
