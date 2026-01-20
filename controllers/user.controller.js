@@ -180,8 +180,6 @@ exports.getUserProfile = async (req, res) => {
 exports.updateUserProfile = async (req, res) => {
     const { userId } = req.params;
     const { name, age, sex, phone, gym, notes, height, weight } = req.body;
-    console.log('Update Profile Req Body:', req.body);
-    console.log('Update Profile Params:', { userId, height, weight });
 
     try {
         const user = await User.updateProfile(userId, { name, age, sex, phone, gym, notes, height, weight });
@@ -190,8 +188,7 @@ exports.updateUserProfile = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
-        // DEBUG: Return received values to prove controller version
-        res.json({ ...user, _debug_received: { height, weight }, _debug_version: '1.2' });
+        res.json(user);
     } catch (err) {
         console.error('Update profile error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
