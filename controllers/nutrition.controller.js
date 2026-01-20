@@ -200,6 +200,12 @@ const NutritionController = {
                 [targetUserId, date]
             );
 
+            console.log('🔍 Fetching summary for user:', targetUserId, 'date:', date);
+            console.log('   Found rows:', summaryRes.rows.length);
+            if (summaryRes.rows.length > 0) {
+                console.log('   Summary data:', summaryRes.rows[0]);
+            }
+
             // Get meals for that day
             const mealsRes = await pool.query(
                 `SELECT ml.*, f.name as food_name, f.serving_unit, f.calories, f.proteins, f.carbs, f.fats 
@@ -214,6 +220,8 @@ const NutritionController = {
                 total_calories: 0, total_carbs: 0, total_fats: 0, total_proteins: 0,
                 calorie_goal: 2000, protein_goal: 150, carb_goal: 250, fat_goal: 70 // Defaults
             };
+
+            console.log('📤 Returning summary:', summary);
 
             res.json({
                 summary,
@@ -232,6 +240,9 @@ const NutritionController = {
             const user_id = req.user.id;
             const updateDate = date || new Date().toISOString().split('T')[0];
 
+            console.log('📝 Updating goals for user:', user_id, 'date:', updateDate);
+            console.log('   Goals:', { calorie_goal, protein_goal, carb_goal, fat_goal });
+
             const result = await pool.query(
                 `INSERT INTO daily_nutrition_summary (user_id, summary_date, calorie_goal, protein_goal, carb_goal, fat_goal)
                  VALUES ($1, $2, $3, $4, $5, $6)
@@ -246,9 +257,10 @@ const NutritionController = {
                 [user_id, updateDate, calorie_goal, protein_goal, carb_goal, fat_goal]
             );
 
+            console.log('✅ Goals updated successfully:', result.rows[0]);
             res.json(result.rows[0]);
         } catch (err) {
-            console.error(err);
+            console.error('❌ Error updating goals:', err);
             res.status(500).json({ message: 'Error updating goals' });
         }
     },
