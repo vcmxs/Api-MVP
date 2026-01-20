@@ -237,6 +237,30 @@ const NutritionController = {
         }
     },
 
+    // Get Nutrition Stats (Range)
+    getNutritionStats: async (req, res) => {
+        try {
+            const { startDate, endDate } = req.query;
+            const user_id = req.user.id;
+
+            if (!startDate || !endDate) {
+                return res.status(400).json({ message: 'Start date and end date required' });
+            }
+
+            const result = await pool.query(
+                `SELECT * FROM daily_nutrition_summary 
+                 WHERE user_id = $1 AND summary_date >= $2 AND summary_date <= $3
+                 ORDER BY summary_date ASC`,
+                [user_id, startDate, endDate]
+            );
+
+            res.json(result.rows);
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ message: 'Error fetching nutrition stats' });
+        }
+    },
+
     // Force seed (manual trigger)
     forceSeed: async (req, res) => {
         try {
