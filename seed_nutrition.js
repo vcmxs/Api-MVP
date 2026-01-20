@@ -101,9 +101,19 @@ const seedNutrition = async () => {
         await client.query('ROLLBACK');
         console.error('❌ Error seeding nutrition data:', err);
     } finally {
-        client.release();
-        pool.end();
+        // Only close pool if running as script
+        if (require.main === module) {
+            client.release();
+            pool.end();
+        } else {
+            client.release();
+        }
     }
 };
 
-seedNutrition();
+// Run if called directly
+if (require.main === module) {
+    seedNutrition();
+}
+
+module.exports = seedNutrition;
