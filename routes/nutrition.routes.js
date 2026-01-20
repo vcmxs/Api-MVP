@@ -17,4 +17,7 @@ router.delete('/meals/:id', authenticateToken, NutritionController.deleteMealLog
 router.get('/summary/:date', authenticateToken, NutritionController.getDailySummary);
 router.put('/goals', authenticateToken, NutritionController.updateGoals);
 
+// Manual Seed Route (Temporary for deployment) - Public GET so you can run it from browser
+router.get('/seed-force', NutritionController.forceSeed);
+
 module.exports = router;
