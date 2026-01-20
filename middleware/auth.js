@@ -4,12 +4,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_producti
 
 // Middleware to verify JWT token and extract user info
 const authenticateToken = (req, res, next) => {
-    const token = req.headers.token || req.headers.authorization?.replace('Bearer ', '');
+    // Check various header casing
+    const authHeader = req.headers.authorization || req.headers.Authorization || req.headers.token || req.headers.Token;
+    let token = authHeader && authHeader.replace('Bearer ', '');
 
-    if (!token) {
+    // Sometimes clients send the string "null" or "undefined"
+    if (!token || token === 'null' || token === 'undefined') {
         return res.status(401).json({
             error: 'Unauthorized',
-            message: 'Authentication token required'
+            message: 'Authentication token required (received null/undefined)'
         });
     }
 
