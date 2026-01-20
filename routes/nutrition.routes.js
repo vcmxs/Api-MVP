@@ -1,19 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const NutritionController = require('../controllers/nutrition.controller');
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // Public or Protected routes? Foods can be public or protected. Let's make them protected to be safe.
 // Food routes
-router.get('/foods', auth, NutritionController.searchFoods);
-router.get('/foods/:id', auth, NutritionController.getFoodById);
+// Food routes
+router.get('/foods', authenticateToken, NutritionController.searchFoods);
+router.get('/foods/:id', authenticateToken, NutritionController.getFoodById);
 
 // Meal Logging routes
-router.post('/meals', auth, NutritionController.logMeal);
-router.delete('/meals/:id', auth, NutritionController.deleteMealLog);
+router.post('/meals', authenticateToken, NutritionController.logMeal);
+router.delete('/meals/:id', authenticateToken, NutritionController.deleteMealLog);
 
 // Daily Summary routes
-router.get('/summary/:date', auth, NutritionController.getDailySummary);
-router.put('/goals', auth, NutritionController.updateGoals);
+router.get('/summary/:date', authenticateToken, NutritionController.getDailySummary);
+router.put('/goals', authenticateToken, NutritionController.updateGoals);
 
 module.exports = router;
