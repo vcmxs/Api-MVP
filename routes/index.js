@@ -21,7 +21,9 @@ router.use('/trainees', traineeRoutes);
 router.use('/admin', adminRoutes);
 router.use('/workout-templates', templateRoutes);
 router.use('/setup', setupRoutes);
+router.use('/setup', setupRoutes);
 router.use('/nutrition', nutritionRoutes);
+router.use('/notifications', require('./notification.routes'));
 
 // Optional routes (can be added later)
 // router.use('/exercises', exerciseRoutes);
