@@ -190,6 +190,20 @@ const createTables = async () => {
       )
     `);
 
+    // Notifications table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        type VARCHAR(50) NOT NULL, -- e.g., 'system', 'workout_assigned', 'workout_completed'
+        related_id INTEGER, -- ID of the related entity (workout_id, etc.)
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Seed Exercise Library if empty
     const exerciseCount = await client.query('SELECT COUNT(*) FROM exercise_library');
     if (parseInt(exerciseCount.rows[0].count) === 0) {
