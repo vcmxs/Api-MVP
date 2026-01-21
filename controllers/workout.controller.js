@@ -44,10 +44,13 @@ exports.createWorkoutPlan = async (req, res) => {
         });
 
         // Notify Trainee
+        const coachResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [coachId]);
+        const coachName = coachResult.rows[0]?.name || 'Coach';
+
         await NotificationController.createNotification(
             workoutPlan.trainee_id,
             'New Workout Assigned',
-            `Coach has assigned you a new workout: ${workoutPlan.name}`,
+            JSON.stringify({ name: coachName, workoutName: workoutPlan.name }),
             'workout_assigned',
             workoutPlan.id
         );
@@ -234,10 +237,13 @@ const notifyCoachOnCompletion = async (workoutId) => {
     try {
         const workout = await Workout.findByIdWithExercises(workoutId);
         if (workout && workout.coach_id) {
+            const traineeResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [workout.trainee_id]);
+            const traineeName = traineeResult.rows[0]?.name || 'Trainee';
+
             await NotificationController.createNotification(
                 workout.coach_id,
                 'Workout Completed',
-                `Trainee has completed the workout: ${workout.name}`,
+                JSON.stringify({ name: traineeName, workoutName: workout.name }),
                 'workout_completed',
                 workout.id
             );
