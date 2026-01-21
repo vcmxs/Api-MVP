@@ -1,5 +1,6 @@
 // controllers/workout.controller.js
 const Workout = require('../models/Workout');
+const NotificationController = require('./notification.controller');
 
 /**
  * Create workout plan with exercises
@@ -41,6 +42,15 @@ exports.createWorkoutPlan = async (req, res) => {
                 order: ex.exercise_order
             }))
         });
+
+        // Notify Trainee
+        await NotificationController.createNotification(
+            workoutPlan.trainee_id,
+            'New Workout Assigned',
+            `Coach has assigned you a new workout: ${workoutPlan.name}`,
+            'workout_assigned',
+            workoutPlan.id
+        );
     } catch (err) {
         console.error('Create workout plan error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
@@ -205,14 +215,34 @@ exports.completeWorkout = async (req, res) => {
         }
 
         res.json({
-            id: workout.id.toString(),
             status: workout.status,
             completedAt: workout.completed_at
         });
+
+        // Notify Coach
+        await notifyCoachOnCompletion(req.params.workoutPlanId);
     } catch (err) {
         console.error('Complete workout error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
+};
+
+/**
+ * Notify coach on workout completion (Helper refactor needed to be clean, inserting here)
+ */
+const notifyCoachOnCompletion = async (workoutId) => {
+    try {
+        const workout = await Workout.findByIdWithExercises(workoutId);
+        if (workout && workout.coach_id) {
+            await NotificationController.createNotification(
+                workout.coach_id,
+                'Workout Completed',
+                `Trainee has completed the workout: ${workout.name}`,
+                'workout_completed',
+                workout.id
+            );
+        }
+    } catch (e) { console.error('Notify coach error', e); }
 };
 
 /**
