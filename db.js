@@ -1,5 +1,8 @@
 // db.js
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Force DATE types (OID 1082) to be returned as strings to avoid timezone conversion issues
+types.setTypeParser(1082, (str) => str);
 
 const pool = new Pool({
   // En producción usa DATABASE_URL, en desarrollo usa tu config local
