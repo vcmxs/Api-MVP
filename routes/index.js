@@ -24,6 +24,7 @@ router.use('/setup', setupRoutes);
 router.use('/setup', setupRoutes);
 router.use('/nutrition', nutritionRoutes);
 router.use('/notifications', require('./notification.routes'));
+router.use('/push-tokens', require('./pushToken.routes'));
 
 // Optional routes (can be added later)
 // router.use('/exercises', exerciseRoutes);
