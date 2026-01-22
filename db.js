@@ -204,6 +204,18 @@ const createTables = async () => {
       )
     `);
 
+    // Push Tokens table (for Expo Push Notifications)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS push_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        token VARCHAR(255) NOT NULL UNIQUE,
+        device_type VARCHAR(50), -- 'ios', 'android', etc.
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Seed Exercise Library if empty
     const exerciseCount = await client.query('SELECT COUNT(*) FROM exercise_library');
     if (parseInt(exerciseCount.rows[0].count) === 0) {
