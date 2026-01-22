@@ -7,7 +7,7 @@ const pool = require('../config/database');
  */
 exports.register = async (req, res) => {
     try {
-        const { name, email, password, role, age, sex, phone, gym, notes } = req.body;
+        const { name, email, password, role, age, sex, phone, gym, notes, height, weight } = req.body;
 
         // Validation
         if (!name || !email || !password || !role) {
@@ -58,6 +58,8 @@ exports.register = async (req, res) => {
             phone,
             gym,
             notes,
+            height,
+            weight,
             profilePicUrl
         });
 
@@ -186,6 +188,104 @@ exports.login = async (req, res) => {
         res.json(responseData);
     } catch (err) {
         console.error('Login error:', err);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: err.message
+        });
+    }
+};
+
+/**
+ * Google Sign-In - verify token and auto-login/register
+ */
+exports.googleLogin = async (req, res) => {
+    try {
+        const { idToken } = req.body;
+
+        if (!idToken) {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Google ID token is required'
+            });
+        }
+
+        // Verify Google token
+        const { OAuth2Client } = require('google-auth-library');
+        const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+        let ticket;
+        try {
+            ticket = await client.verifyIdToken({
+                idToken: idToken,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+        } catch (error) {
+            console.error('Google token verification failed:', error);
+            return res.status(401).json({
+                error: 'Unauthorized',
+                message: 'Invalid Google token'
+            });
+        }
+
+        const payload = ticket.getPayload();
+        const email = payload.email;
+        const name = payload.name || email.split('@')[0];
+        const googleId = payload.sub;
+
+        console.log('Google Sign-In:', { email, name, googleId });
+
+        // Check if user already exists
+        let user = await User.findByEmail(email);
+
+        if (!user) {
+            // New user - auto-register with Google account
+            console.log('Creating new user from Google Sign-In');
+            user = await User.create({
+                name: name,
+                email: email,
+                password: `google_${googleId}_${Math.random().toString(36)}`, // Random password (user won't use it)
+                role: 'trainee', // Default role for Google sign-ups
+                age: null,
+                sex: null,
+                phone: null,
+                gym: null,
+                notes: 'Registered via Google Sign-In',
+                height: null,
+                weight: null,
+                profilePicUrl: payload.picture || null
+            });
+        } else {
+            console.log('Existing user logging in via Google');
+        }
+
+        // Generate JWT token
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
+
+        const token = jwt.sign(
+            {
+                id: user.id,
+                email: user.email,
+                role: user.role
+            },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            token,
+            user: {
+                id: user.id.toString(),
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                subscriptionStatus: user.subscription_status,
+                subscriptionTier: user.subscription_tier,
+                status: user.status
+            }
+        });
+    } catch (err) {
+        console.error('Google login error:', err);
         res.status(500).json({
             error: 'Internal Server Error',
             message: err.message
