@@ -78,6 +78,32 @@ exports.markAllAsRead = async (req, res) => {
 };
 
 /**
+ * Delete a notification
+ */
+exports.deleteNotification = async (req, res) => {
+    try {
+        const { notificationId } = req.params;
+        const userId = req.user.id;
+
+        const result = await pool.query(
+            `DELETE FROM notifications 
+             WHERE id = $1 AND user_id = $2 
+             RETURNING *`,
+            [notificationId, userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Notification not found' });
+        }
+
+        res.json({ message: 'Notification deleted successfully' });
+    } catch (err) {
+        console.error('Delete notification error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
  * Internal helper to create a notification AND send push notification
  * This is NOT an API endpoint, but a function to be called by other controllers
  */
