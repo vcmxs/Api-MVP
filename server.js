@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const compression = require('compression');
 require('dotenv').config();
 
 // Import modular routes
@@ -11,6 +13,10 @@ const apiRoutes = require('./routes');
 const app = express();
 app.set('trust proxy', 1); // Required for Railway/Heroku to key rate limiting off IP
 const PORT = process.env.PORT || 3000;
+
+// Security Middleware
+app.use(helmet()); // Sets various HTTP headers for security
+app.use(compression()); // Compress responses
 
 // Rate limiting configuration
 // General API rate limiter - 1000 requests per 15 minutes per IP
@@ -38,8 +44,24 @@ const authLimiter = rateLimit({
 
 
 // Middleware
+// CORS Configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://duplagym.vercel.app', // Your Vercel frontend
+  'http://localhost:8081', // Expo Go default
+  'fit.dupla.app' // Mobile app scheme (often not sent as origin but good practice)
+];
+
 app.use(cors({
-  origin: '*', // Allow all origins for now (can be restricted later)
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1 && !origin.includes('vercel.app')) { // Allow all Vercel subdomains for preview
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'token']
 }));
