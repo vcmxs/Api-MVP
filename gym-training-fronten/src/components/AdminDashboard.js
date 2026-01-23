@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-
-const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
-const BASE_URL = API_URL.replace('/api/v1', '');
+import { API_URL, BASE_URL } from '../config/api';
 
 function AdminDashboard({ token, userId, userRole }) {
     const [users, setUsers] = useState([]);

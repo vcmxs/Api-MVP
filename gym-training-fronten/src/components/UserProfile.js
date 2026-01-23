@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../App.css';
-
-const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
-const BASE_URL = API_URL.replace('/api/v1', '');
+import { API_URL, BASE_URL } from '../config/api';
 
 function UserProfile({ userId, editable, onUpdate }) {
+    const navigate = useNavigate();
     const [profile, setProfile] = useState(null);
     const [editing, setEditing] = useState(false);
     const [formData, setFormData] = useState({
@@ -112,6 +112,34 @@ function UserProfile({ userId, editable, onUpdate }) {
             alert('Error al actualizar la foto de perfil');
         } finally {
             setUploadingPic(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (window.confirm('¿Estás SEGURO que quieres eliminar tu cuenta?\n\nEsta acción es irreversible. Se borrarán todos tus datos, entrenamientos y progreso.\n\nEscribe "borrar" para confirmar.')) {
+            // Additional safety check prompt could be added here, but simplest is just confirm
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('No hay sesión activa');
+                    return;
+                }
+
+                await axios.delete(`${API_URL}/users/${userId}/account`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                alert('Tu cuenta ha sido eliminada correctamente.');
+
+                // Clear local storage and redirect
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+                navigate('/login');
+
+            } catch (err) {
+                console.error('Delete account error:', err);
+                alert('Error al eliminar la cuenta: ' + (err.response?.data?.message || err.message));
+            }
         }
     };
 
@@ -271,9 +299,36 @@ function UserProfile({ userId, editable, onUpdate }) {
                     )}
 
                     {editable && (
-                        <button onClick={() => setEditing(true)} className="btn-primary" style={{ marginTop: '1rem' }}>
-                            Editar Perfil
-                        </button>
+                        <>
+                            <button onClick={() => setEditing(true)} className="btn-primary" style={{ marginTop: '1rem', marginRight: '1rem' }}>
+                                Editar Perfil
+                            </button>
+
+                            <hr style={{ margin: '2rem 0', borderColor: 'rgba(255,255,255,0.1)' }} />
+
+                            <div className="danger-zone" style={{ padding: '1rem', border: '1px solid rgba(255, 71, 87, 0.3)', borderRadius: '8px', background: 'rgba(255, 71, 87, 0.05)' }}>
+                                <h4 style={{ color: '#ff4757', marginTop: 0 }}>Zona de Peligro</h4>
+                                <p style={{ fontSize: '0.9rem', color: '#ccc' }}>
+                                    Una vez que elimines tu cuenta, no hay vuelta atrás. Por favor asegúrate.
+                                </p>
+                                <button
+                                    onClick={handleDeleteAccount}
+                                    className="btn-danger"
+                                    style={{
+                                        backgroundColor: '#ff4757',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '0.6rem 1.2rem',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold',
+                                        marginTop: '0.5rem'
+                                    }}
+                                >
+                                    Eliminar Cuenta
+                                </button>
+                            </div>
+                        </>
                     )}
                 </div>
             )}

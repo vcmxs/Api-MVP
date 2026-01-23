@@ -3,6 +3,7 @@ import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
 import Calendar from './Calendar';
+import { API_URL } from '../config/api';
 
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLog, onLog, onDelete }) => {
@@ -308,8 +309,7 @@ const ActiveWorkoutView = ({
 };
 
 const CoachDashboard = ({ token, userId }) => {
-  // Use Railway Production URL
-  const API_URL = 'https://api-mvp-production.up.railway.app/api/v1';
+
 
   const [activeTab, setActiveTab] = useState('customers');
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
