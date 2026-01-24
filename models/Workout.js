@@ -30,8 +30,8 @@ class Workout {
             // Insert exercises
             const exercisePromises = exercises.map((ex, index) => {
                 return client.query(
-                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING *`,
                     [
                         workoutPlan.id,
@@ -42,7 +42,9 @@ class Workout {
                         ex.weightUnit || 'kg',
                         ex.restTime || 60,
                         ex.notes || '',
-                        index + 1
+                        index + 1,
+                        ex.rpe || null,
+                        ex.rir || null
                     ]
                 );
             });
@@ -175,8 +177,8 @@ class Workout {
         const exercisePromises = exercises.map((ex) => {
             currentOrder++;
             return pool.query(
-                `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
                 [
                     planId,
@@ -187,7 +189,9 @@ class Workout {
                     ex.weightUnit || 'kg',
                     ex.restTime || 60,
                     ex.notes || '',
-                    currentOrder
+                    currentOrder,
+                    ex.rpe || null,
+                    ex.rir || null
                 ]
             );
         });
@@ -229,20 +233,28 @@ class Workout {
     static async logExerciseSet(workoutPlanId, exerciseId, logData) {
         // Note: workoutPlanId is passed but not used in INSERT if column doesn't exist
         // We removed logged_at and workout_plan_id to match likely schema
+
+        const values = [
+            exerciseId,
+            logData.setNumber,
+            logData.repsCompleted,
+            logData.weightUsed,
+            logData.weightUnit || 'kg',
+            logData.notes || '',
+            logData.rpe || null,
+            logData.rir || null
+        ];
+
+        console.log('💾 MODEL: Inserting into database:', values);
+
         const result = await pool.query(
-            `INSERT INTO exercise_logs (exercise_id, set_number, reps_completed, weight_used, weight_unit, notes)
-       VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO exercise_logs (exercise_id, set_number, reps_completed, weight_used, weight_unit, notes, rpe, rir)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-            [
-                exerciseId,
-                logData.setNumber,
-                logData.repsCompleted,
-                logData.weightUsed,
-                logData.weightUnit || 'kg',
-                logData.notes || ''
-            ]
+            values
         );
 
+        console.log('💾 MODEL: Database returned:', result.rows[0]);
         return result.rows[0];
     }
 
@@ -252,8 +264,8 @@ class Workout {
     static async updateExerciseLog(logId, logData) {
         const result = await pool.query(
             `UPDATE exercise_logs 
-             SET set_number = $1, reps_completed = $2, weight_used = $3, weight_unit = $4, notes = $5
-             WHERE id = $6
+             SET set_number = $1, reps_completed = $2, weight_used = $3, weight_unit = $4, notes = $5, rpe = $6, rir = $7
+             WHERE id = $8
              RETURNING *`,
             [
                 logData.setNumber,
@@ -261,6 +273,8 @@ class Workout {
                 logData.weightUsed,
                 logData.weightUnit || 'kg',
                 logData.notes || '',
+                logData.rpe || null,
+                logData.rir || null,
                 logId
             ]
         );
