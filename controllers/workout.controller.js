@@ -319,6 +319,8 @@ exports.logExerciseSet = async (req, res) => {
         const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir } = req.body;
         const { workoutPlanId, exerciseId } = req.params;
 
+        console.log('🔵 SERVER: Received log request:', { setNumber, repsCompleted, weightUsed, rpe, rir });
+
         const log = await Workout.logExerciseSet(workoutPlanId, exerciseId, {
             setNumber,
             repsCompleted,
@@ -328,6 +330,8 @@ exports.logExerciseSet = async (req, res) => {
             rpe,
             rir
         });
+
+        console.log('🟢 SERVER: Database returned:', log);
 
         res.status(201).json({
             id: log.id.toString(),
