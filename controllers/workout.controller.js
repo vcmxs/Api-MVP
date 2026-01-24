@@ -316,7 +316,7 @@ exports.updateExercise = async (req, res) => {
  */
 exports.logExerciseSet = async (req, res) => {
     try {
-        const { setNumber, repsCompleted, weightUsed, weightUnit, notes } = req.body;
+        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir } = req.body;
         const { workoutPlanId, exerciseId } = req.params;
 
         const log = await Workout.logExerciseSet(workoutPlanId, exerciseId, {
@@ -324,7 +324,9 @@ exports.logExerciseSet = async (req, res) => {
             repsCompleted,
             weightUsed,
             weightUnit,
-            notes
+            notes,
+            rpe,
+            rir
         });
 
         res.status(201).json({
@@ -336,6 +338,8 @@ exports.logExerciseSet = async (req, res) => {
             weightUsed: parseFloat(log.weight_used),
             weightUnit: log.weight_unit,
             notes: log.notes,
+            rpe: log.rpe,
+            rir: log.rir,
             loggedAt: log.logged_at
         });
     } catch (err) {
@@ -360,7 +364,7 @@ exports.logExerciseSet = async (req, res) => {
  */
 exports.updateExerciseLog = async (req, res) => {
     try {
-        const { setNumber, repsCompleted, weightUsed, weightUnit, notes } = req.body;
+        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir } = req.body;
         const { logId } = req.params;
 
         const log = await Workout.updateExerciseLog(logId, {
@@ -368,7 +372,9 @@ exports.updateExerciseLog = async (req, res) => {
             repsCompleted,
             weightUsed,
             weightUnit,
-            notes
+            notes,
+            rpe,
+            rir
         });
 
         if (!log) {
@@ -382,6 +388,8 @@ exports.updateExerciseLog = async (req, res) => {
             weightUsed: parseFloat(log.weight_used),
             weightUnit: log.weight_unit,
             notes: log.notes,
+            rpe: log.rpe,
+            rir: log.rir,
             loggedAt: log.logged_at
         });
     } catch (err) {
@@ -405,6 +413,8 @@ exports.getExerciseLogs = async (req, res) => {
                 weightUsed: parseFloat(log.weight_used),
                 weightUnit: log.weight_unit,
                 notes: log.notes,
+                rpe: log.rpe,
+                rir: log.rir,
                 loggedAt: log.logged_at
             }))
         });
