@@ -91,7 +91,11 @@ exports.getWorkoutPlanById = async (req, res) => {
                 weightUnit: ex.weight_unit,
                 restTime: ex.rest_time,
                 notes: ex.notes,
-                order: ex.exercise_order
+                order: ex.exercise_order,
+                rpe: ex.rpe,
+                rir: ex.rir,
+                trackRpe: ex.rpe != null,
+                trackRir: ex.rir != null
             }))
         });
     } catch (err) {
@@ -129,7 +133,11 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
                         weightUnit: ex.weight_unit,
                         restTime: ex.rest_time,
                         notes: ex.notes,
-                        order: ex.exercise_order
+                        order: ex.exercise_order,
+                        rpe: ex.rpe,
+                        rir: ex.rir,
+                        trackRpe: ex.rpe != null,
+                        trackRir: ex.rir != null
                     }))
                 };
             })
@@ -319,8 +327,6 @@ exports.logExerciseSet = async (req, res) => {
         const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir } = req.body;
         const { workoutPlanId, exerciseId } = req.params;
 
-        console.log('🔵 SERVER: Received log request:', { setNumber, repsCompleted, weightUsed, rpe, rir });
-
         const log = await Workout.logExerciseSet(workoutPlanId, exerciseId, {
             setNumber,
             repsCompleted,
@@ -330,8 +336,6 @@ exports.logExerciseSet = async (req, res) => {
             rpe,
             rir
         });
-
-        console.log('🟢 SERVER: Database returned:', log);
 
         res.status(201).json({
             id: log.id.toString(),
