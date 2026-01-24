@@ -234,27 +234,22 @@ class Workout {
         // Note: workoutPlanId is passed but not used in INSERT if column doesn't exist
         // We removed logged_at and workout_plan_id to match likely schema
 
-        const values = [
-            exerciseId,
-            logData.setNumber,
-            logData.repsCompleted,
-            logData.weightUsed,
-            logData.weightUnit || 'kg',
-            logData.notes || '',
-            logData.rpe || null,
-            logData.rir || null
-        ];
-
-        console.log('💾 MODEL: Inserting into database:', values);
-
         const result = await pool.query(
             `INSERT INTO exercise_logs (exercise_id, set_number, reps_completed, weight_used, weight_unit, notes, rpe, rir)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-            values
+            [
+                exerciseId,
+                logData.setNumber,
+                logData.repsCompleted,
+                logData.weightUsed,
+                logData.weightUnit || 'kg',
+                logData.notes || '',
+                logData.rpe || null,
+                logData.rir || null
+            ]
         );
 
-        console.log('💾 MODEL: Database returned:', result.rows[0]);
         return result.rows[0];
     }
 
