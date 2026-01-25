@@ -30,8 +30,8 @@ class Workout {
             // Insert exercises
             const exercisePromises = exercises.map((ex, index) => {
                 return client.query(
-                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
            RETURNING *`,
                     [
                         workoutPlan.id,
@@ -44,7 +44,10 @@ class Workout {
                         ex.notes || '',
                         index + 1,
                         ex.rpe || null,
-                        ex.rir || null
+                        ex.rir || null,
+                        (ex.isCardio || ex.is_cardio) ? true : false,
+                        ex.targetDistance || ex.target_distance || null,
+                        ex.targetDuration || ex.target_duration || null
                     ]
                 );
             });
@@ -177,8 +180,8 @@ class Workout {
         const exercisePromises = exercises.map((ex) => {
             currentOrder++;
             return pool.query(
-                `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING *`,
                 [
                     planId,
@@ -191,7 +194,10 @@ class Workout {
                     ex.notes || '',
                     currentOrder,
                     ex.rpe || null,
-                    ex.rir || null
+                    ex.rir || null,
+                    (ex.isCardio || ex.is_cardio) ? true : false,
+                    ex.targetDistance || ex.target_distance || null,
+                    ex.targetDuration || ex.target_duration || null
                 ]
             );
         });
@@ -235,8 +241,8 @@ class Workout {
         // We removed logged_at and workout_plan_id to match likely schema
 
         const result = await pool.query(
-            `INSERT INTO exercise_logs (exercise_id, set_number, reps_completed, weight_used, weight_unit, notes, rpe, rir)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `INSERT INTO exercise_logs (exercise_id, set_number, reps_completed, weight_used, weight_unit, notes, rpe, rir, distance, duration, calories)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
             [
                 exerciseId,
@@ -246,7 +252,10 @@ class Workout {
                 logData.weightUnit || 'kg',
                 logData.notes || '',
                 logData.rpe || null,
-                logData.rir || null
+                logData.rir || null,
+                logData.distance || null,
+                logData.duration || null,
+                logData.calories || null
             ]
         );
 
@@ -259,8 +268,8 @@ class Workout {
     static async updateExerciseLog(logId, logData) {
         const result = await pool.query(
             `UPDATE exercise_logs 
-             SET set_number = $1, reps_completed = $2, weight_used = $3, weight_unit = $4, notes = $5, rpe = $6, rir = $7
-             WHERE id = $8
+             SET set_number = $1, reps_completed = $2, weight_used = $3, weight_unit = $4, notes = $5, rpe = $6, rir = $7, distance = $8, duration = $9, calories = $10
+             WHERE id = $11
              RETURNING *`,
             [
                 logData.setNumber,
@@ -270,6 +279,10 @@ class Workout {
                 logData.notes || '',
                 logData.rpe || null,
                 logData.rir || null,
+                logData.rir || null,
+                logData.distance || null,
+                logData.duration || null,
+                logData.calories || null,
                 logId
             ]
         );
