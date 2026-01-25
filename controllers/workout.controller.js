@@ -340,7 +340,7 @@ exports.updateExercise = async (req, res) => {
  */
 exports.logExerciseSet = async (req, res) => {
     try {
-        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir } = req.body;
+        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories } = req.body;
         const { workoutPlanId, exerciseId } = req.params;
 
         const log = await Workout.logExerciseSet(workoutPlanId, exerciseId, {
@@ -350,7 +350,10 @@ exports.logExerciseSet = async (req, res) => {
             weightUnit,
             notes,
             rpe,
-            rir
+            rir,
+            distance,
+            duration,
+            calories
         });
 
         res.status(201).json({
@@ -364,6 +367,9 @@ exports.logExerciseSet = async (req, res) => {
             notes: log.notes,
             rpe: log.rpe,
             rir: log.rir,
+            distance: log.distance,
+            duration: log.duration,
+            calories: log.calories,
             loggedAt: log.logged_at
         });
     } catch (err) {
@@ -388,7 +394,7 @@ exports.logExerciseSet = async (req, res) => {
  */
 exports.updateExerciseLog = async (req, res) => {
     try {
-        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir } = req.body;
+        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories } = req.body;
         const { logId } = req.params;
 
         const log = await Workout.updateExerciseLog(logId, {
@@ -398,7 +404,10 @@ exports.updateExerciseLog = async (req, res) => {
             weightUnit,
             notes,
             rpe,
-            rir
+            rir,
+            distance,
+            duration,
+            calories
         });
 
         if (!log) {
@@ -414,6 +423,11 @@ exports.updateExerciseLog = async (req, res) => {
             notes: log.notes,
             rpe: log.rpe,
             rir: log.rir,
+            rpe: log.rpe,
+            rir: log.rir,
+            distance: log.distance,
+            duration: log.duration,
+            calories: log.calories,
             loggedAt: log.logged_at
         });
     } catch (err) {
@@ -439,6 +453,11 @@ exports.getExerciseLogs = async (req, res) => {
                 notes: log.notes,
                 rpe: log.rpe,
                 rir: log.rir,
+                rpe: log.rpe,
+                rir: log.rir,
+                distance: log.distance,
+                duration: log.duration,
+                calories: log.calories,
                 loggedAt: log.logged_at
             }))
         });
