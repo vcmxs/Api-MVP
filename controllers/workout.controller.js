@@ -39,7 +39,10 @@ exports.createWorkoutPlan = async (req, res) => {
                 weightUnit: ex.weight_unit,
                 restTime: ex.rest_time,
                 notes: ex.notes,
-                order: ex.exercise_order
+                order: ex.exercise_order,
+                isCardio: ex.is_cardio,
+                targetDistance: ex.target_distance,
+                targetDuration: ex.target_duration
             }))
         });
 
@@ -98,7 +101,10 @@ exports.getWorkoutPlanById = async (req, res) => {
                 rpe: ex.rpe,
                 rir: ex.rir,
                 trackRpe: ex.rpe != null,
-                trackRir: ex.rir != null
+                trackRir: ex.rir != null,
+                isCardio: ex.is_cardio,
+                targetDistance: ex.target_distance,
+                targetDuration: ex.target_duration
             }))
         });
     } catch (err) {
@@ -140,7 +146,10 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
                         rpe: ex.rpe,
                         rir: ex.rir,
                         trackRpe: ex.rpe != null,
-                        trackRir: ex.rir != null
+                        trackRir: ex.rir != null,
+                        isCardio: ex.is_cardio,
+                        targetDistance: ex.target_distance,
+                        targetDuration: ex.target_duration
                     }))
                 };
             })
