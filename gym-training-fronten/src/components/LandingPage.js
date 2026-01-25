@@ -6,7 +6,6 @@ import './LandingPage.css';
 
 const LandingPage = () => {
     const [selectedPlan, setSelectedPlan] = useState(null);
-    const [paymentMethod, setPaymentMethod] = useState('bs');
 
     return (
         <div className="landing-container">

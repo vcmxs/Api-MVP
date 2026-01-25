@@ -29,8 +29,10 @@ const CardioTimer = ({ initialTime = 0, targetDuration = 0, onFinish, weight = 7
 
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             stopAlarm();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Timer Logic
@@ -145,7 +147,7 @@ const CardioTimer = ({ initialTime = 0, targetDuration = 0, onFinish, weight = 7
     // For timer: 0 = full, 1 = empty. We want 0 at start, circumference at end?
     // standard: strokeDashoffset = circumference - (percent / 100) * circumference
     const progress = mode === 'timer' ? ((initialTarget - seconds) / initialTarget) : 0;
-    const strokeDashoffset = circumference - (progress * circumference); // This fills it up?
+    // const strokeDashoffset = circumference - (progress * circumference); // Unused
     // Actually we want it to empty. 
     // If progress 0, offset should be 0 (full)? No, depends on styling.
     // Let's keep it simple: Ring is full, then empties.

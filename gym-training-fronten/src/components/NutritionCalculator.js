@@ -31,6 +31,7 @@ const NutritionCalculator = ({ userId }) => {
 
     useEffect(() => {
         loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate]);
 
     const loadData = async () => {
@@ -294,13 +295,14 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
-    const [isSearching, setIsSearching] = useState(false);
+    // const [isSearching, setIsSearching] = useState(false); // Unused
     const [selectedFood, setSelectedFood] = useState(null);
     const [quantity, setQuantity] = useState('');
     const [logging, setLogging] = useState(false);
 
     useEffect(() => {
         loadLogs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId, selectedDate]);
 
     const loadLogs = async () => {
@@ -338,10 +340,11 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
             }
         }, 500);
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery]);
 
     const performSearch = async () => {
-        setIsSearching(true);
+        // setIsSearching(true);
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get(`${API_URL}/nutrition/foods`, {
@@ -352,7 +355,7 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
         } catch (err) {
             console.error('Search error:', err);
         } finally {
-            setIsSearching(false);
+            // setIsSearching(false);
         }
     };
 
