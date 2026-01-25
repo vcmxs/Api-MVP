@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
 import Calendar from './Calendar';
+import NutritionCalculator from './NutritionCalculator';
 import { API_URL } from '../config/api';
 
 // Helper component for Set Row
@@ -303,7 +305,10 @@ const ActiveWorkoutView = ({
   );
 };
 
+
 function TraineeDashboard({ token, userId }) {
+  const { t } = useTranslation();
+
 
   const [workoutPlans, setWorkoutPlans] = useState([]);
   const [activeWorkout, setActiveWorkout] = useState(null);
@@ -771,8 +776,42 @@ function TraineeDashboard({ token, userId }) {
   }
 
   return (
-    <div className="dashboard">
-      <h2>Trainee Dashboard</h2>
+    <div className="dashboard" style={{ userSelect: 'none' }}>
+      {/* Header */}
+      {/* Header */}
+      <div className="dashboard-header-container" style={{
+        backgroundColor: '#0a0a0f',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000,
+        width: '100%',
+        marginBottom: '2rem'
+      }}>
+        <div className="dashboard-header-content" style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '1rem 2rem',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <h1 style={{
+            color: '#fff',
+            fontSize: '1.5rem',
+            margin: 0,
+            letterSpacing: '3px',
+            textTransform: 'uppercase',
+            background: 'linear-gradient(90deg, #00ffff, #0080ff)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontWeight: '800'
+          }}>
+            {t('dashboard.traineeWelcome').toUpperCase()}
+          </h1>
+        </div>
+      </div>
+
 
       {/* Tab Navigation */}
       <div className="tab-navigation">
@@ -780,179 +819,196 @@ function TraineeDashboard({ token, userId }) {
           className={`tab-button ${activeTab === 'workouts' ? 'active' : ''}`}
           onClick={() => setActiveTab('workouts')}
         >
-          🏋️ My Workouts
+          {t('dashboard.myWorkouts')}
         </button>
         <button
           className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
           onClick={() => setActiveTab('calendar')}
         >
-          📅 My Calendar
+          📅 {t('common.date')}
         </button>
         <button
           className={`tab-button ${activeTab === 'progression' ? 'active' : ''}`}
           onClick={() => setActiveTab('progression')}
         >
-          📈 Progression
+          📈 {t('progression.title')}
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'nutrition' ? 'active' : ''}`}
+          onClick={() => setActiveTab('nutrition')}
+        >
+          🍎 {t('nutrition.title')}
         </button>
         <button
           className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
-          👤 My Profile
+          👤 {t('profile.title')}
         </button>
       </div>
 
-      {activeTab === 'profile' && (
-        <div className="profile-section">
-          <UserProfile userId={userId} editable={true} />
-        </div>
-      )}
+      {activeTab === 'nutrition' && <NutritionCalculator userId={userId} />
+      }
 
-      {activeTab === 'workouts' && (
-        <div className="workout-plans">
-          {workoutPlans?.length === 0 ? (
-            <p>No workout plans assigned yet.</p>
-          ) : (
-            workoutPlans.map((plan) => (
-              <div key={plan.id} className="workout-card">
-                <h3>{plan.name}</h3>
-                <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
-                <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
-                <p>{plan.exercises?.length || 0} exercises</p>
-                {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
+      {
+        activeTab === 'profile' && (
+          <div className="profile-section">
+            <UserProfile userId={userId} editable={true} />
+          </div>
+        )
+      }
 
-                {plan.status === 'assigned' && (
-                  <button onClick={() => startWorkout(plan.id)} className="btn-primary">
-                    Start Workout
-                  </button>
-                )}
+      {
+        activeTab === 'workouts' && (
+          <div className="workout-plans">
+            {workoutPlans?.length === 0 ? (
+              <p>No workout plans assigned yet.</p>
+            ) : (
+              workoutPlans.map((plan) => (
+                <div key={plan.id} className="workout-card">
+                  <h3>{plan.name}</h3>
+                  <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
+                  <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
+                  <p>{plan.exercises?.length || 0} exercises</p>
+                  {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
 
-                {plan.status === 'in_progress' && (
-                  <>
+                  {plan.status === 'assigned' && (
                     <button onClick={() => startWorkout(plan.id)} className="btn-primary">
-                      Resume Workout
+                      Start Workout
                     </button>
-                    <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
-                      View Details
-                    </button>
-                  </>
-                )}
+                  )}
 
-                {plan.status === 'completed' && (
-                  <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
-                    View Details
-                  </button>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {activeTab === 'calendar' && (
-        <div className="calendar-section">
-          <h2>My Calendar</h2>
-          <Calendar
-            events={workoutPlans}
-            onSelectDate={(date) => setCalendarSelectedDate(date)}
-          />
-
-          {calendarSelectedDate && (
-            <div className="selected-date-workouts">
-              <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
-              {(() => {
-                const dayEvents = workoutPlans.filter(p => {
-                  const d = new Date(p.scheduledDate);
-                  return d.getDate() === calendarSelectedDate.getDate() &&
-                    d.getMonth() === calendarSelectedDate.getMonth() &&
-                    d.getFullYear() === calendarSelectedDate.getFullYear();
-                });
-
-                if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
-
-                return dayEvents.map(plan => (
-                  <div key={plan.id} className="workout-card">
-                    <h3>{plan.name}</h3>
-                    <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
-                    <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
-                    <p>{plan.exercises?.length || 0} exercises</p>
-                    {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
-
-                    {plan.status === 'assigned' && (
+                  {plan.status === 'in_progress' && (
+                    <>
                       <button onClick={() => startWorkout(plan.id)} className="btn-primary">
-                        Start Workout
+                        Resume Workout
                       </button>
-                    )}
-
-                    {plan.status === 'in_progress' && (
-                      <>
-                        <button onClick={() => startWorkout(plan.id)} className="btn-primary">
-                          Resume Workout
-                        </button>
-                        <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
-                          View Details
-                        </button>
-                      </>
-                    )}
-
-                    {plan.status === 'completed' && (
-                      <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                      <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
                         View Details
                       </button>
-                    )}
-                  </div>
-                ));
-              })()}
-            </div>
-          )}
-        </div>
-      )}
+                    </>
+                  )}
 
-      {activeTab === 'progression' && (
-        <div className="progression-section">
-          <h2>Progression Tracking</h2>
-          <p style={{ color: 'var(--gray)', marginBottom: '2rem' }}>
-            Track your strength gains over time. Select an exercise to view your estimated 1 Rep Max trend.
-          </p>
-
-          <div className="progression-controls" style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            padding: '1.5rem',
-            borderRadius: '15px',
-            marginBottom: '2rem',
-            border: '1px solid rgba(0, 255, 255, 0.1)'
-          }}>
-            <div className="form-group">
-              <label>Select Exercise</label>
-              <select
-                value={selectedProgressionExercise}
-                onChange={(e) => setSelectedProgressionExercise(e.target.value)}
-                style={{ maxWidth: '400px' }}
-              >
-                <option value="">-- Choose an exercise --</option>
-                {uniqueExercises.map(ex => (
-                  <option key={ex} value={ex}>{ex}</option>
-                ))}
-              </select>
-            </div>
+                  {plan.status === 'completed' && (
+                    <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                      View Details
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
           </div>
+        )
+      }
 
-          {selectedProgressionExercise && (
-            <div className="chart-card" style={{
-              background: 'rgba(255, 255, 255, 0.02)',
-              padding: '1rem',
-              borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
+      {
+        activeTab === 'calendar' && (
+          <div className="calendar-section">
+            <h2>My Calendar</h2>
+            <Calendar
+              events={workoutPlans}
+              onSelectDate={(date) => setCalendarSelectedDate(date)}
+            />
+
+            {calendarSelectedDate && (
+              <div className="selected-date-workouts">
+                <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
+                {(() => {
+                  const dayEvents = workoutPlans.filter(p => {
+                    const d = new Date(p.scheduledDate);
+                    return d.getDate() === calendarSelectedDate.getDate() &&
+                      d.getMonth() === calendarSelectedDate.getMonth() &&
+                      d.getFullYear() === calendarSelectedDate.getFullYear();
+                  });
+
+                  if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
+
+                  return dayEvents.map(plan => (
+                    <div key={plan.id} className="workout-card">
+                      <h3>{plan.name}</h3>
+                      <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
+                      <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
+                      <p>{plan.exercises?.length || 0} exercises</p>
+                      {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
+
+                      {plan.status === 'assigned' && (
+                        <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                          Start Workout
+                        </button>
+                      )}
+
+                      {plan.status === 'in_progress' && (
+                        <>
+                          <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                            Resume Workout
+                          </button>
+                          <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                            View Details
+                          </button>
+                        </>
+                      )}
+
+                      {plan.status === 'completed' && (
+                        <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                          View Details
+                        </button>
+                      )}
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      {
+        activeTab === 'progression' && (
+          <div className="progression-section">
+            <h2>Progression Tracking</h2>
+            <p style={{ color: 'var(--gray)', marginBottom: '2rem' }}>
+              Track your strength gains over time. Select an exercise to view your estimated 1 Rep Max trend.
+            </p>
+
+            <div className="progression-controls" style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '1.5rem',
+              borderRadius: '15px',
+              marginBottom: '2rem',
+              border: '1px solid rgba(0, 255, 255, 0.1)'
             }}>
-              <ProgressionChart
-                data={progressionData}
-                title={`${selectedProgressionExercise} Progress`}
-              />
+              <div className="form-group">
+                <label>Select Exercise</label>
+                <select
+                  value={selectedProgressionExercise}
+                  onChange={(e) => setSelectedProgressionExercise(e.target.value)}
+                  style={{ maxWidth: '400px' }}
+                >
+                  <option value="">-- Choose an exercise --</option>
+                  {uniqueExercises.map(ex => (
+                    <option key={ex} value={ex}>{ex}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          )}
-        </div>
-      )}
-    </div>
+
+            {selectedProgressionExercise && (
+              <div className="chart-card" style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                padding: '1rem',
+                borderRadius: '20px',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                <ProgressionChart
+                  data={progressionData}
+                  title={`${selectedProgressionExercise} Progress`}
+                />
+              </div>
+            )}
+          </div>
+        )
+      }
+    </div >
   );
 }
 

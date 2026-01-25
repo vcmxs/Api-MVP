@@ -47,118 +47,179 @@ function Login({ onLogin, onToggle }) {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        {/* Logo matching mobile app */}
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <img
-            src="/icon.png"
-            alt="Dupla Logo"
-            style={{
-              width: '100px',
-              height: '100px',
-              marginBottom: '1rem'
-            }}
-          />
+    <div className="login-container" style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000000 100%)', // Premium dark gradient
+      padding: '20px'
+    }}>
+      <div className="login-card" style={{
+        background: 'rgba(255, 255, 255, 0.03)', // Glass effect
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '24px',
+        padding: '3rem',
+        width: '100%',
+        maxWidth: '420px', // Compact width
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+      }}>
+        {/* Logo Section */}
+        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            margin: '0 auto 1.5rem',
+            background: 'linear-gradient(135deg, #00ffff 0%, #0080ff 100%)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)'
+          }}>
+            <img src="/icon.png" alt="Dupla" style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
+          </div>
           <h2 style={{
-            color: 'var(--primary)',
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            textTransform: 'uppercase',
-            letterSpacing: '3px',
-            marginBottom: '0.5rem'
+            color: '#fff',
+            fontSize: '1.8rem',
+            fontWeight: '800',
+            letterSpacing: '4px',
+            margin: '0 0 0.5rem',
+            textShadow: '0 0 10px rgba(0, 255, 255, 0.5)'
           }}>DUPLA</h2>
-          <p style={{
-            color: 'rgba(255, 255, 255, 0.6)',
-            fontSize: '1rem',
-            margin: 0
-          }}>Welcome back</p>
+          <p style={{ color: '#888', fontSize: '0.9rem', margin: 0, fontWeight: '500' }}>WELCOME BACK</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="Email Address"
+                style={{
+                  width: '100%',
+                  padding: '1rem 1.2rem',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'all 0.3s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#00ffff';
+                  e.target.style.background = 'rgba(0, 0, 0, 0.5)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                  e.target.style.background = 'rgba(0, 0, 0, 0.3)';
+                }}
+              />
+            </div>
           </div>
 
           <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Password"
+                style={{
+                  width: '100%',
+                  padding: '1rem 1.2rem',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'all 0.3s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#00ffff';
+                  e.target.style.background = 'rgba(0, 0, 0, 0.5)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                  e.target.style.background = 'rgba(0, 0, 0, 0.3)';
+                }}
+              />
+            </div>
           </div>
 
-          <div className="form-group checkbox-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="checkbox-group" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <input
               type="checkbox"
               id="rememberMe"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              style={{ width: 'auto', margin: 0 }}
+              style={{
+                accentColor: '#00ffff',
+                width: '16px',
+                height: '16px',
+                cursor: 'pointer'
+              }}
             />
-            <label htmlFor="rememberMe" style={{ margin: 0, cursor: 'pointer' }}>Remember me</label>
+            <label htmlFor="rememberMe" style={{ color: '#aaa', fontSize: '0.9rem', cursor: 'pointer', userSelect: 'none' }}>Remember me</label>
           </div>
 
-          {error && <div className="error-message">{error}</div>}
+          {error && (
+            <div style={{
+              background: 'rgba(255, 68, 68, 0.1)',
+              border: '1px solid rgba(255, 68, 68, 0.3)',
+              color: '#ff4444',
+              padding: '0.8rem',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
 
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+          <button type="submit" disabled={loading} style={{
+            background: 'linear-gradient(90deg, #00ffff 0%, #0080ff 100%)',
+            color: '#000',
+            fontWeight: 'bold',
+            padding: '1rem',
+            borderRadius: '12px',
+            border: 'none',
+            fontSize: '1.1rem',
+            cursor: loading ? 'wait' : 'pointer',
+            marginTop: '0.5rem',
+            transition: 'transform 0.2s ease',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            boxShadow: '0 4px 15px rgba(0, 255, 255, 0.3)'
+          }}
+            onMouseEnter={(e) => !loading && (e.target.style.transform = 'translateY(-2px)')}
+            onMouseLeave={(e) => !loading && (e.target.style.transform = 'translateY(0)')}
+          >
+            {loading ? 'Logging in...' : 'LOGIN'}
           </button>
         </form>
 
-        <div className="auth-toggle">
-          <p>Don't have an account?</p>
-          <button onClick={onToggle} className="btn-link">
-            Register here
+        <div className="auth-toggle" style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Don't have an account?</p>
+          <button onClick={onToggle} style={{
+            background: 'none',
+            border: 'none',
+            color: '#00ffff',
+            fontWeight: 'bold',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+            padding: 0
+          }}>
+            Create Account
           </button>
-        </div>
-
-        <div style={{
-          display: 'flex',
-          gap: '1rem',
-          marginTop: '2rem',
-          flexWrap: 'wrap',
-          justifyContent: 'center'
-        }}>
-          <div className="info-box" style={{
-            padding: '1.5rem',
-            background: 'rgba(0, 255, 255, 0.05)',
-            borderRadius: '15px',
-            border: '1px solid rgba(0, 255, 255, 0.15)',
-            maxWidth: '350px',
-            flex: '1',
-            minWidth: '280px'
-          }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🚀</div>
-            <h3 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: '600' }}>Welcome to Dupla!</h3>
-            <p style={{ fontSize: '0.9rem', lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.7)', margin: 0 }}>
-              Tu compañero ideal para rastrear tus entrenamientos y lograr tus metas de fitness.
-            </p>
-          </div>
-
-          <div className="info-box" style={{
-            padding: '1.5rem',
-            background: 'rgba(0, 255, 255, 0.05)',
-            borderRadius: '15px',
-            border: '1px solid rgba(0, 255, 255, 0.15)',
-            maxWidth: '350px',
-            flex: '1',
-            minWidth: '280px'
-          }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏱️</div>
-            <h3 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: '600' }}>Loading Note</h3>
-            <p style={{ fontSize: '0.85rem', lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.7)', margin: 0 }}>
-              El servidor puede tardar ~30 segundos en iniciar después de inactividad. Gracias por tu paciencia.
-            </p>
-          </div>
         </div>
       </div>
     </div>

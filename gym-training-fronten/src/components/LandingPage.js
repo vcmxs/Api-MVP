@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Zap, Smartphone, CheckCircle } from 'lucide-react';
 import dashboardPreview from '../assets/dashboard-preview.jpg';
 import './LandingPage.css';
 
 const LandingPage = () => {
+    const [selectedPlan, setSelectedPlan] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState('bs');
+
     return (
         <div className="landing-container">
             <nav className="landing-nav">
@@ -82,6 +85,134 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            <section className="pricing-section">
+                <h2 className="section-title">Choose Your Plan</h2>
+                <div className="pricing-grid">
+                    <div className="pricing-card starter">
+                        <div className="card-header">
+                            <h3>Starter</h3>
+                            <div className="price">Free</div>
+                        </div>
+                        <ul className="card-features">
+                            <li>1 Trainee Limit</li>
+                            <li>Basic Tracking</li>
+                            <li className="disabled">Advanced Stats</li>
+                        </ul>
+                        <Link to="/register" className="pricing-btn">Start Free</Link>
+                    </div>
+
+                    <div className="pricing-card bronze">
+                        <div className="card-header">
+                            <h3>Bronze</h3>
+                            <div className="price">$15<span>/mo</span></div>
+                        </div>
+                        <ul className="card-features">
+                            <li>Up to 4 Trainees</li>
+                            <li>Advanced Stats</li>
+                            <li>Small Group Support</li>
+                        </ul>
+                        <button onClick={() => setSelectedPlan({ name: 'Bronze', color: '#cd7f32' })} className="pricing-btn">Get Started</button>
+                    </div>
+
+                    <div className="pricing-card silver popular">
+                        <div className="popular-tag">MOST POPULAR</div>
+                        <div className="card-header">
+                            <h3>Silver</h3>
+                            <div className="price">$30<span>/mo</span></div>
+                        </div>
+                        <ul className="card-features">
+                            <li>Up to 10 Trainees</li>
+                            <li>Priority Support</li>
+                            <li>Full Analytics</li>
+                        </ul>
+                        <button onClick={() => setSelectedPlan({ name: 'Silver', color: '#00ffff' })} className="pricing-btn primary">Go Silver</button>
+                    </div>
+
+                    <div className="pricing-card gold">
+                        <div className="card-header">
+                            <h3>Gold</h3>
+                            <div className="price">$80<span>/mo</span></div>
+                        </div>
+                        <ul className="card-features">
+                            <li>Up to 25 Trainees</li>
+                            <li>All Features Unlocked</li>
+                            <li>24/7 Support</li>
+                        </ul>
+                        <button onClick={() => setSelectedPlan({ name: 'Gold', color: '#ffd700' })} className="pricing-btn">Get Gold</button>
+                    </div>
+
+                    <div className="pricing-card olympian">
+                        <div className="card-header">
+                            <h3>Olympian</h3>
+                            <div className="price">$100<span>/mo</span></div>
+                        </div>
+                        <ul className="card-features">
+                            <li>Unlimited Trainees</li>
+                            <li>VIP Access</li>
+                            <li>Enterprise Tools</li>
+                        </ul>
+                        <button onClick={() => setSelectedPlan({ name: 'Olympian', color: '#85a9f7' })} className="pricing-btn">Contact Sales</button>
+                    </div>
+                </div>
+            </section>
+
+            {/* Payment / Contact Modal */}
+            {selectedPlan && (
+                <div className="modal-overlay" onClick={() => setSelectedPlan(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ borderColor: selectedPlan.color }}>
+                        <button className="close-modal" onClick={() => setSelectedPlan(null)}>×</button>
+                        <h2 style={{ color: selectedPlan.name === 'Starter' ? '#fff' : selectedPlan.color }}>
+                            Upgrade to {selectedPlan.name}
+                        </h2>
+
+                        <div className="modal-body">
+                            <p className="modal-text">To process your payment and activate this plan, please contact our sales team.</p>
+
+                        </div>
+
+                        {/* WhatsApp Support Link */}
+                        <a
+                            href="https://wa.me/584127854824"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                backgroundColor: '#25D366',
+                                color: '#fff',
+                                textDecoration: 'none',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                fontWeight: 'bold',
+                                fontSize: '16px',
+                                marginBottom: '20px',
+                                transition: 'transform 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                            Contact Support via WhatsApp 💬
+                        </a>
+
+                        <div className="contact-box">
+                            <div className="email">support@dupla.fit</div>
+                            <div className="ref">Reference Plan: <strong>{selectedPlan.name}</strong></div>
+                        </div>
+
+                        <div className="modal-actions">
+                            <Link to="/register" className="cta-button secondary">Create Free Account First</Link>
+                            <a href={`mailto:support@dupla.fit?subject=Upgrade to ${selectedPlan.name} Plan`} className="cta-button primary">
+                                Send Request
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+
             <footer className="landing-footer">
                 <div className="footer-links">
                     <Link to="/privacy">Privacy Policy</Link>
@@ -89,7 +220,7 @@ const LandingPage = () => {
                 </div>
                 <p className="copyright">© 2026 Dupla. Powered by Kevin.</p>
             </footer>
-        </div>
+        </div >
     );
 };
 

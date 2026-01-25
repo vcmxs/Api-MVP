@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import UserProfile from './UserProfile';
 import ProgressionChart from './ProgressionChart';
 import Calendar from './Calendar';
+import NutritionCalculator from './NutritionCalculator';
+import CardioTimer from './CardioTimer';
 import { API_URL } from '../config/api';
+import { getTraineeLimit } from '../config/subscriptionTiers';
 
 // Helper component for Set Row
 const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLog, onLog, onDelete }) => {
@@ -234,53 +238,102 @@ const ActiveWorkoutView = ({
               </div>
             </div>
 
-            <div className="sets-list">
-              <div className="sets-header" style={{
-                display: 'grid',
-                gridTemplateColumns: '0.5fr 1fr 1fr 1fr 0.5fr',
-                gap: '1rem',
-                marginBottom: '1rem',
-                fontWeight: 'bold',
-                fontSize: '0.8rem',
-                color: 'var(--primary)',
-                textTransform: 'uppercase',
-                letterSpacing: '2px',
-                textAlign: 'center'
-              }}>
-                <div>SET</div>
-                <div>PREVIOUS</div>
-                <div>KG</div>
-                <div>REPS</div>
-                <div>✓</div>
+            {/* Cardio or Standard View */}
+            {(exercise.weightUnit === 'min' || exercise.weightUnit === 'km') ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <CardioTimer
+                  initialTime={0}
+                  targetDuration={exercise.reps * (exercise.weightUnit === 'min' ? 60 : 1)} // Assuming reps stores duration target? Or separate field?
+                  // If standard is "Sets x Reps", for cardio it might be "1 x Minutes".
+                  // Let's assume reps = minutes if weightUnit is min.
+                  onFinish={(data) => {
+                    // Log the result: Set 1 (Cardio is usually 1 set?), Weight=Calories, Reps=Duration
+                    onLogSet(exercise.id, 1, data.calories, data.duration);
+                  }}
+                />
+
+                {/* Cardio Log History Display */}
+                <div style={{ marginTop: '2rem', width: '100%' }}>
+                  <h4 style={{ color: 'var(--gray)', textAlign: 'center', marginBottom: '1rem' }}>Session Log</h4>
+                  {workoutLogs[exercise.id] && workoutLogs[exercise.id].length > 0 ? (
+                    workoutLogs[exercise.id].map(log => (
+                      <div key={log.id} style={{
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid var(--success)',
+                        padding: '1rem',
+                        borderRadius: '12px',
+                        marginBottom: '0.5rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        color: '#fff'
+                      }}>
+                        <span>Set {log.setNumber}</span>
+                        <span>{Math.floor(log.repsCompleted / 60)}m {log.repsCompleted % 60}s</span>
+                        <span>{log.weightUsed} kcal</span>
+                        <button
+                          onClick={() => onDeleteLog(activeWorkout.id, exercise.id, log.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ textAlign: 'center', color: '#666' }}>No logs yet for this session.</p>
+                  )}
+                </div>
               </div>
+            ) : (
+              <div className="sets-list">
+                <div className="sets-header" style={{
+                  display: 'grid',
+                  gridTemplateColumns: '0.5fr 1fr 1fr 1fr 0.5fr',
+                  gap: '1rem',
+                  marginBottom: '1rem',
+                  fontWeight: 'bold',
+                  fontSize: '0.8rem',
+                  color: 'var(--primary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '2px',
+                  textAlign: 'center'
+                }}>
+                  <div>SET</div>
+                  <div>PREVIOUS</div>
+                  <div>KG</div>
+                  <div>REPS</div>
+                  <div>✓</div>
+                </div>
 
-              {Array.from({ length: exercise.sets }).map((_, idx) => {
-                const setNum = idx + 1;
-                const log = getSetLog(exercise.id, setNum);
-                const isCompleted = !!log;
+                {Array.from({ length: exercise.sets }).map((_, idx) => {
+                  const setNum = idx + 1;
+                  const log = getSetLog(exercise.id, setNum);
+                  const isCompleted = !!log;
 
-                // Get previous log for this specific set
-                const exerciseHistory = activeWorkoutHistory ? activeWorkoutHistory[exercise.id] : [];
-                const previousLog = exerciseHistory ? exerciseHistory.find(l => l.setNumber === setNum) : null;
+                  // Get previous log for this specific set
+                  const exerciseHistory = activeWorkoutHistory ? activeWorkoutHistory[exercise.id] : [];
+                  const previousLog = exerciseHistory ? exerciseHistory.find(l => l.setNumber === setNum) : null;
 
-                return (
-                  <SetRow
-                    key={setNum}
-                    setNum={setNum}
-                    log={log}
-                    isCompleted={isCompleted}
-                    targetWeight={exercise.targetWeight}
-                    targetReps={exercise.reps}
-                    previousLog={previousLog}
-                    onLog={(s, w, r) => onLogSet(exercise.id, s, w, r)}
-                    onDelete={(logId) => onDeleteLog(activeWorkout.id, exercise.id, logId)}
-                  />
-                );
-              })}
-            </div>
+                  return (
+                    <SetRow
+                      key={setNum}
+                      setNum={setNum}
+                      log={log}
+                      isCompleted={isCompleted}
+                      targetWeight={exercise.targetWeight}
+                      targetReps={exercise.reps}
+                      previousLog={previousLog}
+                      onLog={(s, w, r) => onLogSet(exercise.id, s, w, r)}
+                      onDelete={(logId) => onDeleteLog(activeWorkout.id, exercise.id, logId)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+        ))
+        }
+      </div >
 
       <div className="workout-actions" style={{
         marginTop: '2rem',
@@ -304,14 +357,30 @@ const ActiveWorkoutView = ({
           Complete Workout 🎉
         </button>
       </div>
-    </div>
+    </div >
   );
 };
 
 const CoachDashboard = ({ token, userId }) => {
-
-
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('customers');
+  const [coachTier, setCoachTier] = useState('starter');
+
+  useEffect(() => {
+    const fetchCoachProfile = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/users/${userId}/profile`, {
+          headers: { Authorization: `Bearer ${token}` } // Assuming token is available or handled by interceptor
+        });
+        // Check where subscription_tier is. Usually in user object.
+        const user = response.data.user || response.data;
+        setCoachTier(user.subscription_tier || 'starter');
+      } catch (error) {
+        console.error('Error fetching coach profile:', error);
+      }
+    };
+    if (userId) fetchCoachProfile();
+  }, [userId, token]);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
   const [allTraineeWorkouts, setAllTraineeWorkouts] = useState([]);
 
@@ -517,7 +586,7 @@ const CoachDashboard = ({ token, userId }) => {
           // 1. Group by Day
           const logsByDay = {};
           rawLogs.forEach(log => {
-            // Use local date string to avoid timezone splitting issues slightly, 
+            // Use local date string to avoid timezone splitting issues slightly,
             // but ISO split is safer for consistency. 
             const dateObj = new Date(log.date);
             const dayStr = dateObj.toISOString().split('T')[0];
@@ -1560,8 +1629,40 @@ const CoachDashboard = ({ token, userId }) => {
   }
 
   return (
-    <div className="dashboard">
-      <h2>Coach Dashboard</h2>
+    <div className="dashboard" style={{ userSelect: 'none' }}>
+      {/* Header */}
+      {/* Header */}
+      <div className="dashboard-header-container" style={{
+        backgroundColor: '#0a0a0f',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000,
+        width: '100%'
+      }}>
+        <div className="dashboard-header-content" style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '1rem 2rem',
+          display: 'flex',
+          justifyContent: 'center', // Centered as requested ("already have it in the middle")
+          alignItems: 'center'
+        }}>
+          <h1 style={{
+            color: '#fff',
+            fontSize: '1.5rem',
+            margin: 0,
+            letterSpacing: '3px',
+            textTransform: 'uppercase',
+            background: 'linear-gradient(90deg, #00ffff, #0080ff)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontWeight: '800'
+          }}>
+            {t('dashboard.coachWelcome').toUpperCase()}
+          </h1>
+        </div>
+      </div>
 
       {/* Tab Navigation */}
       <div className="tab-navigation">
@@ -1569,39 +1670,47 @@ const CoachDashboard = ({ token, userId }) => {
           className={`tab-button ${activeTab === 'customers' ? 'active' : ''}`}
           onClick={() => setActiveTab('customers')}
         >
-          Manage Customer Routines
+          {t('dashboard.myTrainees')}
         </button>
         <button
           className={`tab-button ${activeTab === 'personal' ? 'active' : ''}`}
           onClick={() => setActiveTab('personal')}
         >
-          My Personal Workouts
+          {t('dashboard.myWorkouts')}
         </button>
         <button
           className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
           onClick={() => setActiveTab('calendar')}
         >
-          📅 My Calendar
+          📅 {t('common.date')}
         </button>
         <button
           className={`tab-button ${activeTab === 'templates' ? 'active' : ''}`}
           onClick={() => setActiveTab('templates')}
         >
-          📋 My Templates
+          📋 {t('profile.plan')}
         </button>
         <button
           className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
-          👤 My Profile
+          👤 {t('profile.title')}
         </button>
         <button
           className={`tab-button ${activeTab === 'progression' ? 'active' : ''}`}
           onClick={() => setActiveTab('progression')}
         >
-          📈 Progression
+          📈 {t('progression.title')}
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'nutrition' ? 'active' : ''}`}
+          onClick={() => setActiveTab('nutrition')}
+        >
+          🍎 {t('nutrition.title')}
         </button>
       </div>
+
+      {activeTab === 'nutrition' && <NutritionCalculator userId={userId} />}
 
       {/* Customer Routines Tab  */}
 
@@ -1742,6 +1851,35 @@ const CoachDashboard = ({ token, userId }) => {
             </div>
           ) : (
             <>
+              {/* Subscription Usage Stats */}
+              <div style={{
+                marginBottom: '2rem',
+                padding: '1.5rem',
+                background: 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                borderRadius: '15px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+              }}>
+                <div>
+                  <h4 style={{ margin: 0, color: '#888', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Current Plan</h4>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', textTransform: 'capitalize' }}>
+                    {coachTier} <span style={{ fontSize: '0.9rem', color: '#666', fontWeight: 'normal' }}>Tier</span>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <h4 style={{ margin: 0, color: '#888', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>Trainee Capacity</h4>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff' }}>
+                    <span style={{ color: trainees.length >= getTraineeLimit(coachTier) ? '#ff4444' : '#00ff88' }}>{trainees.length}</span>
+                    <span style={{ color: '#666', margin: '0 5px' }}>/</span>
+                    {getTraineeLimit(coachTier) === 999 ? '∞' : getTraineeLimit(coachTier)}
+                  </div>
+                </div>
+              </div>
+
               <div className="dashboard-actions">
                 <button onClick={() => {
                   const nextShow = !showForm;
@@ -1773,15 +1911,32 @@ const CoachDashboard = ({ token, userId }) => {
                   <label>Select Trainee:</label>
                   <select
                     value={selectedTrainee || ''}
-                    onChange={(e) => loadTraineeWorkouts(e.target.value)}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      if (!selectedId) {
+                        loadTraineeWorkouts('');
+                        return;
+                      }
+                      const index = trainees.findIndex(t => t.id === selectedId);
+                      const limit = getTraineeLimit(coachTier);
+                      if (index >= limit) {
+                        alert(`🔒 This trainee is locked on your current ${coachTier} plan.\n\nPlease upgrade your subscription in your Profile to access more trainees.`);
+                        return;
+                      }
+                      loadTraineeWorkouts(selectedId);
+                    }}
                     className="trainee-dropdown"
                   >
                     <option value="">-- Select a trainee --</option>
-                    {trainees.map((trainee) => (
-                      <option key={trainee.id} value={trainee.id}>
-                        {trainee.name}
-                      </option>
-                    ))}
+                    {trainees.map((trainee, index) => {
+                      const limit = getTraineeLimit(coachTier);
+                      const isLocked = index >= limit;
+                      return (
+                        <option key={trainee.id} value={trainee.id} disabled={isLocked} style={{ color: isLocked ? '#888' : 'inherit' }}>
+                          {isLocked ? '🔒 ' : ''}{trainee.name} {isLocked ? '(Locked)' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
 
                 </div>
