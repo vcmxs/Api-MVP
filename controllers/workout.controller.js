@@ -43,17 +43,20 @@ exports.createWorkoutPlan = async (req, res) => {
             }))
         });
 
-        // Notify Trainee
-        const coachResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [coachId]);
-        const coachName = coachResult.rows[0]?.name || 'Coach';
+        // Notify Trainee (only if not assigning to self)
+        if (String(traineeId) !== String(coachId)) {
+            const coachResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [coachId]);
+            const coachName = coachResult.rows[0]?.name || 'Coach';
 
-        await NotificationController.createNotification(
-            workoutPlan.trainee_id,
-            'New Workout Assigned',
-            JSON.stringify({ name: coachName, workoutName: workoutPlan.name }),
-            'workout_assigned',
-            workoutPlan.id
-        );
+            await NotificationController.createNotification(
+                workoutPlan.trainee_id,
+                'New Workout Assigned',
+                JSON.stringify({ name: coachName, workoutName: workoutPlan.name }),
+                'workout_assigned',
+                workoutPlan.id,
+                true // sendPush = true for workout assignments
+            );
+        }
     } catch (err) {
         console.error('Create workout plan error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
@@ -248,13 +251,17 @@ const notifyCoachOnCompletion = async (workoutId) => {
             const traineeResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [workout.trainee_id]);
             const traineeName = traineeResult.rows[0]?.name || 'Trainee';
 
-            await NotificationController.createNotification(
-                workout.coach_id,
-                'Workout Completed',
-                JSON.stringify({ name: traineeName, workoutName: workout.name }),
-                'workout_completed',
-                workout.id
-            );
+            // Only notify if coach is not the trainee (prevent self-notification)
+            if (workout.coach_id !== workout.trainee_id) {
+                await NotificationController.createNotification(
+                    workout.coach_id,
+                    'Workout Completed',
+                    JSON.stringify({ name: traineeName, workoutName: workout.name }),
+                    'workout_completed',
+                    workout.id,
+                    true // sendPush = true (will add config option to disable in future)
+                );
+            }
         }
     } catch (e) { console.error('Notify coach error', e); }
 };
