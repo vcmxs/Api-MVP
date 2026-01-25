@@ -146,7 +146,7 @@ const CardioTimer = ({ initialTime = 0, targetDuration = 0, onFinish, weight = 7
     const circumference = normalizedRadius * 2 * Math.PI;
     // For timer: 0 = full, 1 = empty. We want 0 at start, circumference at end?
     // standard: strokeDashoffset = circumference - (percent / 100) * circumference
-    const progress = mode === 'timer' ? ((initialTarget - seconds) / initialTarget) : 0;
+    // const progress = mode === 'timer' ? ((initialTarget - seconds) / initialTarget) : 0; // Unused
     // const strokeDashoffset = circumference - (progress * circumference); // Unused
     // Actually we want it to empty. 
     // If progress 0, offset should be 0 (full)? No, depends on styling.
