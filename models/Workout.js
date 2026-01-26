@@ -333,6 +333,8 @@ class Workout {
                 el.reps_completed, 
                 el.completed_at,
                 el.set_number,
+                el.rpe,
+                el.rir,
                 wp.scheduled_date,
                 wp.id as workout_plan_id
              FROM exercise_logs el
