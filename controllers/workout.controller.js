@@ -503,10 +503,13 @@ exports.getProgression = async (req, res) => {
             // Epley Formula: 1RM = Weight * (1 + Reps/30)
             const oneRepMax = log.weight_used * (1 + log.reps_completed / 30);
             return {
+
                 date: log.completed_at || log.scheduled_date,
                 weight: parseFloat(log.weight_used),
                 reps: log.reps_completed,
                 setNumber: log.set_number,
+                rpe: log.rpe,
+                rir: log.rir,
                 workoutPlanId: log.workout_plan_id,
                 oneRepMax: Math.round(oneRepMax * 10) / 10 // Round to 1 decimal
             };
