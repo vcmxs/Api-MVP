@@ -1651,14 +1651,16 @@ const CoachDashboard = ({ token, userId }) => {
         }}>
           <h1 style={{
             color: '#fff',
-            fontSize: '1.5rem',
+            fontSize: 'clamp(1.2rem, 5vw, 1.5rem)',
             margin: 0,
-            letterSpacing: '3px',
+            letterSpacing: '2px',
             textTransform: 'uppercase',
             background: 'linear-gradient(90deg, #00ffff, #0080ff)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            fontWeight: '800'
+            fontWeight: '800',
+            textAlign: 'center',
+            lineHeight: '1.2'
           }}>
             {t('dashboard.coachWelcome').toUpperCase()}
           </h1>
@@ -1711,7 +1713,11 @@ const CoachDashboard = ({ token, userId }) => {
         </button>
       </div>
 
-      {activeTab === 'nutrition' && <NutritionCalculator userId={userId} />}
+      {activeTab === 'nutrition' && (
+        <div style={{ maxWidth: '100%', overflowX: 'hidden' }}>
+          <NutritionCalculator userId={userId} />
+        </div>
+      )}
 
       {/* Customer Routines Tab  */}
 
