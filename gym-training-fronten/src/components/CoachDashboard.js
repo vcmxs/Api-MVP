@@ -478,15 +478,16 @@ const CoachDashboard = ({ token, userId }) => {
           if (!acc[date]) {
             acc[date] = {
               date: log.date,
-              sets: 0,
-              reps: [],
-              weights: []
+              setDetails: []
             };
           }
 
-          acc[date].sets += 1;
-          acc[date].reps.push(log.reps);
-          acc[date].weights.push(log.weight);
+          acc[date].setDetails.push({
+            reps: log.reps,
+            weight: log.weight,
+            rir: log.rir,
+            rpe: log.rpe
+          });
           return acc;
         }, {});
 
@@ -2129,13 +2130,18 @@ const CoachDashboard = ({ token, userId }) => {
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                                 {exerciseHistory.map((dayLog, idx) => (
                                   <div key={idx} style={{ fontSize: '0.9rem' }}>
-                                    <div style={{ opacity: 0.6, fontSize: '0.8rem', marginBottom: '2px' }}>
+                                    <div style={{ opacity: 0.6, fontSize: '0.8rem', marginBottom: '2px', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '2px' }}>
                                       {new Date(dayLog.date).toLocaleDateString()}
                                     </div>
-                                    <div style={{ fontWeight: 'bold' }}>
-                                      Sets: {dayLog.sets} •
-                                      Reps: {dayLog.reps.join('-')} •
-                                      Weight: {dayLog.weights.join('-')}kg
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                      {dayLog.setDetails.map((set, setIdx) => (
+                                        <div key={setIdx} style={{ fontSize: '0.85rem' }}>
+                                          <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Set {setIdx + 1}:</span> {set.reps} reps | {set.weight}kg
+                                          {(set.rir || set.rpe) ? <span style={{ opacity: 0.8, fontSize: '0.8em', marginLeft: '5px' }}>
+                                            @ {set.rir ? `RIR ${set.rir} ` : ''}{set.rpe ? `RPE ${set.rpe}` : ''}
+                                          </span> : null}
+                                        </div>
+                                      ))}
                                     </div>
                                   </div>
                                 ))}
