@@ -15,7 +15,9 @@ app.set('trust proxy', 1); // Required for Railway/Heroku to key rate limiting o
 const PORT = process.env.PORT || 3000;
 
 // Security Middleware
-app.use(helmet()); // Sets various HTTP headers for security
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Sets various HTTP headers for security
 app.use(compression()); // Compress responses
 
 // Rate limiting configuration
