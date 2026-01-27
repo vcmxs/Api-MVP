@@ -29,7 +29,7 @@ class User {
      */
     static async findById(id) {
         const result = await pool.query(
-            'SELECT id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, height, weight, created_at, subscription_status, subscription_tier FROM users WHERE id = $1',
+            'SELECT id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, height, weight, created_at, subscription_status, subscription_tier, referral_code FROM users WHERE id = $1',
             [id]
         );
         return result.rows[0];
