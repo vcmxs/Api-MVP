@@ -26,7 +26,7 @@ router.use('/nutrition', nutritionRoutes);
 router.use('/referrals', require('./referral.routes'));
 router.use('/notifications', require('./notification.routes'));
 // TEMPORARILY DISABLED: Uncomment after Railway cache clears
-// router.use('/push-tokens', require('./pushToken.routes'));
+router.use('/push-tokens', require('./pushToken.routes'));
 
 // Optional routes (can be added later)
 // router.use('/exercises', exerciseRoutes);
