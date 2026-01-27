@@ -8,10 +8,15 @@ const compression = require('compression');
 require('dotenv').config();
 
 // Import modular routes
+// Import modular routes
 const apiRoutes = require('./routes');
+const checkExpiredSubscriptions = require('./cron/checkSubscriptions');
 
 const app = express();
 app.set('trust proxy', 1); // Required for Railway/Heroku to key rate limiting off IP
+
+// Initialize Cron Jobs
+checkExpiredSubscriptions();
 const PORT = process.env.PORT || 3000;
 
 // Security Middleware
