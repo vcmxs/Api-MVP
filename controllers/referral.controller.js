@@ -137,8 +137,8 @@ exports.getAdminEarnings = async (req, res) => {
 
         const result = await pool.query(`
             SELECT re.id, re.amount, re.status, re.created_at,
-                   referrer.name as referrer_name, referrer.email as referrer_email,
-                   referred.name as referred_name
+                   referrer.name as coach_name, referrer.email as coach_email,
+                   referred.name as source_user_name
             FROM referral_earnings re
             JOIN users referrer ON re.referrer_id = referrer.id
             JOIN users referred ON re.referred_user_id = referred.id
