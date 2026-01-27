@@ -12,7 +12,8 @@ exports.getAllUsers = async (req, res) => {
         id, name, email, role, 
         subscription_status, subscription_tier,
         subscription_start_date, subscription_end_date,
-        status, created_at
+        status, created_at,
+        referred_by, referral_discount_used
       FROM users 
       ORDER BY created_at DESC
     `);
@@ -28,7 +29,9 @@ exports.getAllUsers = async (req, res) => {
                 subscriptionStartDate: user.subscription_start_date,
                 subscriptionEndDate: user.subscription_end_date,
                 status: user.status,
-                createdAt: user.created_at
+                createdAt: user.created_at,
+                referredBy: user.referred_by,
+                referralDiscountUsed: user.referral_discount_used
             }))
         });
     } catch (err) {

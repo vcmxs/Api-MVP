@@ -99,7 +99,9 @@ exports.register = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                profilePicUrl: user.profile_pic_url
+                profilePicUrl: user.profile_pic_url,
+                referredBy: user.referred_by,
+                referralDiscountUsed: false // New users haven't used it yet
             }
         });
     } catch (err) {
@@ -195,7 +197,9 @@ exports.login = async (req, res) => {
                 role: user.role,
                 subscriptionStatus: user.subscription_status,
                 subscriptionTier: user.subscription_tier,
-                status: user.status
+                status: user.status,
+                referredBy: user.referred_by,
+                referralDiscountUsed: user.referral_discount_used
             }
         };
         console.log('Sending response:', JSON.stringify(responseData));
