@@ -7,27 +7,32 @@ const SUBSCRIPTION_TIERS = {
     starter: {
         name: 'Starter',
         maxTrainees: 1,
-        displayName: 'Starter (1 trainee)'
+        displayName: 'Starter (1 trainee)',
+        price: 0
     },
     bronze: {
         name: 'Bronze',
         maxTrainees: 4,
-        displayName: 'Bronze (up to 4 trainees)'
+        displayName: 'Bronze (up to 4 trainees)',
+        price: 9.99
     },
     silver: {
         name: 'Silver',
         maxTrainees: 10,
-        displayName: 'Silver (up to 10 trainees)'
+        displayName: 'Silver (up to 10 trainees)',
+        price: 19.99
     },
     gold: {
         name: 'Gold',
         maxTrainees: 25,
-        displayName: 'Gold (up to 25 trainees)'
+        displayName: 'Gold (up to 25 trainees)',
+        price: 39.99
     },
     olympian: {
         name: 'Olympian',
         maxTrainees: 999, // Unlimited (high number)
-        displayName: 'Olympian (unlimited)'
+        displayName: 'Olympian (unlimited)',
+        price: 99.99
     }
 };
 
