@@ -220,7 +220,13 @@ function UserProfile({ userId, editable, onUpdate }) {
                                 </div>
                                 <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
                                     <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00f2ff' }}>${referralStats.totalEarnings}</div>
-                                    <div style={{ color: '#888', fontSize: '0.8rem' }}>Ganancias</div>
+                                    <div style={{ color: '#888', fontSize: '0.8rem' }}>Ganancias Totales</div>
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', gridColumn: '1 / -1' }}>
+                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#F3BA2F' }}>
+                                        ${referralStats.currentBalance || 0}
+                                    </div>
+                                    <div style={{ color: '#888', fontSize: '0.8rem' }}>Balance Disponible</div>
                                 </div>
                             </div>
 
