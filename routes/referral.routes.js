@@ -8,5 +8,7 @@ router.use(authenticateToken);
 
 router.get('/stats', referralController.getStats);
 router.get('/admin/stats', referralController.getAdminStats);
+router.get('/admin/earnings', referralController.getAdminEarnings);
+router.patch('/admin/earnings/:id/status', referralController.updateEarningStatus);
 
 module.exports = router;
