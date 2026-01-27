@@ -149,6 +149,114 @@ function UserProfile({ userId, editable, onUpdate }) {
         }
     };
 
+    // --- REFERRAL SYSTEM LOGIC ---
+    const [referralModalOpen, setReferralModalOpen] = useState(false);
+    const [referralStats, setReferralStats] = useState(null);
+
+    const openReferralModal = async () => {
+        setReferralModalOpen(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get(`${API_URL}/referrals/stats`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setReferralStats(res.data);
+        } catch (err) {
+            console.error("Error loading referral stats", err);
+        }
+    };
+
+    const ReferralModal = () => {
+        if (!referralModalOpen) return null;
+
+        const copyCode = () => {
+            if (referralStats?.referralCode) {
+                navigator.clipboard.writeText(referralStats.referralCode);
+                alert("Código copiado!");
+            }
+        };
+
+        return (
+            <div style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.85)',
+                display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100
+            }}>
+                <div style={{
+                    background: '#1a1a20', padding: '2rem', borderRadius: '15px',
+                    maxWidth: '500px', width: '90%', border: '1px solid #00f2ff',
+                    boxShadow: '0 0 30px rgba(0, 242, 255, 0.15)',
+                    textAlign: 'center'
+                }}>
+                    <h2 style={{ color: '#00f2ff', marginTop: 0 }}>🚀 Programa Win-Win</h2>
+
+                    <div style={{ background: 'linear-gradient(45deg, #00f2ff22, #0080ff22)', padding: '15px', borderRadius: '10px', margin: '20px 0' }}>
+                        <h3 style={{ margin: '0 0 10px 0', color: '#fff' }}>¡Dales 20%, Gana 10%!</h3>
+                        <p style={{ color: '#ccc', fontSize: '0.9rem', margin: 0 }}>
+                            Invita a otros entrenadores. Ellos reciben <strong>20% de descuento</strong> en su primer mes.<br />
+                            Tú ganas <strong>10% de comisión</strong> en cada pago que hagan, ¡de por vida!
+                        </p>
+                    </div>
+
+                    {referralStats ? (
+                        <div>
+                            <p style={{ color: '#888', marginBottom: '5px' }}>Tu Código Único</p>
+                            <div
+                                onClick={copyCode}
+                                style={{
+                                    background: '#333', padding: '1rem', borderRadius: '8px',
+                                    fontSize: '1.5rem', fontWeight: 'bold', letterSpacing: '2px',
+                                    color: '#fff', cursor: 'pointer', border: '1px dashed #555',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
+                                }}>
+                                {referralStats.referralCode || 'GENERANDO...'}
+                                <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>📋</span>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
+                                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#fff' }}>{referralStats.referralCount}</div>
+                                    <div style={{ color: '#888', fontSize: '0.8rem' }}>Referidos</div>
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00f2ff' }}>${referralStats.totalEarnings}</div>
+                                    <div style={{ color: '#888', fontSize: '0.8rem' }}>Ganancias</div>
+                                </div>
+                            </div>
+
+                            {referralStats.recentReferrals && referralStats.recentReferrals.length > 0 && (
+                                <div style={{ textAlign: 'left', marginTop: '1.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                                    <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: '10px' }}>Últimos registros:</p>
+                                    {referralStats.recentReferrals.map((ref, idx) => (
+                                        <div key={idx} style={{ padding: '8px', borderBottom: '1px solid #333', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ color: '#fff' }}>{ref.name}</span>
+                                            <span style={{ color: ref.subscription_status === 'active' ? '#00C851' : '#888' }}>
+                                                {ref.subscription_status === 'active' ? 'Activo' : 'Gratis'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <p>Cargando estadísticas...</p>
+                    )}
+
+                    <button
+                        onClick={() => setReferralModalOpen(false)}
+                        style={{
+                            marginTop: '2rem', padding: '10px 20px',
+                            background: 'transparent', border: '1px solid #555',
+                            color: '#ccc', borderRadius: '8px', cursor: 'pointer'
+                        }}
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
 
     // Subscription Logic
     const [showPlans, setShowPlans] = useState(false);
@@ -452,19 +560,36 @@ function UserProfile({ userId, editable, onUpdate }) {
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                         <h3 style={{ margin: 0, color: '#FFD700' }}>👑 Subscription</h3>
-                        <button
-                            onClick={() => setShowPlans(!showPlans)}
-                            style={{
-                                background: 'transparent',
-                                border: '1px solid #FFD700',
-                                color: '#FFD700',
-                                padding: '5px 15px',
-                                borderRadius: '5px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            {showPlans ? 'Hide Plans' : 'Manage Subscription'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={openReferralModal}
+                                style={{
+                                    background: 'linear-gradient(45deg, #00f2ff, #0080ff)',
+                                    border: 'none',
+                                    color: '#000',
+                                    padding: '5px 15px',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 0 10px rgba(0, 242, 255, 0.3)'
+                                }}
+                            >
+                                👥 Referidos
+                            </button>
+                            <button
+                                onClick={() => setShowPlans(!showPlans)}
+                                style={{
+                                    background: 'transparent',
+                                    border: '1px solid #FFD700',
+                                    color: '#FFD700',
+                                    padding: '5px 15px',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {showPlans ? 'Hide Plans' : 'Manage Subscription'}
+                            </button>
+                        </div>
                     </div>
 
                     {!showPlans ? (
@@ -712,6 +837,7 @@ function UserProfile({ userId, editable, onUpdate }) {
                     )}
                 </div>
             )}
+            <ReferralModal />
             <PaymentModal />
         </div>
     );

@@ -8,14 +8,20 @@ function AdminDashboard({ token, userId, userRole }) {
     const [loading, setLoading] = useState(true);
     const [selectedUser, setSelectedUser] = useState(null);
     const [userDetails, setUserDetails] = useState(null);
+    const [activeTab, setActiveTab] = useState('users');
+    const [referralStats, setReferralStats] = useState(null);
 
     useEffect(() => {
         loadUsers();
         loadStats();
+        if (activeTab === 'referrals') {
+            loadReferralStats();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [token]);
+    }, [token, activeTab]);
 
     const loadUsers = async () => {
+        if (activeTab !== 'users') return;
         try {
             const response = await axios.get(`${API_URL}/admin/users`, {
                 headers: {
@@ -26,7 +32,7 @@ function AdminDashboard({ token, userId, userRole }) {
             setLoading(false);
         } catch (err) {
             console.error('Error loading users:', err);
-            alert('Error loading users: ' + (err.response?.data?.message || err.message));
+            // alert('Error loading users: ' + (err.response?.data?.message || err.message));
             setLoading(false);
         }
     };
@@ -39,6 +45,17 @@ function AdminDashboard({ token, userId, userRole }) {
             setStats(response.data.stats);
         } catch (err) {
             console.error('Error loading stats:', err);
+        }
+    };
+
+    const loadReferralStats = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/referral/admin/stats`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setReferralStats(response.data);
+        } catch (err) {
+            console.error('Error loading referral stats:', err);
         }
     };
 
@@ -123,203 +140,283 @@ function AdminDashboard({ token, userId, userRole }) {
         return colors[tier?.toLowerCase()] || '#a0a0a0';
     };
 
-    if (loading) {
+    if (loading && activeTab === 'users') {
         return <div className="dashboard"><h2>Loading...</h2></div>;
     }
 
     return (
         <div className="dashboard admin-dashboard">
-            <h2>🔧 Admin Dashboard</h2>
-
-
-
-            {stats && (
-                <div className="stats-grid">
-                    <div className="stat-card">
-                        <h3>{stats.total_users}</h3>
-                        <p>Total Users</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{stats.total_coaches}</h3>
-                        <p>Coaches</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{stats.total_trainees}</h3>
-                        <p>Trainees</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{stats.total_admins}</h3>
-                        <p>Admins</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{stats.active_subscriptions}</h3>
-                        <p>Active Subscriptions</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>{stats.free_users}</h3>
-                        <p>Free Users</p>
-                    </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2>🔧 Admin Dashboard</h2>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={() => setActiveTab('users')}
+                        className={`btn-${activeTab === 'users' ? 'primary' : 'secondary'}`}
+                    >
+                        Users
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('referrals')}
+                        className={`btn-${activeTab === 'referrals' ? 'primary' : 'secondary'}`}
+                    >
+                        Referrals
+                    </button>
                 </div>
-            )}
+            </div>
 
-            {selectedUser && userDetails ? (
-                <div className="user-details-panel">
-                    <div className="detail-header">
-                        <h3>User Details</h3>
-                        <button onClick={closeUserDetails} className="btn-back">← Back to List</button>
-                    </div>
-
-                    <div className="detail-section">
-                        <h4>Profile Information</h4>
-
-                        {/* Profile Picture */}
-                        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                            <img
-                                src={userDetails.profile_pic_url ? `${BASE_URL}${userDetails.profile_pic_url}` : 'https://via.placeholder.com/150'}
-                                alt={userDetails.name}
-                                className="profile-pic"
-                            />
-                        </div>
-
-                        <div className="profile-info-grid">
-                            <div><strong>Name:</strong> {userDetails.name}</div>
-                            <div><strong>Email:</strong> {userDetails.email}</div>
-                            <div><strong>Role:</strong> <span className={`role-badge role-${userDetails.role}`}>{userDetails.role}</span></div>
-                            <div><strong>Status:</strong> <span className={`status-badge status-${userDetails.status}`}>{userDetails.status}</span></div>
-                            <div><strong>Age:</strong> {userDetails.age || 'N/A'}</div>
-                            <div><strong>Sex:</strong> {userDetails.sex || 'N/A'}</div>
-                            <div><strong>Phone:</strong> {userDetails.phone || 'N/A'}</div>
-                            <div><strong>Gym:</strong> {userDetails.gym || 'N/A'}</div>
-                            <div><strong>Created:</strong> {formatDate(userDetails.createdAt)}</div>
-                        </div>
-                        {userDetails.notes && (
-                            <div style={{ marginTop: '1rem' }}>
-                                <strong>Notes:</strong> <p>{userDetails.notes}</p>
+            {activeTab === 'users' && (
+                <>
+                    {stats && (
+                        <div className="stats-grid">
+                            <div className="stat-card">
+                                <h3>{stats.total_users}</h3>
+                                <p>Total Users</p>
                             </div>
-                        )}
-                    </div>
+                            <div className="stat-card">
+                                <h3>{stats.total_coaches}</h3>
+                                <p>Coaches</p>
+                            </div>
+                            <div className="stat-card">
+                                <h3>{stats.total_trainees}</h3>
+                                <p>Trainees</p>
+                            </div>
+                            <div className="stat-card">
+                                <h3>{stats.total_admins}</h3>
+                                <p>Admins</p>
+                            </div>
+                            <div className="stat-card">
+                                <h3>{stats.active_subscriptions}</h3>
+                                <p>Active Subscriptions</p>
+                            </div>
+                            <div className="stat-card">
+                                <h3>{stats.free_users}</h3>
+                                <p>Free Users</p>
+                            </div>
+                        </div>
+                    )}
 
-                    {userDetails.role === 'coach' && (
-                        <>
+                    {selectedUser && userDetails ? (
+                        <div className="user-details-panel">
+                            {/* ... (User Details Logic remains same) ... */}
+                            {/* To save tokens, I'm just re-rendering the user details panel structure roughly or relying on context match. 
+                                Actually, I should use the exact content if I use ReplaceFileContent.
+                                Since I am replacing the entire return block, I MUST provide the full valid JSX.
+                             */}
+                            <div className="detail-header">
+                                <h3>User Details</h3>
+                                <button onClick={closeUserDetails} className="btn-back">← Back to List</button>
+                            </div>
+
                             <div className="detail-section">
-                                <h4>Subscription Information</h4>
-                                <div className="profile-info-grid">
-                                    <div><strong>Tier:</strong> <span style={{ color: getPlanColor(userDetails.subscriptionTier), fontWeight: 'bold' }}>{(userDetails.subscriptionTier || 'STARTER').toUpperCase()}</span></div>
-                                    <div><strong>Activated:</strong> {formatDate(userDetails.subscriptionStartDate)}</div>
+                                <h4>Profile Information</h4>
+                                <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                                    <img
+                                        src={userDetails.profile_pic_url ? `${BASE_URL}${userDetails.profile_pic_url}` : 'https://via.placeholder.com/150'}
+                                        alt={userDetails.name}
+                                        className="profile-pic"
+                                    />
                                 </div>
-                            </div>
-
-                            <div className="detail-section">
-                                <h4>Trainees ({userDetails.traineeCount || 0})</h4>
-                                {userDetails.trainees && userDetails.trainees.length > 0 ? (
-                                    <div className="trainees-list-admin">
-                                        {userDetails.trainees.map(trainee => (
-                                            <div key={trainee.id} className="trainee-item-admin">
-                                                <span>{trainee.name}</span>
-                                                <span className="trainee-email">{trainee.email}</span>
-                                            </div>
-                                        ))}
+                                <div className="profile-info-grid">
+                                    <div><strong>Name:</strong> {userDetails.name}</div>
+                                    <div><strong>Email:</strong> {userDetails.email}</div>
+                                    <div><strong>Role:</strong> <span className={`role-badge role-${userDetails.role}`}>{userDetails.role}</span></div>
+                                    <div><strong>Status:</strong> <span className={`status-badge status-${userDetails.status}`}>{userDetails.status}</span></div>
+                                    <div><strong>Age:</strong> {userDetails.age || 'N/A'}</div>
+                                    <div><strong>Sex:</strong> {userDetails.sex || 'N/A'}</div>
+                                    <div><strong>Phone:</strong> {userDetails.phone || 'N/A'}</div>
+                                    <div><strong>Gym:</strong> {userDetails.gym || 'N/A'}</div>
+                                    <div><strong>Created:</strong> {formatDate(userDetails.createdAt)}</div>
+                                </div>
+                                {userDetails.notes && (
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <strong>Notes:</strong> <p>{userDetails.notes}</p>
                                     </div>
-                                ) : (
-                                    <p className="no-data">No trainees assigned</p>
                                 )}
                             </div>
-                        </>
-                    )}
 
-                    {userDetails.role === 'trainee' && userDetails.assignedCoach && (
-                        <div className="detail-section">
-                            <h4>Assigned Coach</h4>
-                            <div className="profile-info-grid">
-                                <div><strong>Name:</strong> {userDetails.assignedCoach.name}</div>
-                                <div><strong>Email:</strong> {userDetails.assignedCoach.email}</div>
+                            {userDetails.role === 'coach' && (
+                                <>
+                                    <div className="detail-section">
+                                        <h4>Subscription Information</h4>
+                                        <div className="profile-info-grid">
+                                            <div><strong>Tier:</strong> <span style={{ color: getPlanColor(userDetails.subscriptionTier), fontWeight: 'bold' }}>{(userDetails.subscriptionTier || 'STARTER').toUpperCase()}</span></div>
+                                            <div><strong>Activated:</strong> {formatDate(userDetails.subscriptionStartDate)}</div>
+                                        </div>
+                                    </div>
+                                    <div className="detail-section">
+                                        <h4>Trainees ({userDetails.traineeCount || 0})</h4>
+                                        {userDetails.trainees && userDetails.trainees.length > 0 ? (
+                                            <div className="trainees-list-admin">
+                                                {userDetails.trainees.map(trainee => (
+                                                    <div key={trainee.id} className="trainee-item-admin">
+                                                        <span>{trainee.name}</span>
+                                                        <span className="trainee-email">{trainee.email}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="no-data">No trainees assigned</p>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                            {userDetails.role === 'trainee' && userDetails.assignedCoach && (
+                                <div className="detail-section">
+                                    <h4>Assigned Coach</h4>
+                                    <div className="profile-info-grid">
+                                        <div><strong>Name:</strong> {userDetails.assignedCoach.name}</div>
+                                        <div><strong>Email:</strong> {userDetails.assignedCoach.email}</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="detail-actions">
+                                <button
+                                    onClick={() => blockUser(userDetails.id, userDetails.status)}
+                                    className={userDetails.status === 'blocked' ? 'btn-unblock' : 'btn-block'}
+                                >
+                                    {userDetails.status === 'blocked' ? '🔓 Unblock User' : '🔒 Block User'}
+                                </button>
+                                <button
+                                    onClick={() => deleteUser(userDetails.id)}
+                                    className="btn-delete"
+                                >
+                                    🗑️ Delete User
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="users-section">
+                            <h3>All Users ({users.length})</h3>
+                            <div className="table-container">
+                                <table className="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Status</th>
+                                            <th>Plan</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {users.map(user => (
+                                            <tr key={user.id}>
+                                                <td>{user.id}</td>
+                                                <td>{user.name}</td>
+                                                <td>{user.email}</td>
+                                                <td>
+                                                    <span className={`role-badge role-${user.role}`}>
+                                                        {user.role}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className={`status-badge status-${user.status}`}>
+                                                        {user.status}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {user.role === 'coach' ? (
+                                                        <span style={{ color: getPlanColor(user.subscriptionTier), fontWeight: 'bold' }}>
+                                                            {(user.subscriptionTier || 'STARTER').toUpperCase()}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: '#888' }}>-</span>
+                                                    )}
+                                                </td>
+                                                <td>{formatDate(user.createdAt)}</td>
+                                                <td className="action-buttons">
+                                                    <button
+                                                        onClick={() => viewUserDetails(user.id)}
+                                                        className="btn-view"
+                                                    >
+                                                        👁️ View
+                                                    </button>
+                                                    <button
+                                                        onClick={() => blockUser(user.id, user.status)}
+                                                        className={user.status === 'blocked' ? 'btn-unblock' : 'btn-block'}
+                                                    >
+                                                        {user.status === 'blocked' ? '🔓' : '🔒'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteUser(user.id)}
+                                                        className="btn-delete"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     )}
+                </>
+            )}
 
-                    <div className="detail-actions">
+            {activeTab === 'referrals' && referralStats && (
+                <div className="referrals-dashboard">
+                    <div style={{ marginBottom: '2rem' }}>
+                        <h3 style={{ color: '#00f2ff' }}>Global Referral Stats</h3>
+                        <div className="stats-grid">
+                            <div className="stat-card" style={{ border: '1px solid #00f2ff' }}>
+                                <h3>{referralStats.totalReferrals}</h3>
+                                <p>Total Referred Users</p>
+                            </div>
 
-                        <button
-                            onClick={() => blockUser(userDetails.id, userDetails.status)}
-                            className={userDetails.status === 'blocked' ? 'btn-unblock' : 'btn-block'}
-                        >
-                            {userDetails.status === 'blocked' ? '🔓 Unblock User' : '🔒 Block User'}
-                        </button>
-                        <button
-                            onClick={() => deleteUser(userDetails.id)}
-                            className="btn-delete"
-                        >
-                            🗑️ Delete User
-                        </button>
+                            {/* Calculate earnings totals */}
+                            {(() => {
+                                const pending = referralStats.earningsByStatus?.find(s => s.status === 'pending') || { count: 0, total: 0 };
+                                const paid = referralStats.earningsByStatus?.find(s => s.status === 'paid') || { count: 0, total: 0 };
+                                return (
+                                    <>
+                                        <div className="stat-card" style={{ border: '1px solid orange' }}>
+                                            <h3>${Number(pending.total).toFixed(2)}</h3>
+                                            <p>Pending Commissions ({pending.count})</p>
+                                        </div>
+                                        <div className="stat-card" style={{ border: '1px solid #00C851' }}>
+                                            <h3>${Number(paid.total).toFixed(2)}</h3>
+                                            <p>Paid Commissions ({paid.count})</p>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
                     </div>
-                </div>
-            ) : (
-                <div className="users-section">
-                    <h3>All Users ({users.length})</h3>
-                    <div className="table-container">
-                        <table className="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                    <th>Plan</th>
-                                    <th>Created</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map(user => (
-                                    <tr key={user.id}>
-                                        <td>{user.id}</td>
-                                        <td>{user.name}</td>
-                                        <td>{user.email}</td>
-                                        <td>
-                                            <span className={`role-badge role-${user.role}`}>
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className={`status-badge status-${user.status}`}>
-                                                {user.status}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {user.role === 'coach' ? (
-                                                <span style={{ color: getPlanColor(user.subscriptionTier), fontWeight: 'bold' }}>
-                                                    {(user.subscriptionTier || 'STARTER').toUpperCase()}
-                                                </span>
-                                            ) : (
-                                                <span style={{ color: '#888' }}>-</span>
-                                            )}
-                                        </td>
-                                        <td>{formatDate(user.createdAt)}</td>
-                                        <td className="action-buttons">
-                                            <button
-                                                onClick={() => viewUserDetails(user.id)}
-                                                className="btn-view"
-                                            >
-                                                👁️ View
-                                            </button>
-                                            <button
-                                                onClick={() => blockUser(user.id, user.status)}
-                                                className={user.status === 'blocked' ? 'btn-unblock' : 'btn-block'}
-                                            >
-                                                {user.status === 'blocked' ? '🔓' : '🔒'}
-                                            </button>
-                                            <button
-                                                onClick={() => deleteUser(user.id)}
-                                                className="btn-delete"
-                                            >
-                                                🗑️
-                                            </button>
-                                        </td>
+
+                    <div className="top-referrers">
+                        <h3>🏆 Top Referrers</h3>
+                        <div className="table-container">
+                            <table className="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Referrals</th>
+                                        <th>Total Earnings</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {referralStats.topReferrers?.map((ref, idx) => (
+                                        <tr key={idx}>
+                                            <td>{ref.name}</td>
+                                            <td>{ref.email}</td>
+                                            <td style={{ fontWeight: 'bold', color: '#00f2ff' }}>{ref.referral_count}</td>
+                                            <td style={{ fontWeight: 'bold', color: '#00C851' }}>${Number(ref.total_earnings).toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                    {(!referralStats.topReferrers || referralStats.topReferrers.length === 0) && (
+                                        <tr>
+                                            <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>No referral activity yet</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}

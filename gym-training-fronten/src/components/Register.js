@@ -13,7 +13,8 @@ function Register({ onRegister, onToggle }) {
     age: '',
     phone: '',
     gym: '',
-    notes: ''
+    notes: '',
+    referralCode: ''
   });
   const [profilePic, setProfilePic] = useState(null);
   const [profilePicPreview, setProfilePicPreview] = useState(null);
@@ -84,6 +85,7 @@ function Register({ onRegister, onToggle }) {
       data.append('phone', formData.phone);
       data.append('gym', formData.gym);
       data.append('notes', formData.notes);
+      data.append('referralCode', formData.referralCode);
 
       if (profilePic) {
         data.append('profilePic', profilePic);
@@ -248,6 +250,18 @@ function Register({ onRegister, onToggle }) {
           </div>
 
           <div className="form-group">
+            <label>Código de Referido (Opcional)</label>
+            <input
+              type="text"
+              name="referralCode"
+              value={formData.referralCode}
+              onChange={handleChange}
+              placeholder="Si tienes uno, ingrésalo aquí"
+              style={{ letterSpacing: '2px', fontWeight: 'bold' }}
+            />
+          </div>
+
+          <div className="form-group">
             <label>Soy:</label>
             <div className="role-selector">
               <label className="role-option">
@@ -286,8 +300,8 @@ function Register({ onRegister, onToggle }) {
             Inicia sesión aquí
           </button>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
 
