@@ -79,6 +79,25 @@ function AdminDashboard({ token, userId, userRole }) {
         setUserDetails(null);
     };
 
+    const [isEditingPlan, setIsEditingPlan] = useState(false);
+    const [newPlan, setNewPlan] = useState('starter');
+
+    const savePlanChange = async () => {
+        try {
+            await axios.patch(
+                `${API_URL}/admin/users/${selectedUser}/subscription`,
+                { tier: newPlan, status: 'active' },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            alert('Subscription updated successfully!');
+            setIsEditingPlan(false);
+            viewUserDetails(selectedUser); // Refresh details
+            loadUsers(); // Refresh main list
+        } catch (err) {
+            alert('Error updating plan: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     const blockUser = async (targetUserId, currentStatus) => {
         const newStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
         const action = newStatus === 'blocked' ? 'block' : 'unblock';
@@ -239,7 +258,45 @@ function AdminDashboard({ token, userId, userRole }) {
                                     <div className="detail-section">
                                         <h4>Subscription Information</h4>
                                         <div className="profile-info-grid">
-                                            <div><strong>Tier:</strong> <span style={{ color: getPlanColor(userDetails.subscriptionTier), fontWeight: 'bold' }}>{(userDetails.subscriptionTier || 'STARTER').toUpperCase()}</span></div>
+                                            <div>
+                                                <strong>Tier:</strong>
+                                                {isEditingPlan ? (
+                                                    <div style={{ display: 'inline-flex', gap: '5px', marginLeft: '5px' }}>
+                                                        <select
+                                                            value={newPlan}
+                                                            onChange={(e) => setNewPlan(e.target.value)}
+                                                            className="plan-selector"
+                                                        >
+                                                            <option value="starter">STARTER</option>
+                                                            <option value="bronze">BRONZE</option>
+                                                            <option value="silver">SILVER</option>
+                                                            <option value="gold">GOLD</option>
+                                                            <option value="olympian">OLYMPIAN</option>
+                                                        </select>
+                                                        <button onClick={savePlanChange} style={{ background: '#00C851', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>💾</button>
+                                                        <button onClick={() => setIsEditingPlan(false)} style={{ background: '#ff4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>❌</button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <span style={{ color: getPlanColor(userDetails.subscriptionTier), fontWeight: 'bold' }}>
+                                                            {(userDetails.subscriptionTier || 'STARTER').toUpperCase()}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => {
+                                                                setNewPlan(userDetails.subscriptionTier || 'starter');
+                                                                setIsEditingPlan(true);
+                                                            }}
+                                                            style={{
+                                                                marginLeft: '10px', background: 'none', border: 'none',
+                                                                cursor: 'pointer', fontSize: '1rem'
+                                                            }}
+                                                            title="Edit Plan"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
                                             <div><strong>Activated:</strong> {formatDate(userDetails.subscriptionStartDate)}</div>
                                         </div>
                                     </div>

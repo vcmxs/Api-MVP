@@ -227,14 +227,22 @@ function UserProfile({ userId, editable, onUpdate }) {
                             {referralStats.recentReferrals && referralStats.recentReferrals.length > 0 && (
                                 <div style={{ textAlign: 'left', marginTop: '1.5rem', maxHeight: '150px', overflowY: 'auto' }}>
                                     <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: '10px' }}>Últimos registros:</p>
-                                    {referralStats.recentReferrals.map((ref, idx) => (
-                                        <div key={idx} style={{ padding: '8px', borderBottom: '1px solid #333', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#fff' }}>{ref.name}</span>
-                                            <span style={{ color: ref.subscription_status === 'active' ? '#00C851' : '#888' }}>
-                                                {ref.subscription_status === 'active' ? 'Activo' : 'Gratis'}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {referralStats.recentReferrals.map((ref, idx) => {
+                                        const isInactive = !ref.subscription_tier || ref.subscription_tier === 'starter' || ref.subscription_tier === 'free';
+                                        return (
+                                            <div key={idx} style={{ padding: '8px', borderBottom: '1px solid #333', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <div style={{ color: '#fff', fontWeight: 'bold' }}>{ref.name}</div>
+                                                    {Number(ref.total_earnings) > 0 && (
+                                                        <div style={{ color: '#00C851', fontSize: '0.8rem' }}>+${Number(ref.total_earnings).toFixed(2)} e.</div>
+                                                    )}
+                                                </div>
+                                                <span style={{ color: isInactive ? '#888' : '#00C851', fontStyle: isInactive ? 'italic' : 'normal' }}>
+                                                    {isInactive ? 'Inactivo (Gratis)' : 'Activo'}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
