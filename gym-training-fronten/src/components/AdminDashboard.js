@@ -10,12 +10,14 @@ function AdminDashboard({ token, userId, userRole }) {
     const [userDetails, setUserDetails] = useState(null);
     const [activeTab, setActiveTab] = useState('users');
     const [referralStats, setReferralStats] = useState(null);
+    const [earnings, setEarnings] = useState([]);
 
     useEffect(() => {
         loadUsers();
         loadStats();
         if (activeTab === 'referrals') {
             loadReferralStats();
+            loadEarnings();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token, activeTab]);
@@ -56,6 +58,33 @@ function AdminDashboard({ token, userId, userRole }) {
             setReferralStats(response.data);
         } catch (err) {
             console.error('Error loading referral stats:', err);
+        }
+    };
+
+    const loadEarnings = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/referrals/admin/earnings`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setEarnings(response.data);
+        } catch (err) {
+            console.error('Error loading earnings:', err);
+        }
+    };
+
+    const markAsPaid = async (earningId) => {
+        if (!window.confirm('Mark this commission as PAID?')) return;
+        try {
+            await axios.patch(
+                `${API_URL}/referrals/admin/earnings/${earningId}/status`,
+                { status: 'paid' },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            loadEarnings(); // Refresh list
+            loadReferralStats(); // Refresh totals
+            alert('Status updated!');
+        } catch (err) {
+            alert('Error updating status: ' + (err.response?.data?.message || err.message));
         }
     };
 
@@ -469,6 +498,62 @@ function AdminDashboard({ token, userId, userRole }) {
                                     {(!referralStats.topReferrers || referralStats.topReferrers.length === 0) && (
                                         <tr>
                                             <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>No referral activity yet</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div className="payouts-management" style={{ marginTop: '2rem' }}>
+                        <h3>💰 Commission Payouts Management</h3>
+                        <div className="table-container">
+                            <table className="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Coach (Referrer)</th>
+                                        <th>From User</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {earnings.map(earning => (
+                                        <tr key={earning.id}>
+                                            <td>{formatDate(earning.created_at)}</td>
+                                            <td>
+                                                <div>{earning.referrer_name}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#888' }}>{earning.referrer_email}</div>
+                                            </td>
+                                            <td>{earning.referred_name}</td>
+                                            <td style={{ fontWeight: 'bold', color: '#00C851' }}>${Number(earning.amount).toFixed(2)}</td>
+                                            <td>
+                                                <span className={`status-badge status-${earning.status === 'paid' ? 'active' : 'pending'}`}
+                                                    style={{
+                                                        backgroundColor: earning.status === 'paid' ? 'rgba(0, 200, 81, 0.2)' : 'rgba(255, 136, 0, 0.2)',
+                                                        color: earning.status === 'paid' ? '#00C851' : '#FF8800',
+                                                        border: `1px solid ${earning.status === 'paid' ? '#00C851' : '#FF8800'}`
+                                                    }}>
+                                                    {earning.status === 'pending' ? '⏳ Pending' : '✅ Paid'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {earning.status === 'pending' && (
+                                                    <button
+                                                        onClick={() => markAsPaid(earning.id)}
+                                                        className="btn-success"
+                                                        style={{ padding: '5px 10px', fontSize: '0.9rem' }}
+                                                    >
+                                                        Mark as Paid
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {earnings.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>No commission records found</td>
                                         </tr>
                                     )}
                                 </tbody>
