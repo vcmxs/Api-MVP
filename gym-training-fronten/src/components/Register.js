@@ -249,17 +249,7 @@ function Register({ onRegister, onToggle }) {
             />
           </div>
 
-          <div className="form-group">
-            <label>Código de Referido (Opcional)</label>
-            <input
-              type="text"
-              name="referralCode"
-              value={formData.referralCode}
-              onChange={handleChange}
-              placeholder="Si tienes uno, ingrésalo aquí"
-              style={{ letterSpacing: '2px', fontWeight: 'bold' }}
-            />
-          </div>
+
 
           <div className="form-group">
             <label>Soy:</label>
@@ -286,6 +276,20 @@ function Register({ onRegister, onToggle }) {
               </label>
             </div>
           </div>
+
+          {formData.role === 'coach' && (
+            <div className="form-group" style={{ marginTop: '15px' }}>
+              <label>Código de Referido (Opcional)</label>
+              <input
+                type="text"
+                name="referralCode"
+                value={formData.referralCode}
+                onChange={handleChange}
+                placeholder="Si tienes uno, ingrésalo aquí"
+                style={{ letterSpacing: '2px', fontWeight: 'bold', borderColor: '#00f2ff' }}
+              />
+            </div>
+          )}
 
           {error && <div className="error-message">{error}</div>}
 
