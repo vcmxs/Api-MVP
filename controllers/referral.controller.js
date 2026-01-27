@@ -47,9 +47,16 @@ exports.getStats = async (req, res) => {
         );
         const totalEarnings = parseFloat(earningsResult.rows[0].total);
 
-        // Get recent referrals (name and date)
+        // Get recent referrals (name, date, status, tier, earnings)
         const recentResult = await pool.query(
-            'SELECT name, created_at, subscription_status FROM users WHERE referred_by = $1 ORDER BY created_at DESC LIMIT 5',
+            `SELECT u.id, u.name, u.email, u.subscription_status, u.subscription_tier, u.created_at,
+                    COALESCE(SUM(re.amount), 0) as total_earnings
+             FROM users u
+             LEFT JOIN referral_earnings re ON u.id = re.referred_user_id
+             WHERE u.referred_by = $1
+             GROUP BY u.id
+             ORDER BY u.created_at DESC
+             LIMIT 10`,
             [userId]
         );
 
