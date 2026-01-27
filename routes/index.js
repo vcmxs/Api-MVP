@@ -23,6 +23,7 @@ router.use('/workout-templates', templateRoutes);
 router.use('/setup', setupRoutes);
 router.use('/setup', setupRoutes);
 router.use('/nutrition', nutritionRoutes);
+router.use('/referral', require('./referral.routes'));
 router.use('/notifications', require('./notification.routes'));
 // TEMPORARILY DISABLED: Uncomment after Railway cache clears
 // router.use('/push-tokens', require('./pushToken.routes'));
