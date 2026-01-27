@@ -1,6 +1,6 @@
 // controllers/admin.controller.js
 const pool = require('../config/database');
-const { SUBSCRIPTION_TIERS, isValidTier } = require('../config/subscriptionTiers');
+const { SUBSCRIPTION_TIERS, isValidTier, getTierInfo } = require('../config/subscriptionTiers');
 
 /**
  * Get all users (Admin only)
@@ -93,7 +93,7 @@ exports.updateSubscription = async (req, res) => {
 
         // Check if user is a coach
         const userCheck = await pool.query(
-            'SELECT role, subscription_status, subscription_start_date FROM users WHERE id = $1',
+            'SELECT role, subscription_status, subscription_start_date, referred_by, referral_discount_used, subscription_tier FROM users WHERE id = $1',
             [req.params.userId]
         );
 
@@ -154,6 +154,48 @@ exports.updateSubscription = async (req, res) => {
         values.push(req.params.userId);
 
         const result = await pool.query(query, values);
+
+        // --- REFERRAL COMMISSION LOGIC ---
+        // Trigger only if status becomes active (or is active) and we just updated/renewed (tier change or status change)
+        // We assume if admin updates subscription to Active, payment was verified.
+        // Logic: If user has a Referrer, calculate commission.
+        if (shouldUpdateDates && (newStatus === 'active' || currentStatus === 'active')) {
+            const referrerId = currentUser.referred_by;
+            if (referrerId) {
+                const finalTier = tier || currentUser.subscription_tier || 'starter';
+                const tierInfo = getTierInfo(finalTier);
+                const basePrice = tierInfo?.price || 0;
+
+                if (basePrice > 0) {
+                    let effectivePrice = basePrice;
+                    const isFirstDiscount = !currentUser.referral_discount_used;
+
+                    // If discount hasn't been used, mark it as used NOW (assuming this is the first payment)
+                    // The 20% discount applies to the First Month.
+                    // If isFirstDiscount, then the user PAID 80% of price.
+                    // Commission is 10% of what they PAID (or 10% of base? Prompt said "10% commission on referred coach payments").
+                    // Usually commission follows revenue.
+                    if (isFirstDiscount) {
+                        effectivePrice = basePrice * 0.80; // User paid 80%
+                        // Mark discount as used
+                        await pool.query('UPDATE users SET referral_discount_used = TRUE WHERE id = $1', [req.params.userId]);
+                        console.log(`[Referral] Marked discount used for user ${req.params.userId}`);
+                    }
+
+                    const commissionAmount = effectivePrice * 0.10; // 10% commission
+
+                    if (commissionAmount > 0) {
+                        await pool.query(
+                            `INSERT INTO referral_earnings (referrer_id, referred_user_id, amount, status, created_at)
+                             VALUES ($1, $2, $3, 'pending', NOW())`,
+                            [referrerId, req.params.userId, commissionAmount]
+                        );
+                        console.log(`[Referral] Commission of $${commissionAmount} recorded for referrer ${referrerId}`);
+                    }
+                }
+            }
+        }
+        // --------------------------------
 
         res.json({ user: result.rows[0] });
     } catch (err) {

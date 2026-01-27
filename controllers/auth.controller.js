@@ -40,6 +40,20 @@ exports.register = async (req, res) => {
             });
         }
 
+        // Handle referral code
+        let referredBy = null;
+        if (req.body.referralCode) {
+            const referrer = await User.findByReferralCode(req.body.referralCode);
+            if (referrer) {
+                referredBy = referrer.id;
+                console.log(`User registering with referral code: ${req.body.referralCode} (Referrer ID: ${referrer.id})`);
+            } else {
+                console.log(`Invalid referral code provided: ${req.body.referralCode}`);
+                // We could return an error, but usually it's better to just ignore invalid codes to not block registration
+                // Or we can return a specific warning. For now, we'll ignore it.
+            }
+        }
+
         // Handle profile picture if uploaded
         let profilePicUrl = null;
         if (req.file) {
@@ -60,7 +74,8 @@ exports.register = async (req, res) => {
             notes,
             height,
             weight,
-            profilePicUrl
+            profilePicUrl,
+            referredBy
         });
 
         // Generate JWT token
