@@ -47,6 +47,13 @@ exports.getStats = async (req, res) => {
         );
         const totalEarnings = parseFloat(earningsResult.rows[0].total);
 
+        // Get current balance (pending earnings)
+        const balanceResult = await pool.query(
+            "SELECT COALESCE(SUM(amount), 0) as balance FROM referral_earnings WHERE referrer_id = $1 AND status = 'pending'",
+            [userId]
+        );
+        const currentBalance = parseFloat(balanceResult.rows[0].balance);
+
         // Get recent referrals (name, date, status, tier, earnings)
         const recentResult = await pool.query(
             `SELECT u.id, u.name, u.email, u.subscription_status, u.subscription_tier, u.created_at,
@@ -64,6 +71,7 @@ exports.getStats = async (req, res) => {
             referralCode: user.referral_code,
             referralCount,
             totalEarnings,
+            currentBalance,
             recentReferrals: recentResult.rows
         });
     } catch (err) {
