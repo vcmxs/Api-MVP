@@ -576,21 +576,6 @@ function UserProfile({ userId, editable, onUpdate }) {
                         <h3 style={{ margin: 0, color: '#FFD700' }}>👑 Subscription</h3>
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button
-                                onClick={openReferralModal}
-                                style={{
-                                    background: 'linear-gradient(45deg, #00f2ff, #0080ff)',
-                                    border: 'none',
-                                    color: '#000',
-                                    padding: '5px 15px',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    boxShadow: '0 0 10px rgba(0, 242, 255, 0.3)'
-                                }}
-                            >
-                                👥 Referidos
-                            </button>
-                            <button
                                 onClick={() => setShowPlans(!showPlans)}
                                 style={{
                                     background: 'transparent',
@@ -671,6 +656,46 @@ function UserProfile({ userId, editable, onUpdate }) {
                             })}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Win-Win Program Section (For ALL Users) */}
+            {!editing && (
+                <div style={{
+                    marginTop: '1rem',
+                    marginBottom: '2rem',
+                    background: 'linear-gradient(45deg, rgba(0, 242, 255, 0.05), rgba(0, 128, 255, 0.05))',
+                    border: '1px solid rgba(0, 242, 255, 0.2)',
+                    borderRadius: '10px',
+                    padding: '1.5rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div>
+                        <h3 style={{ margin: 0, color: '#00f2ff' }}>🚀 Win-Win Program</h3>
+                        <p style={{ margin: '5px 0 0 0', color: '#ccc', fontSize: '0.9rem' }}>
+                            {profile.role === 'coach' ?
+                                'Invite coaches, earn commissions!' :
+                                'Invite coaches and earn rewards!'}
+                        </p>
+                    </div>
+                    <button
+                        onClick={openReferralModal}
+                        style={{
+                            background: 'linear-gradient(45deg, #00f2ff, #0080ff)',
+                            border: 'none',
+                            color: '#000',
+                            padding: '10px 20px',
+                            borderRadius: '5px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            boxShadow: '0 0 15px rgba(0, 242, 255, 0.3)',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        👥 {t('referral.button') || 'Ver Referidos'}
+                    </button>
                 </div>
             )}
 
