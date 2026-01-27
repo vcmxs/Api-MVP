@@ -607,6 +607,41 @@ function UserProfile({ userId, editable, onUpdate }) {
                                 <div style={{ color: '#aaa', fontSize: '0.9rem' }}>Status</div>
                                 <div style={{ color: '#00C851', fontWeight: 'bold' }}>Active</div>
                             </div>
+                            {/* Subscription Dates Display */}
+                            {profile.subscription_start_date && profile.subscription_end_date && (
+                                <div style={{
+                                    width: '100%', marginTop: '1rem',
+                                    borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem',
+                                    display: 'flex', gap: '2rem'
+                                }}>
+                                    <div>
+                                        <div style={{ color: '#aaa', fontSize: '0.9rem' }}>Started</div>
+                                        <div style={{ color: '#fff' }}>
+                                            {new Date(profile.subscription_start_date).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: '#aaa', fontSize: '0.9rem' }}>Expires</div>
+                                        {(() => {
+                                            const endDate = new Date(profile.subscription_end_date);
+                                            const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+                                            return (
+                                                <div style={{
+                                                    color: daysLeft <= 3 ? '#ff4444' : '#fff',
+                                                    fontWeight: daysLeft <= 3 ? 'bold' : 'normal'
+                                                }}>
+                                                    {endDate.toLocaleDateString()}
+                                                    {daysLeft <= 3 && (
+                                                        <span style={{ fontSize: '0.8rem', marginLeft: '5px' }}>
+                                                            (⚠️ {daysLeft} days left)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
