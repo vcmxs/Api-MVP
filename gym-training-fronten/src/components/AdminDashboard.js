@@ -50,7 +50,7 @@ function AdminDashboard({ token, userId, userRole }) {
 
     const loadReferralStats = async () => {
         try {
-            const response = await axios.get(`${API_URL}/referral/admin/stats`, {
+            const response = await axios.get(`${API_URL}/referrals/admin/stats`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setReferralStats(response.data);
