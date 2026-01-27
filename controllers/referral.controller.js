@@ -118,3 +118,60 @@ exports.getAdminStats = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+/**
+ * Get all referral earnings records (Admin only)
+ */
+exports.getAdminEarnings = async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const result = await pool.query(`
+            SELECT re.id, re.amount, re.status, re.created_at,
+                   referrer.name as referrer_name, referrer.email as referrer_email,
+                   referred.name as referred_name
+            FROM referral_earnings re
+            JOIN users referrer ON re.referrer_id = referrer.id
+            JOIN users referred ON re.referred_user_id = referred.id
+            ORDER BY re.created_at DESC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching admin earnings:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+/**
+ * Update earning status (Admin only)
+ */
+exports.updateEarningStatus = async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const { id } = req.params;
+        const { status } = req.body; // 'paid' or 'pending'
+
+        if (!['paid', 'pending'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+
+        const result = await pool.query(
+            'UPDATE referral_earnings SET status = $1 WHERE id = $2 RETURNING *',
+            [status, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Earning record not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error updating earning status:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
