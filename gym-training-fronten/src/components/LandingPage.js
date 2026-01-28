@@ -84,6 +84,33 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            <section className="referral-section">
+                <div className="referral-content">
+                    <h2 className="section-title">🚀 Win-Win Program</h2>
+                    <p className="referral-subtitle">Grow together. Earn forever.</p>
+
+                    <div className="referral-steps">
+                        <div className="referral-step">
+                            <div className="step-number">1</div>
+                            <h4>Invite Coaches</h4>
+                            <p>Share your unique code with fellow trainers.</p>
+                        </div>
+                        <div className="referral-step">
+                            <div className="step-number">2</div>
+                            <h4>They Get 20% Off</h4>
+                            <p>Your friends get a <strong>20% discount</strong> on their first month.</p>
+                        </div>
+                        <div className="referral-step">
+                            <div className="step-number">3</div>
+                            <h4>You Earn 10%</h4>
+                            <p>You get <strong>10% commission</strong> on every payment they make, forever.</p>
+                        </div>
+                    </div>
+
+                    <Link to="/register" className="referral-cta">Start Earning Now</Link>
+                </div>
+            </section>
+
             <section className="pricing-section">
                 <h2 className="section-title">Choose Your Plan</h2>
                 <div className="pricing-grid">
