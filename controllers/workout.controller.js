@@ -371,7 +371,8 @@ exports.logExerciseSet = async (req, res) => {
             duration: log.duration,
             calories: log.calories,
             completed: log.completed,
-            loggedAt: log.logged_at
+            loggedAt: log.logged_at,
+            completed: log.completed
         });
     } catch (err) {
         console.error('Log exercise error details:', {
@@ -408,7 +409,10 @@ exports.updateExerciseLog = async (req, res) => {
             rir,
             distance,
             duration,
-            calories
+            distance,
+            duration,
+            calories,
+            completed
         });
 
         if (!log) {
