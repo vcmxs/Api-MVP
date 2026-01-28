@@ -101,6 +101,7 @@ exports.register = async (req, res) => {
                 role: user.role,
                 profilePicUrl: user.profile_pic_url,
                 referredBy: user.referred_by,
+                referralCode: user.referral_code,
                 referralDiscountUsed: false // New users haven't used it yet
             }
         });
@@ -199,6 +200,7 @@ exports.login = async (req, res) => {
                 subscriptionTier: user.subscription_tier,
                 status: user.status,
                 referredBy: user.referred_by,
+                referralCode: user.referral_code,
                 referralDiscountUsed: user.referral_discount_used
             }
         };
