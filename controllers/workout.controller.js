@@ -340,7 +340,7 @@ exports.updateExercise = async (req, res) => {
  */
 exports.logExerciseSet = async (req, res) => {
     try {
-        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories } = req.body;
+        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories, completed } = req.body;
         const { workoutPlanId, exerciseId } = req.params;
 
         const log = await Workout.logExerciseSet(workoutPlanId, exerciseId, {
@@ -395,7 +395,7 @@ exports.logExerciseSet = async (req, res) => {
  */
 exports.updateExerciseLog = async (req, res) => {
     try {
-        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories } = req.body;
+        const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories, completed } = req.body;
         const { logId } = req.params;
 
         const log = await Workout.updateExerciseLog(logId, {
