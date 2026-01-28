@@ -30,8 +30,8 @@ class Workout {
             // Insert exercises
             const exercisePromises = exercises.map((ex, index) => {
                 return client.query(
-                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
            RETURNING *`,
                     [
                         workoutPlan.id,
@@ -47,7 +47,9 @@ class Workout {
                         ex.rir || null,
                         (ex.isCardio || ex.is_cardio) ? true : false,
                         ex.targetDistance || ex.target_distance || null,
-                        ex.targetDuration || ex.target_duration || null
+                        ex.targetDuration || ex.target_duration || null,
+                        ex.trackRpe || ex.track_rpe || false,
+                        ex.trackRir || ex.track_rir || false
                     ]
                 );
             });
