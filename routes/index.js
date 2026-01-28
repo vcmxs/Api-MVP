@@ -31,4 +31,6 @@ router.use('/push-tokens', require('./pushToken.routes'));
 // Optional routes (can be added later)
 // router.use('/exercises', exerciseRoutes);
 
+router.use('/currency', require('./currency.routes'));
+
 module.exports = router;
