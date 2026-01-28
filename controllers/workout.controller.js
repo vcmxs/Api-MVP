@@ -428,11 +428,10 @@ exports.updateExerciseLog = async (req, res) => {
             notes: log.notes,
             rpe: log.rpe,
             rir: log.rir,
-            rpe: log.rpe,
-            rir: log.rir,
             distance: log.distance,
             duration: log.duration,
             calories: log.calories,
+            completed: log.completed,
             loggedAt: log.logged_at
         });
     } catch (err) {
