@@ -24,11 +24,24 @@ function UserProfile({ userId, editable, onUpdate }) {
     const [profilePicFile, setProfilePicFile] = useState(null);
     const [profilePicPreview, setProfilePicPreview] = useState(null);
     const [uploadingPic, setUploadingPic] = useState(false);
+    const [exchangeRate, setExchangeRate] = useState(360);
 
     useEffect(() => {
         loadProfile();
+        loadExchangeRate();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
+
+    const loadExchangeRate = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/currency/rate`);
+            if (response.data && response.data.rate) {
+                setExchangeRate(response.data.rate);
+            }
+        } catch (e) {
+            console.log('Error loading exchange rate', e);
+        }
+    };
 
     const loadProfile = async () => {
         try {
@@ -366,9 +379,9 @@ function UserProfile({ userId, editable, onUpdate }) {
                         {paymentMethod === 'bolivares' ? (
                             <>
                                 <div style={{ marginBottom: '15px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.9rem', color: '#ccc' }}>Amount to Pay (Rate: 355 Bs/$)</div>
+                                    <div style={{ fontSize: '0.9rem', color: '#ccc' }}>Amount to Pay (Rate: {exchangeRate} Bs/$)</div>
                                     <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ffff' }}>
-                                        Bs {(parseFloat(selectedUpgradePlan.price.replace('$', '').split('/')[0]) * 355).toLocaleString('es-VE')}
+                                        Bs {(parseFloat(selectedUpgradePlan.price.replace('$', '').split('/')[0]) * exchangeRate).toLocaleString('es-VE')}
                                     </div>
                                     <div style={{ fontSize: '0.8rem', color: '#888' }}>({selectedUpgradePlan.price})</div>
                                 </div>
