@@ -243,8 +243,8 @@ class Workout {
         // We removed logged_at and workout_plan_id to match likely schema
 
         const result = await pool.query(
-            `INSERT INTO exercise_logs (exercise_id, set_number, reps_completed, weight_used, weight_unit, notes, rpe, rir, distance, duration, calories)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            `INSERT INTO exercise_logs (exercise_id, set_number, reps_completed, weight_used, weight_unit, notes, rpe, rir, distance, duration, calories, completed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
             [
                 exerciseId,
@@ -257,7 +257,8 @@ class Workout {
                 logData.rir || null,
                 logData.distance || null,
                 logData.duration || null,
-                logData.calories || null
+                logData.calories || null,
+                logData.completed !== undefined ? logData.completed : true
             ]
         );
 
@@ -270,8 +271,8 @@ class Workout {
     static async updateExerciseLog(logId, logData) {
         const result = await pool.query(
             `UPDATE exercise_logs 
-             SET set_number = $1, reps_completed = $2, weight_used = $3, weight_unit = $4, notes = $5, rpe = $6, rir = $7, distance = $8, duration = $9, calories = $10
-             WHERE id = $11
+             SET set_number = $1, reps_completed = $2, weight_used = $3, weight_unit = $4, notes = $5, rpe = $6, rir = $7, distance = $8, duration = $9, calories = $10, completed = $11
+             WHERE id = $12
              RETURNING *`,
             [
                 logData.setNumber,
@@ -285,6 +286,7 @@ class Workout {
                 logData.distance || null,
                 logData.duration || null,
                 logData.calories || null,
+                logData.completed !== undefined ? logData.completed : true,
                 logId
             ]
         );
