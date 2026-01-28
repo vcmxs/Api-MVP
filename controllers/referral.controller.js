@@ -183,3 +183,29 @@ exports.updateEarningStatus = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+/**
+ * Mark all pending earnings for a user as paid (Admin only)
+ */
+exports.markAllUserEarningsPaid = async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const { userId } = req.params;
+
+        const result = await pool.query(
+            "UPDATE referral_earnings SET status = 'paid' WHERE referrer_id = $1 AND status = 'pending' RETURNING id",
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ message: 'No pending earnings found for this user', count: 0 });
+        }
+
+        res.json({ message: 'Success', count: result.rows.length });
+    } catch (err) {
+        console.error('Error marking user earnings paid:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
