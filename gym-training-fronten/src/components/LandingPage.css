@@ -692,3 +692,102 @@
     margin-top: 10px;
     font-style: italic;
 }
+
+/* Referral Section */
+.referral-section {
+    padding: 100px 8%;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.05) 0%, rgba(0, 128, 255, 0.05) 100%);
+    border-top: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+    text-align: center;
+}
+
+.referral-content {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.referral-subtitle {
+    font-size: 20px;
+    color: var(--text-secondary);
+    margin-top: -40px;
+    margin-bottom: 60px;
+}
+
+.referral-steps {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    margin-bottom: 60px;
+    flex-wrap: wrap;
+}
+
+.referral-step {
+    flex: 1;
+    min-width: 250px;
+    background: var(--glass-bg);
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    position: relative;
+    transition: transform 0.3s;
+}
+
+.referral-step:hover {
+    transform: translateY(-5px);
+    border-color: rgba(0, 255, 255, 0.3);
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    background: var(--accent);
+    color: #000;
+    font-weight: 900;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 18px;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+}
+
+.referral-step h4 {
+    font-size: 20px;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.referral-step p {
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.referral-step strong {
+    color: var(--accent);
+}
+
+.referral-cta {
+    display: inline-block;
+    padding: 16px 48px;
+    background: linear-gradient(45deg, #00ffff, #0080ff);
+    color: #000;
+    font-weight: 800;
+    font-size: 18px;
+    border-radius: 50px;
+    text-decoration: none;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.referral-cta:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+}
+
+@media (max-width: 768px) {
+    .referral-steps {
+        flex-direction: column;
+    }
+}
