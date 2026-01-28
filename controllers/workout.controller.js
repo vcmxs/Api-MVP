@@ -100,8 +100,8 @@ exports.getWorkoutPlanById = async (req, res) => {
                 order: ex.exercise_order,
                 rpe: ex.rpe,
                 rir: ex.rir,
-                trackRpe: ex.rpe != null,
-                trackRir: ex.rir != null,
+                trackRpe: ex.track_rpe !== undefined ? ex.track_rpe : (ex.rpe != null),
+                trackRir: ex.track_rir !== undefined ? ex.track_rir : (ex.rir != null),
                 isCardio: ex.is_cardio,
                 targetDistance: ex.target_distance,
                 targetDuration: ex.target_duration
@@ -145,8 +145,8 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
                         order: ex.exercise_order,
                         rpe: ex.rpe,
                         rir: ex.rir,
-                        trackRpe: ex.rpe != null,
-                        trackRir: ex.rir != null,
+                        trackRpe: ex.track_rpe !== undefined ? ex.track_rpe : (ex.rpe != null),
+                        trackRir: ex.track_rir !== undefined ? ex.track_rir : (ex.rir != null),
                         isCardio: ex.is_cardio,
                         targetDistance: ex.target_distance,
                         targetDuration: ex.target_duration
