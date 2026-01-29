@@ -43,14 +43,23 @@ body.light-theme {
   --input-bg: #F9FAFB;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
-  transition: background 0.3s ease, color 0.3s ease;
+  margin: 0;
+  padding: 0;
 }
+
+
+
+
 
 /* Minimal Background - Mobile App Style */
 body::before {
@@ -1156,6 +1165,7 @@ option {
 /* Responsive Dashboard Layout */
 .dashboard-container {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background-color: var(--bg-primary);
@@ -1176,11 +1186,18 @@ option {
 
 .dashboard-body {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+}
+
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  width: 100%;
+  position: relative;
 }
 
 /* Nav Button Styles */
@@ -1220,6 +1237,10 @@ option {
 /* Mobile View adjustments */
 @media (max-width: 768px) {
   .dashboard-container {
+    flex-direction: column;
+  }
+
+  .dashboard-body {
     flex-direction: column;
   }
 
