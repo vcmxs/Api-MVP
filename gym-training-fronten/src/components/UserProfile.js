@@ -405,7 +405,7 @@ function UserProfile({ userId, editable, onUpdate }) {
 
                             const originalPriceNum = parseFloat(selectedUpgradePlan.price.replace('$', '').replace('/mo', ''));
                             const finalPriceNum = hasDiscount && originalPriceNum > 0 ? originalPriceNum * 0.8 : originalPriceNum;
-                            const finalPriceStr = selectedUpgradePlan.price.replace(originalPriceNum.toString(), finalPriceNum.toFixed(hasDiscount ? 2 : 0)); // Hacky replace
+
 
                             return paymentMethod === 'bolivares' ? (
                                 <>
