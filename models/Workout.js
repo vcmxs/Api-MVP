@@ -282,7 +282,6 @@ class Workout {
                 logData.notes || '',
                 logData.rpe || null,
                 logData.rir || null,
-                logData.rir || null,
                 logData.distance || null,
                 logData.duration || null,
                 logData.calories || null,
