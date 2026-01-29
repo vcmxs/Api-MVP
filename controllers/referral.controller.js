@@ -67,12 +67,24 @@ exports.getStats = async (req, res) => {
             [userId]
         );
 
+        // Get info about who referred ME
+        let referrerInfo = null;
+        if (user.referred_by) {
+            const referrerResult = await pool.query('SELECT name FROM users WHERE id = $1', [user.referred_by]);
+            if (referrerResult.rows.length > 0) {
+                referrerInfo = {
+                    name: referrerResult.rows[0].name
+                };
+            }
+        }
+
         res.json({
             referralCode: user.referral_code,
             referralCount,
             totalEarnings,
             currentBalance,
-            recentReferrals: recentResult.rows
+            recentReferrals: recentResult.rows,
+            referrer: referrerInfo
         });
     } catch (err) {
         console.error('Error fetching referral stats:', err);
