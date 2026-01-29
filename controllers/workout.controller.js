@@ -371,6 +371,7 @@ exports.logExerciseSet = async (req, res) => {
             duration: log.duration,
             calories: log.calories,
             completed: log.completed,
+            completed: log.completed,
             loggedAt: log.logged_at,
             completed: log.completed
         });
@@ -463,6 +464,7 @@ exports.getExerciseLogs = async (req, res) => {
                 duration: log.duration,
                 calories: log.calories,
                 completed: log.completed,
+                loggedAt: log.logged_ated,
                 loggedAt: log.logged_at
             }))
         });
