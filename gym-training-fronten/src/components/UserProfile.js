@@ -395,82 +395,108 @@ function UserProfile({ userId, editable, onUpdate }) {
                         </button>
                     </div>
 
-                    {/* Content Area */}
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '10px', marginBottom: '1.5rem' }}>
 
-                        {paymentMethod === 'bolivares' ? (
-                            <>
-                                <div style={{ marginBottom: '15px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.9rem', color: '#ccc' }}>Amount to Pay (Rate: {exchangeRate} Bs/$)</div>
-                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ffff' }}>
-                                        Bs {(parseFloat(selectedUpgradePlan.price.replace('$', '').split('/')[0]) * exchangeRate).toLocaleString('es-VE')}
-                                    </div>
-                                    <div style={{ fontSize: '0.8rem', color: '#888' }}>({selectedUpgradePlan.price})</div>
-                                </div>
+                        {/* Calculate Discount for Modal */}
+                        {(() => {
+                            const hasDiscount = (profile.referred_by || profile.referredBy) &&
+                                !(profile.referral_discount_used || profile.referralDiscountUsed) &&
+                                (profile.subscription_tier === 'starter' || profile.subscriptionTier === 'starter' || !profile.subscription_tier);
 
-                                <div style={{ borderTop: '1px solid #333', paddingTop: '15px' }}>
-                                    {[
-                                        { label: 'Bank', value: 'Banco Nacional de Crédito (0175)' },
-                                        { label: 'ID / C.I.', value: 'V-26.242.801' },
-                                        { label: 'Phone', value: '0412.785.4824' }
-                                    ].map((item, idx) => (
-                                        <div
-                                            key={idx}
-                                            onClick={() => copyToClipboard(item.value, item.label)}
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                marginBottom: '10px',
-                                                padding: '8px',
-                                                borderRadius: '5px',
-                                                cursor: 'pointer',
-                                                background: 'rgba(255,255,255,0.05)'
-                                            }}
-                                            title="Click to copy"
-                                        >
-                                            <span style={{ color: '#888' }}>{item.label}:</span>
-                                            <span style={{ color: '#fff', fontWeight: 'bold' }}>{item.value} 📋</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div style={{ marginBottom: '15px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.9rem', color: '#ccc' }}>Amount to Pay</div>
-                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#F3BA2F' }}>
-                                        {selectedUpgradePlan.price.replace('/mo', '')} USDT
-                                    </div>
-                                    <div style={{ fontSize: '0.8rem', color: '#888' }}>Network: TRC20 (Tron)</div>
-                                </div>
+                            const originalPriceNum = parseFloat(selectedUpgradePlan.price.replace('$', '').replace('/mo', ''));
+                            const finalPriceNum = hasDiscount && originalPriceNum > 0 ? originalPriceNum * 0.8 : originalPriceNum;
+                            const finalPriceStr = selectedUpgradePlan.price.replace(originalPriceNum.toString(), finalPriceNum.toFixed(hasDiscount ? 2 : 0)); // Hacky replace
 
-                                <div style={{ borderTop: '1px solid #333', paddingTop: '15px' }}>
-                                    {[
-                                        { label: 'Binance ID', value: '36180847' },
-                                        { label: 'Wallet (TRC20)', value: 'TMD6CaL9TVLXugA7ghn61DSqJcHouKZK8h' }
-                                    ].map((item, idx) => (
-                                        <div
-                                            key={idx}
-                                            onClick={() => copyToClipboard(item.value, item.label)}
-                                            style={{
-                                                marginBottom: '10px',
-                                                padding: '10px',
-                                                borderRadius: '5px',
-                                                cursor: 'pointer',
-                                                background: 'rgba(255,255,255,0.05)'
-                                            }}
-                                            title="Click to copy"
-                                        >
-                                            <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '4px' }}>{item.label}:</div>
-                                            <div style={{ color: '#fff', fontSize: '0.9rem', wordBreak: 'break-all' }}>{item.value} 📋</div>
+                            return paymentMethod === 'bolivares' ? (
+                                <>
+                                    <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.9rem', color: '#ccc' }}>Amount to Pay (Rate: {exchangeRate} Bs/$)</div>
+                                        <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ffff' }}>
+                                            Bs {(finalPriceNum * exchangeRate).toLocaleString('es-VE')}
                                         </div>
-                                    ))}
-                                </div>
-                                <div style={{ marginTop: '10px', color: '#ff4444', fontSize: '0.8rem', textAlign: 'center' }}>
-                                    ⚠️ Only send USDT on TRC20 network.
-                                </div>
-                            </>
-                        )}
+                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                                            {hasDiscount ? (
+                                                <span>
+                                                    <s style={{ marginRight: '5px' }}>{selectedUpgradePlan.price}</s>
+                                                    <span style={{ color: '#00D1FF', fontWeight: 'bold' }}>${finalPriceNum.toFixed(2)}/mo</span>
+                                                </span>
+                                            ) : (
+                                                `(${selectedUpgradePlan.price})`
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ borderTop: '1px solid #333', paddingTop: '15px' }}>
+                                        {[
+                                            { label: 'Bank', value: 'Banco Nacional de Crédito (0175)' },
+                                            { label: 'ID / C.I.', value: 'V-26.242.801' },
+                                            { label: 'Phone', value: '0412.785.4824' }
+                                        ].map((item, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => copyToClipboard(item.value, item.label)}
+                                                style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    marginBottom: '10px',
+                                                    padding: '8px',
+                                                    borderRadius: '5px',
+                                                    cursor: 'pointer',
+                                                    background: 'rgba(255,255,255,0.05)'
+                                                }}
+                                                title="Click to copy"
+                                            >
+                                                <span style={{ color: '#888' }}>{item.label}:</span>
+                                                <span style={{ color: '#fff', fontWeight: 'bold' }}>{item.value} 📋</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.9rem', color: '#ccc' }}>Amount to Pay</div>
+                                        <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#F3BA2F' }}>
+                                            {hasDiscount ? (
+                                                <>
+                                                    <s style={{ fontSize: '1.2rem', color: '#888', marginRight: '10px' }}>{selectedUpgradePlan.price.replace('/mo', '')}</s>
+                                                    {finalPriceNum} USDT
+                                                </>
+                                            ) : (
+                                                `${selectedUpgradePlan.price.replace('/mo', '')} USDT`
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>Network: TRC20 (Tron)</div>
+                                    </div>
+
+                                    <div style={{ borderTop: '1px solid #333', paddingTop: '15px' }}>
+                                        {[
+                                            { label: 'Binance ID', value: '36180847' },
+                                            { label: 'Wallet (TRC20)', value: 'TMD6CaL9TVLXugA7ghn61DSqJcHouKZK8h' }
+                                        ].map((item, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => copyToClipboard(item.value, item.label)}
+                                                style={{
+                                                    marginBottom: '10px',
+                                                    padding: '10px',
+                                                    borderRadius: '5px',
+                                                    cursor: 'pointer',
+                                                    background: 'rgba(255,255,255,0.05)'
+                                                }}
+                                                title="Click to copy"
+                                            >
+                                                <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '4px' }}>{item.label}:</div>
+                                                <div style={{ color: '#fff', fontSize: '0.9rem', wordBreak: 'break-all' }}>{item.value} 📋</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div style={{ marginTop: '10px', color: '#ff4444', fontSize: '0.8rem', textAlign: 'center' }}>
+                                        ⚠️ Only send USDT on TRC20 network.
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
 
                     <div style={{ textAlign: 'center', color: '#aaa', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
