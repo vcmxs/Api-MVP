@@ -1214,6 +1214,9 @@ option {
   transition: all 0.2s;
   width: 100%;
   margin-bottom: 4px;
+  color: var(--text-secondary);
+  /* Explicit color */
+  background: transparent;
 }
 
 .nav-button:hover {
