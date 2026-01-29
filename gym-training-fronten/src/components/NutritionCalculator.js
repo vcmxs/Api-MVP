@@ -163,25 +163,25 @@ const NutritionCalculator = ({ userId }) => {
     if (loading) return <div>Loading...</div>;
 
     return (
-        <div style={{ color: '#fff' }}>
+        <div style={{ color: 'var(--text-primary)' }}>
             {/* Header / Date Nav */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2>Nutrition & Macros</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.1)', padding: '5px 15px', borderRadius: '20px' }}>
-                    <button onClick={() => changeDate(-1)} style={{ background: 'none', border: 'none', color: '#00ffff', fontSize: '1.2rem', cursor: 'pointer' }}>←</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-secondary)', padding: '5px 15px', borderRadius: '20px' }}>
+                    <button onClick={() => changeDate(-1)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '1.2rem', cursor: 'pointer' }}>←</button>
                     <span style={{ fontWeight: 'bold' }}>
                         {selectedDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedDate}
                     </span>
-                    <button onClick={() => changeDate(1)} style={{ background: 'none', border: 'none', color: '#00ffff', fontSize: '1.2rem', cursor: 'pointer' }}>→</button>
+                    <button onClick={() => changeDate(1)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '1.2rem', cursor: 'pointer' }}>→</button>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                 {/* Calculator */}
-                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '15px', border: '1px solid var(--border-color)' }}>
                     <h3 style={{ marginTop: 0 }}>🧮 Calculator</h3>
 
-                    <div style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#aaa' }}>
+                    <div style={{ marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                         Based on your profile: {stats.weight ? `${stats.weight}kg, ${stats.height}cm, ${stats.age}y` : <span style={{ color: 'orange' }}>Profile incomplete</span>}
                     </div>
 
@@ -190,7 +190,7 @@ const NutritionCalculator = ({ userId }) => {
                         <select
                             value={activityLevel}
                             onChange={(e) => setActivityLevel(parseFloat(e.target.value))}
-                            style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '5px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid #333' }}
+                            style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '5px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
                         >
                             <option value={1.2}>Sedentary (Office job)</option>
                             <option value={1.375}>Light Exercise (1-2 days/week)</option>
@@ -205,7 +205,7 @@ const NutritionCalculator = ({ userId }) => {
                         <select
                             value={goalType}
                             onChange={(e) => setGoalType(e.target.value)}
-                            style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '5px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid #333' }}
+                            style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '5px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
                         >
                             <option value="cut">Fat Loss (-500 cal)</option>
                             <option value="maintain">Maintenance</option>
@@ -221,8 +221,8 @@ const NutritionCalculator = ({ userId }) => {
                     </button>
 
                     {results && (
-                        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0, 255, 255, 0.1)', borderRadius: '10px', animation: 'fadeIn 0.5s' }}>
-                            <div style={{ textAlign: 'center', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem', color: '#00ffff' }}>
+                        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: '10px', animation: 'fadeIn 0.5s' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--accent)' }}>
                                 {results.calories} kcal
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
@@ -252,25 +252,25 @@ const NutritionCalculator = ({ userId }) => {
                 </div>
 
                 {/* Current Goals Display */}
-                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '15px', border: '1px solid var(--border-color)' }}>
                     <h3 style={{ marginTop: 0 }}>🎯 Current Goals ({selectedDate})</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', justifyContent: 'center', height: '80%' }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#fff' }}>{goals.calories}</div>
-                            <div style={{ color: '#888' }}>Daily Calories</div>
+                            <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{goals.calories}</div>
+                            <div style={{ color: 'var(--text-secondary)' }}>Daily Calories</div>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '1.5rem', color: '#00C851', fontWeight: 'bold' }}>{goals.protein}g</div>
-                                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Protein</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Protein</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '1.5rem', color: '#ffbb33', fontWeight: 'bold' }}>{goals.carbs}g</div>
-                                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Carbs</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Carbs</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '1.5rem', color: '#ff4444', fontWeight: 'bold' }}>{goals.fats}g</div>
-                                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Fats</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Fats</div>
                             </div>
                         </div>
                     </div>
@@ -417,13 +417,13 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
 
     return (
         <div style={{
-            background: 'rgba(255,255,255,0.05)',
+            background: 'var(--bg-secondary)',
             padding: '2rem',
             borderRadius: '15px',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid var(--border-color)',
             marginTop: '2rem'
         }}>
-            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginTop: 0 }}>🍎 Daily Food Journal</h3>
+            <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginTop: 0 }}>🍎 Daily Food Journal</h3>
 
             {/* Daily Summary Bars */}
             <div style={{ marginBottom: '2rem' }}>
@@ -432,7 +432,7 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                         <span>Calories</span>
                         <span>{summary.calories} / {dailyGoals.calories} kcal</span>
                     </div>
-                    <div style={{ height: '10px', background: '#333', borderRadius: '5px', overflow: 'hidden' }}>
+                    <div style={{ height: '10px', background: 'var(--bg-tertiary)', borderRadius: '5px', overflow: 'hidden' }}>
                         <div style={{
                             width: `${Math.min((summary.calories / dailyGoals.calories) * 100, 100)}%`,
                             height: '100%',
@@ -444,22 +444,22 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                     <div>
-                        <div style={{ fontSize: '0.8rem', color: '#ccc' }}>Protein</div>
-                        <div style={{ height: '6px', background: '#333', borderRadius: '3px', marginTop: '5px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Protein</div>
+                        <div style={{ height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', marginTop: '5px' }}>
                             <div style={{ width: `${Math.min((summary.protein / (dailyGoals.protein || 1)) * 100, 100)}%`, height: '100%', background: '#00C851' }} />
                         </div>
                         <div style={{ fontSize: '0.8rem', textAlign: 'right' }}>{summary.protein}/{dailyGoals.protein}g</div>
                     </div>
                     <div>
-                        <div style={{ fontSize: '0.8rem', color: '#ccc' }}>Carbs</div>
-                        <div style={{ height: '6px', background: '#333', borderRadius: '3px', marginTop: '5px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Carbs</div>
+                        <div style={{ height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', marginTop: '5px' }}>
                             <div style={{ width: `${Math.min((summary.carbs / (dailyGoals.carbs || 1)) * 100, 100)}%`, height: '100%', background: '#ffbb33' }} />
                         </div>
                         <div style={{ fontSize: '0.8rem', textAlign: 'right' }}>{summary.carbs}/{dailyGoals.carbs}g</div>
                     </div>
                     <div>
-                        <div style={{ fontSize: '0.8rem', color: '#ccc' }}>Fats</div>
-                        <div style={{ height: '6px', background: '#333', borderRadius: '3px', marginTop: '5px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Fats</div>
+                        <div style={{ height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', marginTop: '5px' }}>
                             <div style={{ width: `${Math.min((summary.fats / (dailyGoals.fats || 1)) * 100, 100)}%`, height: '100%', background: '#ff4444' }} />
                         </div>
                         <div style={{ fontSize: '0.8rem', textAlign: 'right' }}>{summary.fats}/{dailyGoals.fats}g</div>
@@ -480,9 +480,9 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                             flex: 1,
                             padding: '12px',
                             borderRadius: '8px',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            background: 'rgba(0,0,0,0.2)',
-                            color: 'white'
+                            border: '1px solid var(--border-color)',
+                            background: 'var(--input-bg)',
+                            color: 'var(--text-primary)'
                         }}
                     />
                 </div>
@@ -494,13 +494,13 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                         top: '100%',
                         left: 0,
                         right: 0,
-                        background: '#1a1a20',
-                        border: '1px solid #333',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '0 0 8px 8px',
                         zIndex: 1000,
                         maxHeight: '300px',
                         overflowY: 'auto',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.5)'
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
                     }}>
                         {searchResults.map(food => (
                             <div
@@ -508,12 +508,12 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                                 onClick={() => handleSelectFood(food)}
                                 style={{
                                     padding: '10px',
-                                    borderBottom: '1px solid #333',
+                                    borderBottom: '1px solid var(--border-color)',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     justifyContent: 'space-between'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#333'}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             >
                                 <span>{food.name}</span>
@@ -529,8 +529,8 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
             {/* Selected Item Editor */}
             {selectedFood && (
                 <div style={{
-                    background: 'rgba(0, 255, 255, 0.05)',
-                    border: '1px solid rgba(0, 255, 255, 0.2)',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
                     padding: '1rem',
                     borderRadius: '8px',
                     marginBottom: '2rem',
@@ -540,8 +540,8 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                     flexWrap: 'wrap'
                 }}>
                     <div style={{ flex: 1 }}>
-                        <strong style={{ color: '#00ffff' }}>{selectedFood.name}</strong>
-                        <div style={{ fontSize: '0.8rem', color: '#ccc' }}>
+                        <strong style={{ color: 'var(--text-primary)' }}>{selectedFood.name}</strong>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                             {Math.round((selectedFood.calories * parseFloat(quantity || 0)) / selectedFood.serving_size)} kcal
                             {' • '}
                             P: {Math.round((selectedFood.proteins * parseFloat(quantity || 0)) / selectedFood.serving_size)}g
@@ -557,7 +557,7 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                             type="number"
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
-                            style={{ width: '80px', padding: '5px', borderRadius: '4px', border: '1px solid #555', background: '#222', color: 'white' }}
+                            style={{ width: '80px', padding: '5px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
                         />
                     </div>
                     <button
@@ -565,8 +565,8 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                         disabled={logging}
                         style={{
                             padding: '8px 16px',
-                            background: '#00ffff',
-                            color: 'black',
+                            background: 'var(--primary)',
+                            color: 'var(--bg-primary)',
                             border: 'none',
                             borderRadius: '4px',
                             fontWeight: 'bold',
@@ -580,8 +580,8 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                         style={{
                             padding: '8px 16px',
                             background: 'transparent',
-                            color: '#ccc',
-                            border: '1px solid #555',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '4px',
                             cursor: 'pointer'
                         }}
@@ -602,7 +602,7 @@ const FoodJournal = ({ userId, dailyGoals, selectedDate }) => {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            background: 'rgba(255,255,255,0.02)',
+                            background: 'var(--bg-secondary)',
                             padding: '10px',
                             borderRadius: '5px',
                             marginBottom: '5px'

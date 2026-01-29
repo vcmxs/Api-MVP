@@ -28,13 +28,13 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
       alignItems: 'center',
       padding: '1rem',
       borderRadius: '12px',
-      border: isCompleted ? '1px solid var(--success)' : '1px solid rgba(255, 255, 255, 0.05)',
+      border: isCompleted ? '1px solid var(--success)' : '1px solid var(--border-color)',
       backgroundColor: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
       boxShadow: isCompleted ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none',
       transition: 'all 0.3s ease'
     }}>
-      <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--light)', fontSize: '1.1rem' }}>{setNum}</div>
-      <div style={{ textAlign: 'center', color: 'var(--gray)', fontSize: '0.9rem' }}>
+      <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '1.1rem' }}>{setNum}</div>
+      <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
         {targetWeight}kg x {targetReps}
       </div>
       <div>
@@ -47,9 +47,9 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
             textAlign: 'center',
             padding: '0.8rem',
             borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            color: 'var(--light)',
+            border: '1px solid var(--border-color)',
+            backgroundColor: 'var(--input-bg)',
+            color: 'var(--text-primary)',
             fontSize: '1.1rem'
           }}
           disabled={isCompleted}
@@ -65,9 +65,9 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
             textAlign: 'center',
             padding: '0.8rem',
             borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            color: 'var(--light)',
+            border: '1px solid var(--border-color)',
+            backgroundColor: 'var(--input-bg)',
+            color: 'var(--text-primary)',
             fontSize: '1.1rem'
           }}
           disabled={isCompleted}
@@ -77,9 +77,9 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
         <button
           onClick={() => isCompleted ? onDelete(log.id) : onLog(setNum, weightInput, repsInput)}
           style={{
-            background: isCompleted ? 'var(--success)' : 'rgba(255, 255, 255, 0.05)',
-            color: isCompleted ? 'var(--dark)' : 'var(--gray)',
-            border: isCompleted ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+            background: isCompleted ? 'var(--success)' : 'var(--bg-secondary)',
+            color: isCompleted ? 'var(--bg-primary)' : 'var(--text-secondary)',
+            border: isCompleted ? 'none' : '1px solid var(--border-color)',
             borderRadius: '50%',
             width: '40px',
             height: '40px',
@@ -140,7 +140,7 @@ const ActiveWorkoutView = ({
         position: 'sticky',
         top: '1rem',
         zIndex: 100,
-        background: 'rgba(20, 20, 20, 0.95)',
+        background: 'var(--header-bg)',
         backdropFilter: 'blur(10px)',
         boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
       }}>
@@ -168,7 +168,7 @@ const ActiveWorkoutView = ({
               <h2 style={{
                 fontSize: '2rem',
                 marginBottom: '1rem',
-                color: 'var(--light)',
+                color: 'var(--text-primary)',
                 fontWeight: '800'
               }}>
                 {index + 1}. {exercise.name}
@@ -198,8 +198,8 @@ const ActiveWorkoutView = ({
                         padding: '0.5rem',
                         borderRadius: '8px',
                         border: '1px solid var(--accent)',
-                        background: 'rgba(0,0,0,0.3)',
-                        color: 'white',
+                        background: 'var(--input-bg)',
+                        color: 'var(--text-primary)',
                         width: '80%',
                         minHeight: '60px',
                         fontFamily: 'inherit'
@@ -216,9 +216,9 @@ const ActiveWorkoutView = ({
                     style={{
                       cursor: 'pointer',
                       padding: '1rem',
-                      background: 'rgba(255, 255, 255, 0.05)',
+                      background: 'var(--bg-secondary)',
                       borderRadius: '10px',
-                      border: '1px dashed rgba(255, 255, 255, 0.2)',
+                      border: '1px dashed var(--border-color)',
                       transition: 'all 0.2s ease'
                     }}
                     title="Click to edit notes"
@@ -226,7 +226,7 @@ const ActiveWorkoutView = ({
                     <p style={{
                       margin: 0,
                       fontSize: '1.1rem',
-                      color: exercise.notes ? 'var(--light)' : 'var(--gray)',
+                      color: exercise.notes ? 'var(--text-primary)' : 'var(--text-secondary)',
                       fontStyle: exercise.notes ? 'normal' : 'italic'
                     }}>
                       {exercise.notes ? `📝 ${exercise.notes}` : 'Click to add notes...'}
@@ -283,9 +283,9 @@ const ActiveWorkoutView = ({
         marginTop: '2rem',
         padding: '2rem',
         textAlign: 'center',
-        background: 'rgba(20, 20, 20, 0.8)',
+        background: 'var(--bg-secondary)',
         borderRadius: '20px',
-        border: '1px solid rgba(255, 255, 255, 0.05)'
+        border: '1px solid var(--border-color)'
       }}>
         <button
           onClick={onComplete}
@@ -308,6 +308,45 @@ const ActiveWorkoutView = ({
 
 function TraineeDashboard({ token, userId }) {
   const { t } = useTranslation();
+
+  // Helper component for Sidebar Navigation Button
+  const NavButton = ({ active, onClick, icon, label }) => (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '12px 16px',
+        border: 'none',
+        background: active ? 'var(--primary)' : 'transparent',
+        color: active ? 'var(--bg-primary)' : 'var(--text-secondary)',
+        borderRadius: '12px',
+        cursor: 'pointer',
+        fontSize: '1rem',
+        fontWeight: active ? 'bold' : '500',
+        textAlign: 'left',
+        transition: 'all 0.2s',
+        width: '100%',
+        marginBottom: '4px'
+      }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = 'var(--bg-tertiary)';
+          e.currentTarget.style.color = 'var(--text-primary)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = 'transparent';
+          e.currentTarget.style.color = 'var(--text-secondary)';
+        }
+      }}
+    >
+      <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
 
 
   const [workoutPlans, setWorkoutPlans] = useState([]);
@@ -776,12 +815,12 @@ function TraineeDashboard({ token, userId }) {
   }
 
   return (
-    <div className="dashboard" style={{ userSelect: 'none' }}>
+    <div className="dashboard" style={{ userSelect: 'none', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       {/* Header */}
       {/* Header */}
       <div className="dashboard-header-container" style={{
-        backgroundColor: '#0a0a0f',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'var(--header-bg)',
+        borderBottom: '1px solid var(--border-color)',
         position: 'sticky',
         top: 0,
         zIndex: 1000,
@@ -797,7 +836,7 @@ function TraineeDashboard({ token, userId }) {
           alignItems: 'center'
         }}>
           <h1 style={{
-            color: '#fff',
+            color: 'var(--text-primary)',
             fontSize: 'clamp(1.2rem, 5vw, 1.5rem)',
             margin: 0,
             letterSpacing: '2px',
@@ -815,117 +854,79 @@ function TraineeDashboard({ token, userId }) {
       </div>
 
 
-      {/* Tab Navigation */}
-      <div className="tab-navigation">
-        <button
-          className={`tab-button ${activeTab === 'workouts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('workouts')}
-        >
-          {t('dashboard.myWorkouts')}
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
-          onClick={() => setActiveTab('calendar')}
-        >
-          📅 {t('common.date')}
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'progression' ? 'active' : ''}`}
-          onClick={() => setActiveTab('progression')}
-        >
-          📈 {t('progression.title')}
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'nutrition' ? 'active' : ''}`}
-          onClick={() => setActiveTab('nutrition')}
-        >
-          🍎 {t('nutrition.title')}
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
-        >
-          👤 {t('profile.title')}
-        </button>
-      </div>
 
-      {activeTab === 'nutrition' && <NutritionCalculator userId={userId} />
-      }
 
-      {
-        activeTab === 'profile' && (
-          <div className="profile-section">
-            <UserProfile userId={userId} editable={true} />
-          </div>
-        )
-      }
+      <div className="dashboard-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar Navigation */}
+        <aside className="sidebar" style={{
+          width: '260px',
+          background: 'var(--bg-secondary)',
+          borderRight: '1px solid var(--border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '1.5rem 1rem',
+          gap: '0.8rem',
+          backdropFilter: 'blur(10px)',
+          overflowY: 'auto'
+        }}>
+          <NavButton
+            active={activeTab === 'workouts'}
+            onClick={() => setActiveTab('workouts')}
+            icon="💪"
+            label={t('dashboard.myWorkouts')}
+          />
+          <NavButton
+            active={activeTab === 'calendar'}
+            onClick={() => setActiveTab('calendar')}
+            icon="📅"
+            label={t('common.date')}
+          />
+          <NavButton
+            active={activeTab === 'progression'}
+            onClick={() => setActiveTab('progression')}
+            icon="📈"
+            label={t('progression.title')}
+          />
+          <NavButton
+            active={activeTab === 'nutrition'}
+            onClick={() => setActiveTab('nutrition')}
+            icon="🍎"
+            label={t('nutrition.title')}
+          />
+          <NavButton
+            active={activeTab === 'profile'}
+            onClick={() => setActiveTab('profile')}
+            icon="👤"
+            label={t('profile.title')}
+          />
+        </aside>
 
-      {
-        activeTab === 'workouts' && (
-          <div className="workout-plans">
-            {workoutPlans?.length === 0 ? (
-              <p>No workout plans assigned yet.</p>
-            ) : (
-              workoutPlans.map((plan) => (
-                <div key={plan.id} className="workout-card">
-                  <h3>{plan.name}</h3>
-                  <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
-                  <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
-                  <p>{plan.exercises?.length || 0} exercises</p>
-                  {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
+        {/* Main Content Area */}
+        <main className="dashboard-content" style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '2rem',
+          position: 'relative'
+        }}>
 
-                  {plan.status === 'assigned' && (
-                    <button onClick={() => startWorkout(plan.id)} className="btn-primary">
-                      Start Workout
-                    </button>
-                  )}
+          {activeTab === 'nutrition' && <NutritionCalculator userId={userId} />
+          }
 
-                  {plan.status === 'in_progress' && (
-                    <>
-                      <button onClick={() => startWorkout(plan.id)} className="btn-primary">
-                        Resume Workout
-                      </button>
-                      <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
-                        View Details
-                      </button>
-                    </>
-                  )}
+          {
+            activeTab === 'profile' && (
+              <div className="profile-section">
+                <UserProfile userId={userId} editable={true} />
+              </div>
+            )
+          }
 
-                  {plan.status === 'completed' && (
-                    <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
-                      View Details
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )
-      }
-
-      {
-        activeTab === 'calendar' && (
-          <div className="calendar-section">
-            <h2>My Calendar</h2>
-            <Calendar
-              events={workoutPlans}
-              onSelectDate={(date) => setCalendarSelectedDate(date)}
-            />
-
-            {calendarSelectedDate && (
-              <div className="selected-date-workouts">
-                <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
-                {(() => {
-                  const dayEvents = workoutPlans.filter(p => {
-                    const d = new Date(p.scheduledDate);
-                    return d.getDate() === calendarSelectedDate.getDate() &&
-                      d.getMonth() === calendarSelectedDate.getMonth() &&
-                      d.getFullYear() === calendarSelectedDate.getFullYear();
-                  });
-
-                  if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
-
-                  return dayEvents.map(plan => (
+          {
+            activeTab === 'workouts' && (
+              <div className="workout-plans">
+                {workoutPlans?.length === 0 ? (
+                  <p>No workout plans assigned yet.</p>
+                ) : (
+                  workoutPlans.map((plan) => (
                     <div key={plan.id} className="workout-card">
                       <h3>{plan.name}</h3>
                       <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
@@ -956,60 +957,122 @@ function TraineeDashboard({ token, userId }) {
                         </button>
                       )}
                     </div>
-                  ));
-                })()}
+                  ))
+                )}
               </div>
-            )}
-          </div>
-        )
-      }
+            )
+          }
 
-      {
-        activeTab === 'progression' && (
-          <div className="progression-section">
-            <h2>Progression Tracking</h2>
-            <p style={{ color: 'var(--gray)', marginBottom: '2rem' }}>
-              Track your strength gains over time. Select an exercise to view your estimated 1 Rep Max trend.
-            </p>
-
-            <div className="progression-controls" style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              padding: '1.5rem',
-              borderRadius: '15px',
-              marginBottom: '2rem',
-              border: '1px solid rgba(0, 255, 255, 0.1)'
-            }}>
-              <div className="form-group">
-                <label>Select Exercise</label>
-                <select
-                  value={selectedProgressionExercise}
-                  onChange={(e) => setSelectedProgressionExercise(e.target.value)}
-                  style={{ maxWidth: '400px' }}
-                >
-                  <option value="">-- Choose an exercise --</option>
-                  {uniqueExercises.map(ex => (
-                    <option key={ex} value={ex}>{ex}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {selectedProgressionExercise && (
-              <div className="chart-card" style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                padding: '1rem',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.05)'
-              }}>
-                <ProgressionChart
-                  data={progressionData}
-                  title={`${selectedProgressionExercise} Progress`}
+          {
+            activeTab === 'calendar' && (
+              <div className="calendar-section">
+                <h2>My Calendar</h2>
+                <Calendar
+                  events={workoutPlans}
+                  onSelectDate={(date) => setCalendarSelectedDate(date)}
                 />
+
+                {calendarSelectedDate && (
+                  <div className="selected-date-workouts">
+                    <h3>Workouts for {calendarSelectedDate.toLocaleDateString()}</h3>
+                    {(() => {
+                      const dayEvents = workoutPlans.filter(p => {
+                        const d = new Date(p.scheduledDate);
+                        return d.getDate() === calendarSelectedDate.getDate() &&
+                          d.getMonth() === calendarSelectedDate.getMonth() &&
+                          d.getFullYear() === calendarSelectedDate.getFullYear();
+                      });
+
+                      if (dayEvents.length === 0) return <p>No workouts scheduled for this day.</p>;
+
+                      return dayEvents.map(plan => (
+                        <div key={plan.id} className="workout-card">
+                          <h3>{plan.name}</h3>
+                          <p>Status: <span className={`status-${plan.status}`}>{plan.status}</span></p>
+                          <p>Scheduled: {formatDate(plan.scheduledDate)}</p>
+                          <p>{plan.exercises?.length || 0} exercises</p>
+                          {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
+
+                          {plan.status === 'assigned' && (
+                            <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                              Start Workout
+                            </button>
+                          )}
+
+                          {plan.status === 'in_progress' && (
+                            <>
+                              <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                                Resume Workout
+                              </button>
+                              <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                                View Details
+                              </button>
+                            </>
+                          )}
+
+                          {plan.status === 'completed' && (
+                            <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                              View Details
+                            </button>
+                          )}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )
-      }
+            )
+          }
+
+          {
+            activeTab === 'progression' && (
+              <div className="progression-section">
+                <h2>Progression Tracking</h2>
+                <p style={{ color: 'var(--gray)', marginBottom: '2rem' }}>
+                  Track your strength gains over time. Select an exercise to view your estimated 1 Rep Max trend.
+                </p>
+
+                <div className="progression-controls" style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  padding: '1.5rem',
+                  borderRadius: '15px',
+                  marginBottom: '2rem',
+                  border: '1px solid rgba(0, 255, 255, 0.1)'
+                }}>
+                  <div className="form-group">
+                    <label>Select Exercise</label>
+                    <select
+                      value={selectedProgressionExercise}
+                      onChange={(e) => setSelectedProgressionExercise(e.target.value)}
+                      style={{ maxWidth: '400px' }}
+                    >
+                      <option value="">-- Choose an exercise --</option>
+                      {uniqueExercises.map(ex => (
+                        <option key={ex} value={ex}>{ex}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {selectedProgressionExercise && (
+                  <div className="chart-card" style={{
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    padding: '1rem',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <ProgressionChart
+                      data={progressionData}
+                      title={`${selectedProgressionExercise} Progress`}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+        </main>
+      </div>
     </div >
   );
 }
