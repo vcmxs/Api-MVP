@@ -700,7 +700,31 @@ function UserProfile({ userId, editable, onUpdate }) {
                                         <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '5px', color: isCurrent ? '#FFD700' : '#fff' }}>
                                             {tier.name}
                                         </div>
-                                        <div style={{ fontSize: '1.5rem', marginBottom: '10px' }}>{tier.price}</div>
+
+                                        {/* Price Display with Discount Logic */}
+                                        <div style={{ marginBottom: '10px' }}>
+                                            {(() => {
+                                                const hasDiscount = profile.referred_by && !profile.referral_discount_used &&
+                                                    (profile.subscription_tier === 'starter' || !profile.subscription_tier);
+
+                                                if (hasDiscount && tier.price !== 'Free') {
+                                                    const numPrice = parseFloat(tier.price.replace('$', '').replace('/mo', ''));
+                                                    const discountedPrice = (numPrice * 0.8).toFixed(2);
+                                                    return (
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                            <span style={{ textDecoration: 'line-through', color: '#888', fontSize: '1rem' }}>
+                                                                {tier.price}
+                                                            </span>
+                                                            <span style={{ color: '#00D1FF', fontWeight: 'bold', fontSize: '1.5rem' }}>
+                                                                ${discountedPrice}/mo
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return <div style={{ fontSize: '1.5rem' }}>{tier.price}</div>;
+                                            })()}
+                                        </div>
+
                                         <div style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '15px' }}>
                                             {tier.trainees === 'Unlimited' ? 'Unlimited Trainees' : `Up to ${tier.trainees} Trainees`}
                                         </div>
@@ -726,6 +750,55 @@ function UserProfile({ userId, editable, onUpdate }) {
                             })}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Apply Referral Code Section */}
+            {profile.role === 'coach' && !profile.referred_by && !editing && (
+                <div style={{
+                    marginTop: '1rem',
+                    marginBottom: '1rem',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px dashed rgba(255, 255, 255, 0.1)',
+                    borderRadius: '10px',
+                    padding: '1.5rem',
+                    textAlign: 'center'
+                }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#ccc' }}>¿Tienes un código de referido?</h4>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', maxWidth: '400px', margin: '0 auto' }}>
+                        <input
+                            type="text"
+                            placeholder="Ingresa el código aquí"
+                            value={referralCodeInput}
+                            onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
+                            style={{
+                                flex: 1,
+                                padding: '10px',
+                                borderRadius: '5px',
+                                border: '1px solid #444',
+                                background: '#111',
+                                color: '#fff',
+                                textAlign: 'center',
+                                letterSpacing: '1px'
+                            }}
+                        />
+                        <button
+                            onClick={handleApplyReferralCode}
+                            disabled={applyingReferral || !referralCodeInput.trim()}
+                            style={{
+                                padding: '10px 20px',
+                                background: '#00D1FF',
+                                color: '#000',
+                                border: 'none',
+                                borderRadius: '5px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                opacity: !referralCodeInput.trim() ? 0.5 : 1
+                            }}
+                        >
+                            {applyingReferral ? '...' : 'Canjear'}
+                        </button>
+                    </div>
                 </div>
             )}
 
