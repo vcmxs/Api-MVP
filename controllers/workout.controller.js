@@ -340,6 +340,7 @@ exports.updateExercise = async (req, res) => {
  */
 exports.logExerciseSet = async (req, res) => {
     try {
+        console.log('LOG EXERCISE SET BODY:', req.body); // DEBUG LOG
         const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories, completed } = req.body;
         const { workoutPlanId, exerciseId } = req.params;
 
@@ -353,7 +354,8 @@ exports.logExerciseSet = async (req, res) => {
             rir,
             distance,
             duration,
-            calories
+            calories,
+            completed
         });
 
         res.status(201).json({
@@ -397,6 +399,7 @@ exports.logExerciseSet = async (req, res) => {
  */
 exports.updateExerciseLog = async (req, res) => {
     try {
+        console.log('UPDATE EXERCISE LOG BODY:', req.body); // DEBUG LOG
         const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories, completed } = req.body;
         const { logId } = req.params;
 
@@ -408,8 +411,6 @@ exports.updateExerciseLog = async (req, res) => {
             notes,
             rpe,
             rir,
-            distance,
-            duration,
             distance,
             duration,
             calories,
