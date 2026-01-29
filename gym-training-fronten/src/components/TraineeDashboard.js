@@ -43,14 +43,14 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
           value={weightInput}
           onChange={(e) => setWeightInput(e.target.value)}
           style={{
-            width: '100%',
+            width: '90%',
             textAlign: 'center',
-            padding: '0.8rem',
+            padding: '0.6rem',
             borderRadius: '8px',
             border: '1px solid var(--border-color)',
             backgroundColor: 'var(--input-bg)',
             color: 'var(--text-primary)',
-            fontSize: '1.1rem'
+            fontSize: '1rem'
           }}
           disabled={isCompleted}
         />
@@ -61,14 +61,14 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
           value={repsInput}
           onChange={(e) => setRepsInput(e.target.value)}
           style={{
-            width: '100%',
+            width: '90%',
             textAlign: 'center',
-            padding: '0.8rem',
+            padding: '0.6rem',
             borderRadius: '8px',
             border: '1px solid var(--border-color)',
             backgroundColor: 'var(--input-bg)',
             color: 'var(--text-primary)',
-            fontSize: '1.1rem'
+            fontSize: '1rem'
           }}
           disabled={isCompleted}
         />
@@ -78,21 +78,22 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, onLog, onD
           onClick={() => isCompleted ? onDelete(log.id) : onLog(setNum, weightInput, repsInput)}
           style={{
             background: isCompleted ? 'var(--success)' : 'var(--bg-secondary)',
-            color: isCompleted ? 'var(--bg-primary)' : 'var(--text-secondary)',
+            color: isCompleted ? 'white' : 'var(--text-secondary)',
             border: isCompleted ? 'none' : '1px solid var(--border-color)',
             borderRadius: '50%',
-            width: '40px',
-            height: '40px',
+            width: '42px',
+            height: '42px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'all 0.3s ease',
-            fontSize: '1.2rem'
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            fontSize: '1.2rem',
+            boxShadow: isCompleted ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
           }}
           title={isCompleted ? "Undo" : "Log Set"}
         >
-          ✓
+          {isCompleted ? '✓' : ''}
         </button>
       </div>
     </div>
@@ -175,15 +176,15 @@ const ActiveWorkoutView = ({
               </h2>
               <div style={{
                 display: 'inline-block',
-                padding: '0.6rem 1.2rem',
-                background: 'rgba(124, 58, 237, 0.1)',
+                padding: '0.8rem 1.5rem',
+                background: 'var(--bg-tertiary)',
                 borderRadius: '50px',
-                color: 'var(--accent)',
+                color: 'var(--text-primary)',
                 fontWeight: '600',
-                fontSize: '0.9rem',
+                fontSize: '0.95rem',
                 marginBottom: '1rem',
-                border: '1px solid var(--accent)',
-                boxShadow: '0 0 15px rgba(124, 58, 237, 0.2)'
+                border: '1px solid var(--border-color)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
               }}>
                 Target: {exercise.sets} sets × {exercise.reps} reps @ {exercise.targetWeight}{exercise.weightUnit}
               </div>
@@ -287,21 +288,25 @@ const ActiveWorkoutView = ({
         borderRadius: '20px',
         border: '1px solid var(--border-color)'
       }}>
+
         <button
           onClick={onComplete}
           className="btn-success"
           style={{
-            width: '100%',
-            padding: '1.2rem',
-            fontSize: '1.2rem',
+            minWidth: '200px',
+            maxWidth: '100%',
+            padding: '1rem 2rem',
+            fontSize: '1.1rem',
             fontWeight: 'bold',
-            boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)'
+            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+            color: '#fff',
+            background: 'var(--success)'
           }}
         >
           Complete Workout 🎉
         </button>
       </div>
-    </div>
+    </div >
   );
 };
 
@@ -313,38 +318,10 @@ function TraineeDashboard({ token, userId }) {
   const NavButton = ({ active, onClick, icon, label }) => (
     <button
       onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        padding: '12px 16px',
-        border: 'none',
-        background: active ? 'var(--primary)' : 'transparent',
-        color: active ? 'var(--bg-primary)' : 'var(--text-secondary)',
-        borderRadius: '12px',
-        cursor: 'pointer',
-        fontSize: '1rem',
-        fontWeight: active ? 'bold' : '500',
-        textAlign: 'left',
-        transition: 'all 0.2s',
-        width: '100%',
-        marginBottom: '4px'
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = 'var(--bg-tertiary)';
-          e.currentTarget.style.color = 'var(--text-primary)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = 'var(--text-secondary)';
-        }
-      }}
+      className={`nav-button ${active ? 'active' : ''}`}
     >
-      <span style={{ fontSize: '1.2rem' }}>{icon}</span>
-      <span>{label}</span>
+      <span className="nav-button-icon">{icon}</span>
+      <span className="nav-button-label">{label}</span>
     </button>
   );
 
@@ -856,19 +833,9 @@ function TraineeDashboard({ token, userId }) {
 
 
 
-      <div className="dashboard-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="dashboard-body">
         {/* Sidebar Navigation */}
-        <aside className="sidebar" style={{
-          width: '260px',
-          background: 'var(--bg-secondary)',
-          borderRight: '1px solid var(--border-color)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '1.5rem 1rem',
-          gap: '0.8rem',
-          backdropFilter: 'blur(10px)',
-          overflowY: 'auto'
-        }}>
+        <aside className="dashboard-sidebar">
           <NavButton
             active={activeTab === 'workouts'}
             onClick={() => setActiveTab('workouts')}
@@ -902,12 +869,8 @@ function TraineeDashboard({ token, userId }) {
         </aside>
 
         {/* Main Content Area */}
-        <main className="dashboard-content" style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '2rem',
-          position: 'relative'
-        }}>
+        {/* Main Content Area */}
+        <main className="dashboard-content">
 
           {activeTab === 'nutrition' && <NutritionCalculator userId={userId} />
           }
