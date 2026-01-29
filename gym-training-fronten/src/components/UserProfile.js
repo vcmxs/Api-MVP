@@ -25,6 +25,8 @@ function UserProfile({ userId, editable, onUpdate }) {
     const [profilePicPreview, setProfilePicPreview] = useState(null);
     const [uploadingPic, setUploadingPic] = useState(false);
     const [exchangeRate, setExchangeRate] = useState(360);
+    const [referralCodeInput, setReferralCodeInput] = useState('');
+    const [applyingReferral, setApplyingReferral] = useState(false);
 
     useEffect(() => {
         loadProfile();
@@ -131,6 +133,26 @@ function UserProfile({ userId, editable, onUpdate }) {
             alert('Error al actualizar la foto de perfil');
         } finally {
             setUploadingPic(false);
+        }
+    };
+
+    const handleApplyReferralCode = async () => {
+        if (!referralCodeInput.trim()) return;
+        setApplyingReferral(true);
+        try {
+            const token = localStorage.getItem('token');
+            await axios.post(`${API_URL}/referrals/apply`,
+                { referralCode: referralCodeInput },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            alert('¡Código aplicado exitosamente! Disfruta tu 20% de descuento.');
+            setReferralCodeInput('');
+            loadProfile(); // Refresh to update view
+        } catch (err) {
+            console.error('Apply referral error:', err);
+            alert(err.response?.data?.error || 'Error al aplicar el código');
+        } finally {
+            setApplyingReferral(false);
         }
     };
 
@@ -291,10 +313,10 @@ function UserProfile({ userId, editable, onUpdate }) {
     // Tiers definition for frontend (matching backend)
     const TIERS = [
         { id: 'starter', name: 'Starter', trainees: 1, price: 'Free' },
-        { id: 'bronze', name: 'Bronze', trainees: 4, price: '$9.99/mo' },
-        { id: 'silver', name: 'Silver', trainees: 10, price: '$19.99/mo' },
-        { id: 'gold', name: 'Gold', trainees: 25, price: '$39.99/mo' },
-        { id: 'olympian', name: 'Olympian', trainees: 'Unlimited', price: '$99.99/mo' }
+        { id: 'bronze', name: 'Bronze', trainees: 4, price: '$15/mo' },
+        { id: 'silver', name: 'Silver', trainees: 10, price: '$30/mo' },
+        { id: 'gold', name: 'Gold', trainees: 25, price: '$80/mo' },
+        { id: 'olympian', name: 'Olympian', trainees: 'Unlimited', price: '$100/mo' }
     ];
 
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
