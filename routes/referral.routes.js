@@ -12,4 +12,10 @@ router.get('/admin/earnings', referralController.getAdminEarnings);
 router.patch('/admin/earnings/:id/status', referralController.updateEarningStatus);
 router.post('/admin/payouts/user/:userId', referralController.markAllUserEarningsPaid);
 
+// Public route for validation
+router.get('/validate/:code', referralController.validateReferralCode);
+
+// Protected routes
+router.post('/apply', referralController.applyReferralCode);
+
 module.exports = router;
