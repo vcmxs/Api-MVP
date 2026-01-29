@@ -704,8 +704,9 @@ function UserProfile({ userId, editable, onUpdate }) {
                                         {/* Price Display with Discount Logic */}
                                         <div style={{ marginBottom: '10px' }}>
                                             {(() => {
-                                                const hasDiscount = profile.referred_by && !profile.referral_discount_used &&
-                                                    (profile.subscription_tier === 'starter' || !profile.subscription_tier);
+                                                const hasDiscount = (profile.referred_by || profile.referredBy) &&
+                                                    !(profile.referral_discount_used || profile.referralDiscountUsed) &&
+                                                    (profile.subscription_tier === 'starter' || profile.subscriptionTier === 'starter' || !profile.subscription_tier);
 
                                                 if (hasDiscount && tier.price !== 'Free') {
                                                     const numPrice = parseFloat(tier.price.replace('$', '').replace('/mo', ''));
