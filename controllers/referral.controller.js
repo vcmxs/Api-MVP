@@ -137,6 +137,7 @@ exports.getAdminEarnings = async (req, res) => {
 
         const result = await pool.query(`
             SELECT re.id, re.amount, re.status, re.created_at,
+                   referrer.id as referrer_id,
                    referrer.name as coach_name, referrer.email as coach_email,
                    referred.name as source_user_name
             FROM referral_earnings re
@@ -207,5 +208,79 @@ exports.markAllUserEarningsPaid = async (req, res) => {
     } catch (err) {
         console.error('Error marking user earnings paid:', err);
         res.status(500).json({ error: 'Internal server error' });
+    }
+};
+/**
+ * Validate a referral code (Public)
+ */
+exports.validateReferralCode = async (req, res) => {
+    const { code } = req.params;
+
+    if (!code) {
+        return res.status(400).json({ valid: false, message: 'Code is required' });
+    }
+
+    try {
+        const result = await pool.query(
+            'SELECT name FROM users WHERE referral_code = $1',
+            [code.toUpperCase()]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ valid: false, message: 'Invalid referral code' });
+        }
+
+        res.json({
+            valid: true,
+            ownerName: result.rows[0].name
+        });
+    } catch (err) {
+        console.error('Validate referral code error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Apply referral code to existing user
+ */
+exports.applyReferralCode = async (req, res) => {
+    const userId = req.user.id;
+    const { referralCode } = req.body;
+
+    if (!referralCode) {
+        return res.status(400).json({ error: 'Referral code is required' });
+    }
+
+    try {
+        // 1. Check if user already has a referrer
+        const userCheck = await pool.query('SELECT referred_by FROM users WHERE id = $1', [userId]);
+        if (userCheck.rows[0].referred_by) {
+            return res.status(400).json({ error: 'You have already applied a referral code' });
+        }
+
+        // 2. Find the referrer
+        const referrerResult = await pool.query('SELECT id, name FROM users WHERE referral_code = $1', [referralCode.toUpperCase()]);
+
+        if (referrerResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Invalid referral code' });
+        }
+
+        const referrer = referrerResult.rows[0];
+
+        // 3. Prevent self-referral
+        if (referrer.id === userId) {
+            return res.status(400).json({ error: 'You cannot use your own referral code' });
+        }
+
+        // 4. Associate users
+        await pool.query('UPDATE users SET referred_by = $1 WHERE id = $2', [referrer.id, userId]);
+
+        res.json({
+            message: 'Referral code applied successfully',
+            referrerName: referrer.name
+        });
+    } catch (err) {
+        console.error('Apply referral code error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 };
