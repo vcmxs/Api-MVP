@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './App.css';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Components
 import LandingPage from './components/LandingPage';
@@ -103,19 +104,21 @@ const LoginWrapper = () => {
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/delete-account" element={<DeleteAccount />} />
-          <Route path="/login" element={<LoginWrapper />} />
-          <Route path="/dashboard" element={<DashboardContainer />} />
-          {/* Catch all - redirect home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <div className="App">
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/delete-account" element={<DeleteAccount />} />
+            <Route path="/login" element={<LoginWrapper />} />
+            <Route path="/dashboard" element={<DashboardContainer />} />
+            {/* Catch all - redirect home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </Router>
+    </ThemeProvider>
   );
 }
 
