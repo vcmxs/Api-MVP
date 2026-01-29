@@ -9,7 +9,7 @@ const { getTraineeLimit, getTierInfo } = require('../config/subscriptionTiers');
 exports.getUserById = async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, name, email, role, subscription_status, subscription_tier FROM users WHERE id = $1',
+            'SELECT id, name, email, role, subscription_status, subscription_tier, referral_code, referred_by, referral_discount_used FROM users WHERE id = $1',
             [req.params.userId]
         );
 

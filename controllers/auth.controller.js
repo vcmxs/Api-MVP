@@ -302,7 +302,10 @@ exports.googleLogin = async (req, res) => {
                 role: user.role,
                 subscriptionStatus: user.subscription_status,
                 subscriptionTier: user.subscription_tier,
-                status: user.status
+                status: user.status,
+                referredBy: user.referred_by,
+                referralCode: user.referral_code,
+                referralDiscountUsed: user.referral_discount_used
             }
         });
     } catch (err) {
