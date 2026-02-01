@@ -179,7 +179,14 @@ const ActiveWorkoutView = ({
 
       <div className="exercises-list">
         {activeWorkout.exercises.map((exercise, index) => (
-          <div key={exercise.id} className="active-workout-card" style={{ marginBottom: '3rem' }}>
+          <div key={exercise.id} className="active-workout-card" style={{
+            marginBottom: '3rem',
+            background: 'var(--card-bg)',
+            padding: '2rem',
+            borderRadius: '20px',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--card-shadow)'
+          }}>
             <div className="exercise-progress" style={{ marginBottom: '2rem', textAlign: 'center' }}>
               <h2 style={{
                 fontSize: '2rem',
