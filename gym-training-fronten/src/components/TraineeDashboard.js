@@ -173,14 +173,14 @@ const ActiveWorkoutView = ({
             boxShadow: 'var(--card-shadow)'
           }}>
             <div className="exercise-progress" style={{ marginBottom: '2rem', textAlign: 'center' }}>
-              <h2 style={{
+              <div style={{
                 fontSize: '2rem',
                 marginBottom: '1rem',
                 color: 'var(--text-primary)',
                 fontWeight: '800'
               }}>
                 {index + 1}. {exercise.name}
-              </h2>
+              </div>
               <div style={{
                 display: 'inline-block',
                 padding: '0.8rem 1.5rem',
