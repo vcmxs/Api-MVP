@@ -31,8 +31,8 @@ exports.createTemplate = async (req, res) => {
             const ex = exercises[i];
             await client.query(
                 `INSERT INTO template_exercises 
-                (template_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                (template_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, is_cardio, track_rpe, track_rir, rpe, rir, target_distance, target_duration)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
                 [
                     template.id,
                     ex.name,
@@ -42,7 +42,14 @@ exports.createTemplate = async (req, res) => {
                     ex.weightUnit || 'kg',
                     ex.restTime || 60,
                     ex.notes || '',
-                    i // order
+                    i, // order
+                    ex.isCardio || false,
+                    ex.trackRpe || false,
+                    ex.trackRir || false,
+                    ex.rpe || null,
+                    ex.rir || null,
+                    ex.targetDistance || null,
+                    ex.targetDuration || null
                 ]
             );
         }
@@ -143,8 +150,8 @@ exports.updateTemplate = async (req, res) => {
             const ex = exercises[i];
             await client.query(
                 `INSERT INTO template_exercises 
-                (template_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                (template_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, is_cardio, track_rpe, track_rir, rpe, rir, target_distance, target_duration)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
                 [
                     template.id,
                     ex.name,
@@ -154,7 +161,14 @@ exports.updateTemplate = async (req, res) => {
                     ex.weightUnit || 'kg',
                     ex.restTime || 60,
                     ex.notes || '',
-                    i
+                    i,
+                    ex.isCardio || false,
+                    ex.trackRpe || false,
+                    ex.trackRir || false,
+                    ex.rpe || null,
+                    ex.rir || null,
+                    ex.targetDistance || null,
+                    ex.targetDuration || null
                 ]
             );
         }
