@@ -92,9 +92,9 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLo
         <button
           onClick={() => isCompleted ? onDelete(log.id) : onLog(setNum, weightInput, repsInput)}
           style={{
-            background: isCompleted ? 'var(--success)' : 'var(--bg-secondary)',
+            background: isCompleted ? 'var(--success)' : 'transparent',
             color: isCompleted ? 'white' : 'var(--text-secondary)',
-            border: isCompleted ? 'none' : '1px solid var(--border-color)',
+            border: isCompleted ? 'none' : '2px solid #666',
             borderRadius: '50%',
             width: '42px',
             height: '42px',
@@ -104,7 +104,7 @@ const SetRow = ({ setNum, log, isCompleted, targetWeight, targetReps, previousLo
             justifyContent: 'center',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             fontSize: '1.2rem',
-            boxShadow: isCompleted ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
+            boxShadow: isCompleted ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'inset 0 0 5px rgba(255,255,255,0.05)'
           }}
           title={isCompleted ? "Undo" : "Log Set"}
         >
