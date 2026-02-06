@@ -223,14 +223,12 @@ const LandingPage = () => {
                         </a>
 
                         <div className="contact-box">
-                            <div className="email">support@dupla.fit</div>
-                            <div className="ref">Reference Plan: <strong>{selectedPlan.name}</strong></div>
+                            <div className="email">duplatraining@gmail.com</div>
+                            <div className="phone">+58 412 785 4824</div>
                         </div>
-
-                        <div className="modal-actions">
-                            <Link to="/register" className="cta-button secondary">Create Free Account First</Link>
-                            <a href={`mailto:support@dupla.fit?subject=Upgrade to ${selectedPlan.name} Plan`} className="cta-button primary">
-                                Send Request
+                        <div className="contact-actions">
+                            <a href={`mailto:duplatraining@gmail.com?subject=Upgrade to ${selectedPlan.name} Plan`} className="cta-button primary">
+                                Contact to Upgrade
                             </a>
                         </div>
                     </div>
@@ -242,6 +240,7 @@ const LandingPage = () => {
             <footer className="landing-footer">
                 <div className="footer-links">
                     <Link to="/privacy">Privacy Policy</Link>
+                    <Link to="/terms">Terms & Conds</Link>
                     <Link to="/delete-account">Delete Account</Link>
                 </div>
                 <p className="copyright">© 2026 Dupla. Powered by Kevin.</p>
