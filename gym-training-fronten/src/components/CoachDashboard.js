@@ -1553,6 +1553,7 @@ const CoachDashboard = ({ token, userId }) => {
   };
 
   const viewPersonalWorkoutDetails = async (plan) => {
+    console.log('Viewing personal workout:', plan.id);
     setSelectedPersonalWorkout(plan);
     setLoadingLogs(true);
 
@@ -1564,15 +1565,18 @@ const CoachDashboard = ({ token, userId }) => {
     const logs = {};
     for (const exercise of plan.exercises) {
       try {
+        console.log(`Fetching logs for exercise ${exercise.id}`);
         const response = await axios.get(
           `${API_URL}/workout-plans/${plan.id}/exercises/${exercise.id}/logs`
         );
         logs[exercise.id] = response.data.logs;
+        console.log(`Logs for ${exercise.id}:`, response.data.logs);
       } catch (err) {
         console.error('Error loading logs for exercise:', err);
         logs[exercise.id] = [];
       }
     }
+    console.log('Setting personal workout logs:', logs);
     setPersonalWorkoutLogs(logs);
     setLoadingLogs(false);
   };
