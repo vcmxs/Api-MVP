@@ -544,6 +544,7 @@ const CoachDashboard = ({ token, userId }) => {
   // Active workout state
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [activeWorkoutHistory, setActiveWorkoutHistory] = useState({}); // Stores previous logs per exercise
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   const [timer, setTimer] = useState('00:00:00');
 
@@ -1528,6 +1529,7 @@ const CoachDashboard = ({ token, userId }) => {
 
   const viewWorkoutDetails = async (plan) => {
     setSelectedWorkout(plan);
+    setLoadingLogs(true);
 
     // Safety check for exercises
     if (!plan.exercises) {
@@ -1547,10 +1549,12 @@ const CoachDashboard = ({ token, userId }) => {
       }
     }
     setWorkoutLogs(logs);
+    setLoadingLogs(false);
   };
 
   const viewPersonalWorkoutDetails = async (plan) => {
     setSelectedPersonalWorkout(plan);
+    setLoadingLogs(true);
 
     // Safety check for exercises
     if (!plan.exercises) {
@@ -1570,6 +1574,7 @@ const CoachDashboard = ({ token, userId }) => {
       }
     }
     setPersonalWorkoutLogs(logs);
+    setLoadingLogs(false);
   };
 
   const closeDetails = () => {
@@ -2469,106 +2474,112 @@ const CoachDashboard = ({ token, userId }) => {
                       )}
                     </div>
 
-                    <div className="exercises-details">
-                      {(selectedPersonalWorkout.exercises || []).map((exercise) => (
-                        <div key={exercise.id} className="exercise-detail-card">
-                          <h4>{exercise.name}</h4>
-                          <p className="exercise-target">
-                            Target: {exercise.sets} sets × {exercise.reps} reps @ {exercise.targetWeight}{exercise.weightUnit}
-                          </p>
-                          {exercise.notes && <p className="exercise-notes">Notes: {exercise.notes}</p>}
+                    {loadingLogs ? (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--primary)', fontStyle: 'italic' }}>
+                        Loading workout data...
+                      </div>
+                    ) : (
+                      <div className="exercises-details">
+                        {(selectedPersonalWorkout.exercises || []).map((exercise) => (
+                          <div key={exercise.id} className="exercise-detail-card">
+                            <h4>{exercise.name}</h4>
+                            <p className="exercise-target">
+                              Target: {exercise.sets} sets × {exercise.reps} reps @ {exercise.targetWeight}{exercise.weightUnit}
+                            </p>
+                            {exercise.notes && <p className="exercise-notes">Notes: {exercise.notes}</p>}
 
-                          <div className="logs-section">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                              <h5>Performance Log:</h5>
-                              <div style={{ display: 'flex', gap: '10px' }}>
-                                {editingLogs && (
+                            <div className="logs-section">
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                <h5>Performance Log:</h5>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                  {editingLogs && (
+                                    <button
+                                      onClick={() => handleAddLog(selectedPersonalWorkout.id, exercise.id)}
+                                      className="btn-primary"
+                                      style={{ padding: '2px 8px', fontSize: '0.8rem', backgroundColor: '#28a745' }}
+                                    >
+                                      + Add Set
+                                    </button>
+                                  )}
                                   <button
-                                    onClick={() => handleAddLog(selectedPersonalWorkout.id, exercise.id)}
-                                    className="btn-primary"
-                                    style={{ padding: '2px 8px', fontSize: '0.8rem', backgroundColor: '#28a745' }}
+                                    onClick={() => setEditingLogs(!editingLogs)}
+                                    className="btn-secondary"
+                                    style={{ padding: '2px 8px', fontSize: '0.8rem' }}
                                   >
-                                    + Add Set
+                                    {editingLogs ? 'Done' : 'Edit Logs'}
                                   </button>
-                                )}
-                                <button
-                                  onClick={() => setEditingLogs(!editingLogs)}
-                                  className="btn-secondary"
-                                  style={{ padding: '2px 8px', fontSize: '0.8rem' }}
-                                >
-                                  {editingLogs ? 'Done' : 'Edit Logs'}
-                                </button>
+                                </div>
                               </div>
-                            </div>
-                            {personalWorkoutLogs[exercise.id] && personalWorkoutLogs[exercise.id].length > 0 ? (
-                              <table className="logs-table">
-                                <thead>
-                                  <tr>
-                                    <th>Set</th>
-                                    <th>Reps</th>
-                                    <th>Weight</th>
-                                    <th>Notes</th>
-                                    <th>Time</th>
-                                    <th>Delete</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {personalWorkoutLogs[exercise.id].map((log) => (
-                                    <tr key={log.id}>
-                                      <td>{log.setNumber}</td>
-                                      <td>
-                                        {editingLogs ? (
-                                          <input
-                                            type="number"
-                                            defaultValue={log.repsCompleted}
-                                            onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
-                                            style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
-                                          />
-                                        ) : log.repsCompleted}
-                                      </td>
-                                      <td>
-                                        {editingLogs ? (
-                                          <input
-                                            type="number"
-                                            defaultValue={log.weightUsed}
-                                            onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
-                                            style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
-                                          />
-                                        ) : log.weightUsed}{log.weightUnit}
-                                      </td>
-                                      <td>
-                                        {editingLogs ? (
-                                          <input
-                                            type="text"
-                                            defaultValue={log.notes || ''}
-                                            onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'notes', e.target.value)}
-                                            style={{ width: '100%', padding: '2px', color: 'black' }}
-                                          />
-                                        ) : (log.notes || '-')}
-                                      </td>
-                                      <td>{formatTime(log.loggedAt)}</td>
-                                      <td>
-                                        {editingLogs && (
-                                          <button
-                                            onClick={() => handleDeleteLog(selectedPersonalWorkout.id, exercise.id, log.id)}
-                                            className="btn-danger"
-                                            style={{ padding: '2px 8px', fontSize: '0.8rem' }}
-                                          >
-                                            🗑️
-                                          </button>
-                                        )}
-                                      </td>
+                              {personalWorkoutLogs[exercise.id] && personalWorkoutLogs[exercise.id].length > 0 ? (
+                                <table className="logs-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Set</th>
+                                      <th>Reps</th>
+                                      <th>Weight</th>
+                                      <th>Notes</th>
+                                      <th>Time</th>
+                                      <th>Delete</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            ) : (
-                              <p className="no-logs">No performance data logged yet</p>
-                            )}
+                                  </thead>
+                                  <tbody>
+                                    {personalWorkoutLogs[exercise.id].map((log) => (
+                                      <tr key={log.id}>
+                                        <td>{log.setNumber}</td>
+                                        <td>
+                                          {editingLogs ? (
+                                            <input
+                                              type="number"
+                                              defaultValue={log.repsCompleted}
+                                              onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'repsCompleted', parseInt(e.target.value) || 0)}
+                                              style={{ width: '50px', padding: '2px', textAlign: 'center', color: 'black' }}
+                                            />
+                                          ) : log.repsCompleted}
+                                        </td>
+                                        <td>
+                                          {editingLogs ? (
+                                            <input
+                                              type="number"
+                                              defaultValue={log.weightUsed}
+                                              onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'weightUsed', parseFloat(e.target.value) || 0)}
+                                              style={{ width: '60px', padding: '2px', textAlign: 'center', color: 'black' }}
+                                            />
+                                          ) : log.weightUsed}{log.weightUnit}
+                                        </td>
+                                        <td>
+                                          {editingLogs ? (
+                                            <input
+                                              type="text"
+                                              defaultValue={log.notes || ''}
+                                              onChange={(e) => handleUpdateLog(selectedPersonalWorkout.id, exercise.id, log.id, 'notes', e.target.value)}
+                                              style={{ width: '100%', padding: '2px', color: 'black' }}
+                                            />
+                                          ) : (log.notes || '-')}
+                                        </td>
+                                        <td>{formatTime(log.loggedAt)}</td>
+                                        <td>
+                                          {editingLogs && (
+                                            <button
+                                              onClick={() => handleDeleteLog(selectedPersonalWorkout.id, exercise.id, log.id)}
+                                              className="btn-danger"
+                                              style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                                            >
+                                              🗑️
+                                            </button>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <p className="no-logs">No performance data logged yet</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
