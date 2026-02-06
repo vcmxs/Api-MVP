@@ -8,6 +8,7 @@ import { ThemeProvider } from './context/ThemeContext';
 // Components
 import LandingPage from './components/LandingPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsAndConditions from './components/TermsAndConditions';
 import DeleteAccount from './components/DeleteAccount';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -110,6 +111,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
             <Route path="/login" element={<LoginWrapper />} />
             <Route path="/dashboard" element={<DashboardContainer />} />
