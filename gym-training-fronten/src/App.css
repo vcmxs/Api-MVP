@@ -61,6 +61,16 @@ body {
 
 
 
+/* Authentication Pages */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000000 100%);
+  padding: 20px;
+}
+
 /* Minimal Background - Mobile App Style */
 body::before {
   content: '';
