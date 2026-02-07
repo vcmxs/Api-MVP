@@ -742,7 +742,7 @@ function TraineeDashboard({ token, userId }) {
                           <th>Reps</th>
                           <th>Weight</th>
                           <th>Notes</th>
-                          <th>Time</th>
+
                         </tr>
                       </thead>
                       <tbody>
@@ -779,7 +779,7 @@ function TraineeDashboard({ token, userId }) {
                                 />
                               ) : (log.notes || '-')}
                             </td>
-                            <td>{formatTime(log.loggedAt)}</td>
+
                           </tr>
                         ))}
                       </tbody>
