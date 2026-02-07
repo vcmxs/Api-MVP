@@ -313,8 +313,8 @@ exports.getCoachTraineeHistory = async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error('Get history error:', err);
-        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+        console.error('Get history error - Full Details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+        res.status(500).json({ error: 'Internal Server Error', message: err.message, details: err.detail });
     }
 };
 
