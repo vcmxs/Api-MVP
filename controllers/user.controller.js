@@ -294,8 +294,8 @@ exports.updateTraineeSubscription = async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Update subscription error:', err);
-        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+        console.error('Update subscription error - Full Details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+        res.status(500).json({ error: 'Internal Server Error', message: err.message, details: err.detail }); // Include err.detail for Postgres errors
     }
 };
 
