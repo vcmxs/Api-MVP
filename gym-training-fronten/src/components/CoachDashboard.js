@@ -1821,23 +1821,6 @@ const CoachDashboard = ({ token, userId }) => {
     return date.toLocaleString('en-US', options).replace(',', ' at');
   };
 
-  // Helper function to format time safely
-  const formatTime = (dateString) => {
-    if (!dateString) return '-';
-
-    // Convert to string if it's an object
-    const dateStr = typeof dateString === 'object' ? dateString.toString() : dateString;
-    const date = new Date(dateStr);
-
-    // Check if date is valid
-    if (isNaN(date.getTime())) {
-      console.log('Invalid date:', dateString, 'Type:', typeof dateString);
-      return '-';
-    }
-
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  };
-
   // Show active workout view
   if (activeWorkout) {
     return (
@@ -1997,7 +1980,6 @@ const CoachDashboard = ({ token, userId }) => {
 
                   <div className="exercises-details">
                     {(selectedWorkout.exercises || []).map((exercise) => {
-                      const exLogs = workoutLogs[exercise.id];
                       return (
                         <div key={exercise.id} className="exercise-detail-card">
                           <h4>{exercise.name}</h4>
