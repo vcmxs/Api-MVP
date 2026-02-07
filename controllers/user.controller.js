@@ -30,7 +30,9 @@ exports.getUserById = async (req, res) => {
 exports.getCoachTrainees = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT u.id, u.name, u.email, u.gym, ct.assigned_at
+            `SELECT u.id, u.name, u.email, u.gym, ct.assigned_at, 
+                    ct.subscription_status as coach_subscription_status, 
+                    ct.subscription_end_date as coach_subscription_end_date
        FROM users u
        INNER JOIN coach_trainee ct ON u.id = ct.trainee_id
        WHERE ct.coach_id = $1 AND u.role = 'trainee'
@@ -223,6 +225,72 @@ exports.updateProfilePicture = async (req, res) => {
     }
 };
 
+
+
+/**
+ * Update trainee subscription (Administrative - Coach)
+ */
+exports.updateTraineeSubscription = async (req, res) => {
+    const { coachId, traineeId } = req.params;
+    const { durationId } = req.body; // '7days', '15days', '1month'
+
+    try {
+        // 1. Verify connection and get current subscription status
+        const connectionCheck = await pool.query(
+            'SELECT id, subscription_end_date FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2',
+            [coachId, traineeId]
+        );
+
+        if (connectionCheck.rowCount === 0) {
+            return res.status(403).json({ error: 'Forbidden', message: 'You are not assigned to this trainee' });
+        }
+
+        // 2. Calculate new dates
+        const now = new Date();
+        let endDate = new Date();
+
+        // If currently active and not expired, extend from current end date? 
+        // User behavior usually expects "Add time from now" or "Add time from previous expiry".
+        // For simplicity and "Reaction" (Oh they just paid), typically adding from NOW is safest unless explicit.
+        // However, if they pay early, it should extend.
+
+        const currentEndStr = connectionCheck.rows[0].subscription_end_date;
+        const currentEnd = currentEndStr ? new Date(currentEndStr) : null;
+
+        if (currentEnd && currentEnd > now) {
+            endDate = new Date(currentEnd); // Start from existing end date
+        }
+
+        if (durationId === '7days') {
+            endDate.setDate(endDate.getDate() + 7);
+        } else if (durationId === '15days') {
+            endDate.setDate(endDate.getDate() + 15);
+        } else if (durationId === '1month') {
+            endDate.setMonth(endDate.getMonth() + 1);
+        } else {
+            return res.status(400).json({ error: 'Bad Request', message: 'Invalid duration' });
+        }
+
+        // 3. Update connection table (coach_trainee)
+        await pool.query(
+            `UPDATE coach_trainee 
+             SET subscription_status = 'active', 
+                 subscription_end_date = $1
+             WHERE coach_id = $2 AND trainee_id = $3`,
+            [endDate, coachId, traineeId]
+        );
+
+        res.json({
+            message: 'Subscription updated successfully',
+            subscription_end_date: endDate,
+            status: 'active'
+        });
+
+    } catch (err) {
+        console.error('Update subscription error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
 
 /**
  * Remove coach-trainee connection
