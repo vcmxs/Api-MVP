@@ -1423,13 +1423,18 @@ const CoachDashboard = ({ token, userId }) => {
   };
 
   // --- Administration Logic ---
-  const [selectedTraineeForPayment, setSelectedTraineeForPayment] = useState(null);
+  const [expandedTraineeId, setExpandedTraineeId] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDuration, setPaymentDuration] = useState('1month');
   const [paymentHistory, setPaymentHistory] = useState([]);
 
-  const openPaymentModal = async (trainee) => {
-    setSelectedTraineeForPayment(trainee);
+  const toggleManageTrainee = async (trainee) => {
+    if (expandedTraineeId === trainee.id) {
+      setExpandedTraineeId(null);
+      return;
+    }
+
+    setExpandedTraineeId(trainee.id);
     setPaymentAmount('');
     setPaymentDuration('1month');
     setPaymentHistory([]);
@@ -1445,11 +1450,7 @@ const CoachDashboard = ({ token, userId }) => {
     }
   };
 
-  const closePaymentModal = () => {
-    setSelectedTraineeForPayment(null);
-  };
-
-  const submitPayment = async () => {
+  const submitPayment = async (traineeId) => {
     if (!paymentAmount) {
       alert('Please enter an amount');
       return;
@@ -1457,9 +1458,11 @@ const CoachDashboard = ({ token, userId }) => {
 
     try {
       const durationText = paymentDuration === '7days' ? '7 days' : paymentDuration === '15days' ? '15 days' : '1 month';
-      if (!window.confirm(`Confirm payment of ${paymentAmount} and extension of ${durationText} for ${selectedTraineeForPayment.name}?`)) return;
+      // We need to find the trainee name for the confirmation alert
+      const trainee = trainees.find(t => t.id === traineeId);
+      if (!window.confirm(`Confirm payment of ${paymentAmount} and extension of ${durationText} for ${trainee ? trainee.name : 'this trainee'}?`)) return;
 
-      await axios.put(`${API_URL}/users/coaches/${userId}/trainees/${selectedTraineeForPayment.id}/subscription`, {
+      await axios.put(`${API_URL}/users/coaches/${userId}/trainees/${traineeId}/subscription`, {
         durationId: paymentDuration,
         amount: parseFloat(paymentAmount)
       }, {
@@ -1467,96 +1470,18 @@ const CoachDashboard = ({ token, userId }) => {
       });
 
       alert('Payment registered and subscription extended!');
-      closePaymentModal();
-      loadTrainees(); // Reload list
+      // Refresh history
+      const res = await axios.get(`${API_URL}/users/coaches/${userId}/trainees/${traineeId}/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPaymentHistory(res.data);
+
+      loadTrainees(); // Reload list to update status
     } catch (err) {
       console.error('Update subscription error:', err);
       alert('Error updating subscription: ' + (err.response?.data?.message || err.message));
     }
   };
-
-  const renderPaymentModal = () => {
-    if (!selectedTraineeForPayment) return null;
-
-    return (
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000,
-        display: 'flex', justifyContent: 'center', alignItems: 'center'
-      }}>
-        <div style={{
-          backgroundColor: 'var(--card-bg)', padding: '2rem', borderRadius: '15px',
-          width: '90%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto'
-        }}>
-          <h3>Manage Subscription: {selectedTraineeForPayment.name}</h3>
-
-          <div style={{ margin: '1.5rem 0' }}>
-            <h4>Register Payment</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
-              <label>
-                Amount:
-                <input
-                  type="number"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="0.00"
-                  style={{ width: '100%', padding: '8px', marginLeft: '0px', marginTop: '5px' }}
-                />
-              </label>
-              <label>
-                Extension Duration:
-                <select
-                  value={paymentDuration}
-                  onChange={(e) => setPaymentDuration(e.target.value)}
-                  style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-                >
-                  <option value="7days">7 Days</option>
-                  <option value="15days">15 Days</option>
-                  <option value="1month">1 Month</option>
-                </select>
-              </label>
-              <button onClick={submitPayment} className="btn-primary" style={{ marginTop: '10px' }}>
-                Confirm Payment & Extend
-              </button>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '2rem' }}>
-            <h4>Payment History</h4>
-            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border-color)', padding: '10px', borderRadius: '5px' }}>
-              {paymentHistory.length === 0 ? (
-                <p style={{ color: 'var(--text-secondary)' }}>No history found.</p>
-              ) : (
-                <table style={{ width: '100%', fontSize: '0.9rem' }}>
-                  <thead>
-                    <tr style={{ textAlign: 'left' }}>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paymentHistory.map((log) => (
-                      <tr key={log.id}>
-                        <td>{new Date(log.payment_date).toLocaleDateString()}</td>
-                        <td>${log.amount}</td>
-                        <td>{log.duration_id}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-
-          <button onClick={closePaymentModal} className="btn-secondary" style={{ marginTop: '1rem', width: '100%' }}>
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  };
-
 
   const renderAdministration = () => (
     <div className="administration-section">
@@ -1582,62 +1507,134 @@ const CoachDashboard = ({ token, userId }) => {
               {trainees.map(trainee => {
                 const isExpired = !trainee.coach_subscription_end_date || new Date(trainee.coach_subscription_end_date) < new Date();
                 const statusColor = isExpired ? 'var(--danger)' : 'var(--success)';
+                const isExpanded = expandedTraineeId === trainee.id;
 
                 return (
-                  <tr key={trainee.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {trainee.profile_pic_url ? (
-                          <img src={`${API_URL}${trainee.profile_pic_url}`} alt="Profile" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
-                            {trainee.name.charAt(0).toUpperCase()}
+                  <React.Fragment key={trainee.id}>
+                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {trainee.profile_pic_url ? (
+                            <img src={`${API_URL}${trainee.profile_pic_url}`} alt="Profile" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
+                              {trainee.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontWeight: 'bold' }}>{trainee.name}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{trainee.email}</div>
                           </div>
-                        )}
-                        <div>
-                          <div style={{ fontWeight: 'bold' }}>{trainee.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{trainee.email}</div>
                         </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{
-                        color: statusColor,
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px'
-                      }}>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
                         <span style={{
-                          width: '10px',
-                          height: '10px',
-                          borderRadius: '50%',
-                          backgroundColor: statusColor,
-                          display: 'inline-block'
-                        }}></span>
-                        {isExpired ? 'Expired' : 'Active'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      {trainee.coach_subscription_end_date ? formatDate(trainee.coach_subscription_end_date) : 'Never'}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <button
-                        onClick={() => openPaymentModal(trainee)}
-                        className="btn-primary"
-                        style={{ fontSize: '0.9rem', padding: '8px 15px', display: 'flex', alignItems: 'center', gap: '5px' }}
-                      >
-                        ⚙️ Manage
-                      </button>
-                    </td>
-                  </tr>
+                          color: statusColor,
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}>
+                          <span style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: statusColor,
+                            display: 'inline-block'
+                          }}></span>
+                          {isExpired ? 'Expired' : 'Active'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        {trainee.coach_subscription_end_date ? formatDate(trainee.coach_subscription_end_date) : 'Never'}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <button
+                          onClick={() => toggleManageTrainee(trainee)}
+                          className={isExpanded ? "btn-secondary" : "btn-primary"}
+                          style={{ fontSize: '0.9rem', padding: '8px 15px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                        >
+                          {isExpanded ? '🔺 Close' : '⚙️ Manage'}
+                        </button>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                        <td colSpan="4" style={{ padding: '1rem' }}>
+                          <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                            {/* Register Payment Column */}
+                            <div style={{ flex: 1, minWidth: '300px' }}>
+                              <h4 style={{ marginTop: 0 }}>Register Payment & Extend</h4>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                                  <label style={{ flex: 1 }}>
+                                    Amount ($):
+                                    <input
+                                      type="number"
+                                      value={paymentAmount}
+                                      onChange={(e) => setPaymentAmount(e.target.value)}
+                                      placeholder="0.00"
+                                      style={{ width: '100%', padding: '8px', marginTop: '5px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white' }}
+                                    />
+                                  </label>
+                                  <label style={{ flex: 1 }}>
+                                    Duration:
+                                    <select
+                                      value={paymentDuration}
+                                      onChange={(e) => setPaymentDuration(e.target.value)}
+                                      style={{ width: '100%', padding: '8px', marginTop: '5px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white' }}
+                                    >
+                                      <option value="7days">7 Days</option>
+                                      <option value="15days">15 Days</option>
+                                      <option value="1month">1 Month</option>
+                                    </select>
+                                  </label>
+                                  <button onClick={() => submitPayment(trainee.id)} className="btn-primary" style={{ height: '38px' }}>
+                                    Confirm
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Payment History Column */}
+                            <div style={{ flex: 1, minWidth: '300px' }}>
+                              <h4 style={{ marginTop: 0 }}>Payment History</h4>
+                              <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '5px' }}>
+                                {paymentHistory.length === 0 ? (
+                                  <p style={{ padding: '10px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No history found.</p>
+                                ) : (
+                                  <table style={{ width: '100%', fontSize: '0.85rem' }}>
+                                    <thead style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                      <tr style={{ textAlign: 'left' }}>
+                                        <th style={{ padding: '5px 10px' }}>Date</th>
+                                        <th style={{ padding: '5px 10px' }}>Amount</th>
+                                        <th style={{ padding: '5px 10px' }}>Duration</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {paymentHistory.map((log) => (
+                                        <tr key={log.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                          <td style={{ padding: '5px 10px' }}>{new Date(log.payment_date).toLocaleDateString()}</td>
+                                          <td style={{ padding: '5px 10px' }}>${log.amount}</td>
+                                          <td style={{ padding: '5px 10px' }}>{log.duration_id}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
           </table>
         )}
       </div>
-      {renderPaymentModal()}
     </div>
   );
 
