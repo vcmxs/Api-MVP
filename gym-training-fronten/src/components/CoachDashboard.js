@@ -1479,7 +1479,8 @@ const CoachDashboard = ({ token, userId }) => {
       loadTrainees(); // Reload list to update status
     } catch (err) {
       console.error('Update subscription error:', err);
-      alert('Error updating subscription: ' + (err.response?.data?.message || err.message));
+      const funcErrorMsg = err.response?.data?.message || err.message || JSON.stringify(err);
+      alert('Error updating subscription: ' + funcErrorMsg);
     }
   };
 
