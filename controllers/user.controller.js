@@ -280,6 +280,13 @@ exports.updateTraineeSubscription = async (req, res) => {
             [endDate, coachId, traineeId]
         );
 
+        // 4. Log Payment History
+        await pool.query(
+            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id) 
+             VALUES ($1, $2, $3, $4)`,
+            [coachId, traineeId, amount || 0, durationId]
+        );
+
         res.json({
             message: 'Subscription updated successfully',
             subscription_end_date: endDate,
@@ -288,6 +295,25 @@ exports.updateTraineeSubscription = async (req, res) => {
 
     } catch (err) {
         console.error('Update subscription error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
+ * Get Coach-Trainee payment history
+ */
+exports.getCoachTraineeHistory = async (req, res) => {
+    const { coachId, traineeId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT * FROM coach_payments 
+             WHERE coach_id = $1 AND trainee_id = $2 
+             ORDER BY payment_date DESC`,
+            [coachId, traineeId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Get history error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
