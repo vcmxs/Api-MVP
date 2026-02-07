@@ -1622,29 +1622,13 @@ const CoachDashboard = ({ token, userId }) => {
                       {trainee.coach_subscription_end_date ? formatDate(trainee.coach_subscription_end_date) : 'Never'}
                     </td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                        <button
-                          onClick={() => updateTraineeSubscription(trainee.id, '7days')}
-                          className="btn-secondary"
-                          style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-                        >
-                          +7 Days
-                        </button>
-                        <button
-                          onClick={() => updateTraineeSubscription(trainee.id, '15days')}
-                          className="btn-secondary"
-                          style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-                        >
-                          +15 Days
-                        </button>
-                        <button
-                          onClick={() => updateTraineeSubscription(trainee.id, '1month')}
-                          className="btn-primary"
-                          style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-                        >
-                          +1 Month
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => openPaymentModal(trainee)}
+                        className="btn-primary"
+                        style={{ fontSize: '0.9rem', padding: '8px 15px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                      >
+                        ⚙️ Manage
+                      </button>
                     </td>
                   </tr>
                 );
@@ -1653,6 +1637,7 @@ const CoachDashboard = ({ token, userId }) => {
           </table>
         )}
       </div>
+      {renderPaymentModal()}
     </div>
   );
 
