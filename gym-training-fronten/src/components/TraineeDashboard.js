@@ -419,13 +419,6 @@ function TraineeDashboard({ token, userId }) {
     return date.toLocaleString('en-US', options).replace(',', ' at');
   };
 
-  const formatTime = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '-';
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  };
-
   const viewWorkoutDetails = async (plan) => {
     setSelectedWorkout(plan);
     const logs = {};
