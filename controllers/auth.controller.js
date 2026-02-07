@@ -102,7 +102,10 @@ exports.register = async (req, res) => {
                 profilePicUrl: user.profile_pic_url,
                 referredBy: user.referred_by,
                 referralCode: user.referral_code,
-                referralDiscountUsed: false // New users haven't used it yet
+                referralDiscountUsed: false, // New users haven't used it yet
+                // Default subscription status for new users (not yet assigned to a coach)
+                coachSubscriptionStatus: null,
+                coachSubscriptionEndDate: null
             }
         });
     } catch (err) {
@@ -173,6 +176,26 @@ exports.login = async (req, res) => {
         const user = userByEmail;
         console.log('User authenticated successfully');
 
+        // Check for Coach Subscription if Trainee
+        let coachSubscription = null;
+        if (user.role === 'trainee') {
+            try {
+                const coachSubResult = await pool.query(
+                    `SELECT subscription_status, subscription_end_date 
+                     FROM coach_trainee 
+                     WHERE trainee_id = $1 
+                     ORDER BY subscription_end_date DESC 
+                     LIMIT 1`,
+                    [user.id]
+                );
+                if (coachSubResult.rows.length > 0) {
+                    coachSubscription = coachSubResult.rows[0];
+                }
+            } catch (err) {
+                console.error('Error fetching coach subscription:', err);
+            }
+        }
+
         // Generate JWT token
         const jwt = require('jsonwebtoken');
         const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
@@ -198,6 +221,8 @@ exports.login = async (req, res) => {
                 role: user.role,
                 subscriptionStatus: user.subscription_status,
                 subscriptionTier: user.subscription_tier,
+                coachSubscriptionStatus: coachSubscription ? coachSubscription.subscription_status : null,
+                coachSubscriptionEndDate: coachSubscription ? coachSubscription.subscription_end_date : null,
                 status: user.status,
                 referredBy: user.referred_by,
                 referralCode: user.referral_code,
