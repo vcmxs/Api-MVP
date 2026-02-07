@@ -73,7 +73,13 @@ const DashboardContainer = () => {
           user.status === 'blocked' ? (
             <SubscriptionBlocked onLogout={handleLogout} reason="blocked" />
           ) : (
-            <TraineeDashboard token={token} userId={user.id} />
+            // Check coach subscription for trainees
+            (user.coachSubscriptionStatus !== 'active') ||
+              (user.coachSubscriptionEndDate && new Date(user.coachSubscriptionEndDate) < new Date()) ? (
+              <SubscriptionBlocked onLogout={handleLogout} reason="subscription" />
+            ) : (
+              <TraineeDashboard token={token} userId={user.id} />
+            )
           )
         )}
       </main>
