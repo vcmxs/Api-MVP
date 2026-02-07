@@ -232,7 +232,7 @@ exports.updateProfilePicture = async (req, res) => {
  */
 exports.updateTraineeSubscription = async (req, res) => {
     const { coachId, traineeId } = req.params;
-    const { durationId } = req.body; // '7days', '15days', '1month'
+    const { durationId, amount } = req.body; // '7days', '15days', '1month' + amount
 
     try {
         // 1. Verify connection and get current subscription status
