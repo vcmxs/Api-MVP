@@ -175,16 +175,26 @@ exports.getUserProfile = async (req, res) => {
 
         // If user is a trainee, fetch assigned coach AND subscription info
         if (user.role === 'trainee') {
-            const coachResult = await pool.query(
-                `SELECT u.id as coach_id, u.name as coach_name, 
-                        ct.subscription_status, ct.subscription_end_date, ct.subscription_start_date
-                 FROM users u 
-                 INNER JOIN coach_trainee ct ON u.id = ct.coach_id 
-                 WHERE ct.trainee_id = $1
-                 ORDER BY ct.subscription_end_date DESC
-                 LIMIT 1`,
-                [req.params.userId]
-            );
+            let coachQuery = `
+                SELECT u.id as coach_id, u.name as coach_name, 
+                       ct.subscription_status, ct.subscription_end_date, ct.subscription_start_date
+                FROM users u 
+                INNER JOIN coach_trainee ct ON u.id = ct.coach_id 
+                WHERE ct.trainee_id = $1
+            `;
+            const queryParams = [req.params.userId];
+
+            // If requester is a coach, prioritize THEIR relationship
+            // We use optional chaining in case req.user is not set (e.g. public route - though this is protected)
+            if (req.user && req.user.role === 'coach') {
+                coachQuery += ` AND ct.coach_id = $2`;
+                queryParams.push(req.user.id);
+            } else {
+                // Otherwise show latest (for trainee viewing self)
+                coachQuery += ` ORDER BY ct.subscription_end_date DESC LIMIT 1`;
+            }
+
+            const coachResult = await pool.query(coachQuery, queryParams);
 
             if (coachResult.rows.length > 0) {
                 user.assigned_coach = coachResult.rows[0].coach_name;
