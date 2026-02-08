@@ -722,7 +722,7 @@ function UserProfile({ userId, editable, onUpdate }) {
             </div>
 
             {/* Trainee Subscription Access Section */}
-            {profile.role === 'trainee' && profile.coach_subscription_end_date && (
+            {profile.role === 'trainee' && profile.assigned_coach && (
                 <div style={{
                     marginTop: '2rem',
                     marginBottom: '2rem',
@@ -733,8 +733,13 @@ function UserProfile({ userId, editable, onUpdate }) {
                     boxShadow: styles.shadow
                 }}>
                     <h3 style={{ margin: '0 0 1rem 0', color: currentTheme === 'neon' ? '#00ffff' : styles.primary }}>
-                        📅 Subscription Access
+                        📅 Subscription Access (Beta)
                     </h3>
+                    {/* Debug info - remove later */}
+                    <div style={{ fontSize: 10, color: '#888', marginBottom: 10 }}>
+                        Debug: Status={profile.coach_subscription_status || 'N/A'}, End={profile.coach_subscription_end_date || 'N/A'}
+                    </div>
+
                     <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
                         <div>
                             <div style={{ color: styles.subText, fontSize: '0.9rem' }}>Status</div>
@@ -748,6 +753,7 @@ function UserProfile({ userId, editable, onUpdate }) {
                         <div>
                             <div style={{ color: styles.subText, fontSize: '0.9rem' }}>Access Expires</div>
                             {(() => {
+                                if (!profile.coach_subscription_end_date) return <div style={{ color: styles.text }}>No expiration date</div>;
                                 const endDate = new Date(profile.coach_subscription_end_date);
                                 const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
                                 return (
