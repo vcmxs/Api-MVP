@@ -455,6 +455,11 @@ function TraineeDashboard({ token, userId, isExpired }) {
   };
 
   const startWorkout = async (planId) => {
+    if (isExpired) {
+      alert(t('dashboard.subscriptionExpiredAlert', 'Your subscription has expired. Please renew to start workouts.'));
+      return;
+    }
+
     try {
       await axios.post(`${API_URL}/workout-plans/${planId}/start`);
       const plan = workoutPlans.find(p => p.id === planId);
@@ -549,6 +554,10 @@ function TraineeDashboard({ token, userId, isExpired }) {
   };
 
   const handleDeleteLog = async (workoutId, exerciseId, logId) => {
+    if (isExpired) {
+      alert(t('dashboard.subscriptionExpiredAlert', 'Your subscription has expired. Access restricted.'));
+      return;
+    }
     try {
       await axios.delete(
         `${API_URL}/workout-plans/${workoutId}/exercises/${exerciseId}/logs/${logId}`
@@ -599,6 +608,10 @@ function TraineeDashboard({ token, userId, isExpired }) {
   const [editingLogs, setEditingLogs] = useState(false);
 
   const handleUpdateLog = async (exerciseId, logId, field, value) => {
+    if (isExpired) {
+      alert(t('dashboard.subscriptionExpiredAlert', 'Your subscription has expired. Access restricted.'));
+      return;
+    }
     console.log('handleUpdateLog called:', { exerciseId, logId, field, value });
 
     try {
@@ -646,6 +659,10 @@ function TraineeDashboard({ token, userId, isExpired }) {
 
   // --- START ADD LOG LOGIC ---
   const handleAddLog = async (exerciseId) => {
+    if (isExpired) {
+      alert(t('dashboard.subscriptionExpiredAlert', 'Your subscription has expired. Access restricted.'));
+      return;
+    }
     try {
       const currentLogs = workoutLogs[exerciseId] || [];
       const nextSetNumber = currentLogs.length > 0
@@ -930,14 +947,24 @@ function TraineeDashboard({ token, userId, isExpired }) {
                       {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
 
                       {plan.status === 'assigned' && (
-                        <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                        <button
+                          onClick={() => startWorkout(plan.id)}
+                          className="btn-primary"
+                          disabled={isExpired}
+                          style={isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                        >
                           Start Workout
                         </button>
                       )}
 
                       {plan.status === 'in_progress' && (
                         <>
-                          <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                          <button
+                            onClick={() => startWorkout(plan.id)}
+                            className="btn-primary"
+                            disabled={isExpired}
+                            style={isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                          >
                             Resume Workout
                           </button>
                           <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
@@ -989,14 +1016,24 @@ function TraineeDashboard({ token, userId, isExpired }) {
                           {plan.completedAt && <p>✓ Completed: {formatDate(plan.completedAt, true)}</p>}
 
                           {plan.status === 'assigned' && (
-                            <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                            <button
+                              onClick={() => startWorkout(plan.id)}
+                              className="btn-primary"
+                              disabled={isExpired}
+                              style={isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                            >
                               Start Workout
                             </button>
                           )}
 
                           {plan.status === 'in_progress' && (
                             <>
-                              <button onClick={() => startWorkout(plan.id)} className="btn-primary">
+                              <button
+                                onClick={() => startWorkout(plan.id)}
+                                className="btn-primary"
+                                disabled={isExpired}
+                                style={isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                              >
                                 Resume Workout
                               </button>
                               <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
