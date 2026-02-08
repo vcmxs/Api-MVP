@@ -177,7 +177,7 @@ exports.getUserProfile = async (req, res) => {
         if (user.role === 'trainee') {
             const coachResult = await pool.query(
                 `SELECT u.id as coach_id, u.name as coach_name, 
-                        ct.subscription_status, ct.subscription_end_date
+                        ct.subscription_status, ct.subscription_end_date, ct.subscription_start_date
                  FROM users u 
                  INNER JOIN coach_trainee ct ON u.id = ct.coach_id 
                  WHERE ct.trainee_id = $1
@@ -191,6 +191,7 @@ exports.getUserProfile = async (req, res) => {
                 user.coach_id = coachResult.rows[0].coach_id;
                 user.coach_subscription_status = coachResult.rows[0].subscription_status;
                 user.coach_subscription_end_date = coachResult.rows[0].subscription_end_date;
+                user.subscription_start_date = coachResult.rows[0].subscription_start_date; // Override default
             }
         }
 
@@ -323,18 +324,17 @@ exports.updateTraineeSubscription = async (req, res) => {
         await client.query(
             `UPDATE coach_trainee 
              SET subscription_status = 'active', 
-                 subscription_end_date = $1
-             WHERE coach_id = $2 AND trainee_id = $3`,
-            [endDate, coachId, traineeId]
+                 subscription_start_date = $1,
+                 subscription_end_date = $2
+             WHERE coach_id = $3 AND trainee_id = $4`,
+            [start, endDate, coachId, traineeId]
         );
 
         // 4. Log Payment History
-        // Explicitly removed start_date and end_date as they don't exist in schema (per screenshot)
-        // Schema: id, coach_id, trainee_id, amount, currency, duration_id, payment_date, notes
         await client.query(
-            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id) 
-             VALUES ($1, $2, $3, $4)`,
-            [coachId, traineeId, amount || 0, durationId]
+            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, start_date, end_date) 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [coachId, traineeId, amount || 0, durationId, start, endDate]
         );
 
         await client.query('COMMIT'); // Commit Transaction
