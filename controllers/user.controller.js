@@ -320,11 +320,12 @@ exports.updateTraineeSubscription = async (req, res) => {
         );
 
         // 4. Log Payment History
-        // Explicitly removed start_date as it doesn't exist in schema
+        // Explicitly removed start_date and end_date as they don't exist in schema (per screenshot)
+        // Schema: id, coach_id, trainee_id, amount, currency, duration_id, payment_date, notes
         await client.query(
-            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, end_date) 
-             VALUES ($1, $2, $3, $4, $5)`,
-            [coachId, traineeId, amount || 0, durationId, endDate]
+            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id) 
+             VALUES ($1, $2, $3, $4)`,
+            [coachId, traineeId, amount || 0, durationId]
         );
 
         await client.query('COMMIT'); // Commit Transaction
