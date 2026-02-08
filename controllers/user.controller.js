@@ -259,6 +259,8 @@ exports.updateTraineeSubscription = async (req, res) => {
     const { coachId, traineeId } = req.params;
     const { durationId, amount, startDate } = req.body;
 
+    console.log('Update Subscription Request Body:', req.body); // DEBUG LOG
+
     const client = await pool.connect(); // Get a client for transaction
 
     try {
