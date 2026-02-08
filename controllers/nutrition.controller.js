@@ -179,18 +179,25 @@ const NutritionController = {
             const { userId } = req.query; // Optional userId for coaches
             let targetUserId = req.user.id;
 
+
+
             // If a specific userId is requested, verify access
             if (userId && parseInt(userId) !== req.user.id) {
                 // User is trying to view ANOTHER user's data
+
                 // Check if requester is a coach and has this trainee
                 const accessCheck = await pool.query(
                     `SELECT id FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2`,
                     [req.user.id, userId]
                 );
 
+
+
                 if (accessCheck.rows.length > 0 || req.user.role === 'admin') {
                     targetUserId = parseInt(userId);
+
                 } else {
+
                     return res.status(403).json({ message: 'Access denied: You are not assigned to this trainee' });
                 }
             } else if (userId && parseInt(userId) === req.user.id) {
@@ -260,18 +267,33 @@ const NutritionController = {
     // Get Nutrition Stats (Range)
     getNutritionStats: async (req, res) => {
         try {
-            const { startDate, endDate } = req.query;
-            const user_id = req.user.id;
+            const { startDate, endDate, userId } = req.query;
+            let targetUserId = req.user.id; // Default to self
 
             if (!startDate || !endDate) {
                 return res.status(400).json({ message: 'Start date and end date required' });
+            }
+
+            // If requesting another user's data
+            if (userId && parseInt(userId) !== req.user.id) {
+                // Check if requester is a coach and has this trainee
+                const accessCheck = await pool.query(
+                    `SELECT id FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2`,
+                    [req.user.id, userId]
+                );
+
+                if (accessCheck.rows.length > 0 || req.user.role === 'admin') {
+                    targetUserId = parseInt(userId);
+                } else {
+                    return res.status(403).json({ message: 'Access denied: You are not assigned to this trainee' });
+                }
             }
 
             const result = await pool.query(
                 `SELECT * FROM daily_nutrition_summary 
                  WHERE user_id = $1 AND summary_date >= $2 AND summary_date <= $3
                  ORDER BY summary_date ASC`,
-                [user_id, startDate, endDate]
+                [targetUserId, startDate, endDate]
             );
 
             res.json(result.rows);
