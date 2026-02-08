@@ -173,19 +173,24 @@ exports.getUserProfile = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
-        // If user is a trainee, fetch assigned coach
+        // If user is a trainee, fetch assigned coach AND subscription info
         if (user.role === 'trainee') {
             const coachResult = await pool.query(
-                `SELECT u.id as coach_id, u.name as coach_name 
+                `SELECT u.id as coach_id, u.name as coach_name, 
+                        ct.subscription_status, ct.subscription_end_date
                  FROM users u 
                  INNER JOIN coach_trainee ct ON u.id = ct.coach_id 
-                 WHERE ct.trainee_id = $1`,
+                 WHERE ct.trainee_id = $1
+                 ORDER BY ct.subscription_end_date DESC
+                 LIMIT 1`,
                 [req.params.userId]
             );
 
             if (coachResult.rows.length > 0) {
                 user.assigned_coach = coachResult.rows[0].coach_name;
                 user.coach_id = coachResult.rows[0].coach_id;
+                user.coach_subscription_status = coachResult.rows[0].subscription_status;
+                user.coach_subscription_end_date = coachResult.rows[0].subscription_end_date;
             }
         }
 
