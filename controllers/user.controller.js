@@ -312,6 +312,13 @@ exports.updateTraineeSubscription = async (req, res) => {
             return res.status(400).json({ error: 'Bad Request', message: 'Invalid duration' });
         }
 
+        console.log('Calculating Dates:', {
+            inputStart: startDate,
+            parsedStart: start,
+            durationId,
+            calculatedEnd: endDate
+        }); // DEBUG LOG
+
         // 3. Update connection table (coach_trainee)
         await client.query(
             `UPDATE coach_trainee 
