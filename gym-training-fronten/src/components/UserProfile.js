@@ -721,6 +721,57 @@ function UserProfile({ userId, editable, onUpdate }) {
                 </div>
             </div>
 
+            {/* Trainee Subscription Access Section */}
+            {profile.role === 'trainee' && profile.coach_subscription_end_date && (
+                <div style={{
+                    marginTop: '2rem',
+                    marginBottom: '2rem',
+                    background: currentTheme === 'neon' ? 'rgba(0, 255, 255, 0.05)' : '#fff',
+                    border: currentTheme === 'neon' ? '1px solid rgba(0, 255, 255, 0.2)' : styles.border,
+                    borderRadius: styles.borderRadius,
+                    padding: '1.5rem',
+                    boxShadow: styles.shadow
+                }}>
+                    <h3 style={{ margin: '0 0 1rem 0', color: currentTheme === 'neon' ? '#00ffff' : styles.primary }}>
+                        📅 Subscription Access
+                    </h3>
+                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                        <div>
+                            <div style={{ color: styles.subText, fontSize: '0.9rem' }}>Status</div>
+                            <div style={{
+                                color: profile.coach_subscription_status === 'active' ? (currentTheme === 'neon' ? '#00ff88' : '#059669') : '#ff4444',
+                                fontWeight: 'bold'
+                            }}>
+                                {profile.coach_subscription_status === 'active' ? 'Active' : 'Expired / Inactive'}
+                            </div>
+                        </div>
+                        <div>
+                            <div style={{ color: styles.subText, fontSize: '0.9rem' }}>Access Expires</div>
+                            {(() => {
+                                const endDate = new Date(profile.coach_subscription_end_date);
+                                const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+                                return (
+                                    <div style={{
+                                        color: daysLeft <= 3 ? (currentTheme === 'neon' ? '#ff4444' : styles.accent) : styles.text,
+                                        fontWeight: daysLeft <= 3 ? 'bold' : 'normal'
+                                    }}>
+                                        {endDate.toLocaleDateString()}
+                                        {daysLeft > 0 && daysLeft <= 7 && (
+                                            <span style={{ fontSize: '0.8rem', marginLeft: '5px' }}>
+                                                (⚠️ {daysLeft} days left)
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                    <p style={{ color: styles.subText, fontSize: '0.8rem', marginTop: '1rem', fontStyle: 'italic' }}>
+                        * Access is managed by your coach's subscription content level.
+                    </p>
+                </div>
+            )}
+
             {/* Coach Subscription Section */}
             {profile.role === 'coach' && !editing && (
                 <div style={{
