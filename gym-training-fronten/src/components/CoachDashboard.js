@@ -1569,8 +1569,17 @@ const CoachDashboard = ({ token, userId }) => {
                             <div style={{ flex: 1, minWidth: '300px' }}>
                               <h4 style={{ marginTop: 0 }}>Register Payment & Extend</h4>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                                  <label style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                  <label style={{ flex: 1, minWidth: '120px' }}>
+                                    Start Date:
+                                    <input
+                                      type="date"
+                                      value={startDate}
+                                      onChange={(e) => setStartDate(e.target.value)}
+                                      style={{ width: '100%', padding: '8px', marginTop: '5px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white' }}
+                                    />
+                                  </label>
+                                  <label style={{ flex: 1, minWidth: '120px' }}>
                                     Amount ($):
                                     <input
                                       type="number"
@@ -1580,7 +1589,7 @@ const CoachDashboard = ({ token, userId }) => {
                                       style={{ width: '100%', padding: '8px', marginTop: '5px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', color: 'white' }}
                                     />
                                   </label>
-                                  <label style={{ flex: 1 }}>
+                                  <label style={{ flex: 1, minWidth: '120px' }}>
                                     Duration:
                                     <select
                                       value={paymentDuration}
@@ -1592,7 +1601,7 @@ const CoachDashboard = ({ token, userId }) => {
                                       <option value="1month">1 Month</option>
                                     </select>
                                   </label>
-                                  <button onClick={() => submitPayment(trainee.id)} className="btn-primary" style={{ height: '38px' }}>
+                                  <button onClick={() => submitPayment(trainee.id)} className="btn-primary" style={{ height: '38px', minWidth: '80px' }}>
                                     Confirm
                                   </button>
                                 </div>
