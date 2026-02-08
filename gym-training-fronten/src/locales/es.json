@@ -1,4 +1,7 @@
 {
+    "referral": {
+        "button": "Programa Win-Win"
+    },
     "login": {
         "title": "Bienvenido",
         "subtitle": "Inicia sesión para continuar",
@@ -40,7 +43,17 @@
         "history": "Historial",
         "remaining": "restante",
         "addTime": "Agregar Tiempo",
-        "expired": "¡Tiempo Terminado!"
+        "expired": "¡Tiempo Terminado!",
+        "leave": "Salir"
+    },
+    "coach": {
+        "manageSubscription": "Gestionar Suscripción",
+        "extendSubscription": "Extender Suscripción",
+        "confirmExtension": "Confirmar y Extender",
+        "subscriptionUpdated": "Suscripción Actualizada",
+        "paymentAmount": "Monto del Pago",
+        "startDate": "Fecha de Inicio",
+        "duration": "Duración"
     },
     "settings": {
         "title": "Configuración",
@@ -74,7 +87,10 @@
         "past": "Pasado",
         "thisWeek": "Esta Semana",
         "lastWeek": "Semana Pasada",
-        "older": "Anteriores"
+        "older": "Anteriores",
+        "subscriptionExpired": "Tu suscripción ha expirado. El acceso a rutinas y progreso está restringido. Contacta a tu entrenador.",
+        "profile": "Perfil",
+        "progression": "Progreso"
     },
     "workout": {
         "status": {
@@ -126,7 +142,14 @@
         "sex": "Sexo",
         "height": "Altura (cm)",
         "weight": "Peso (kg)",
-        "notes": "Patologías / Notas"
+        "notes": "Patologías / Notas",
+        "unlink": "Desvincular del Entrenador",
+        "confirmUnlink": "¿Estás seguro de que quieres desvincularte de tu entrenador? Perderás acceso a las asignaciones.",
+        "unlinkSuccess": "Desvinculado exitosamente",
+        "unlinkError": "Error al desvincular",
+        "leaveCoach": "Dejar Entrenador",
+        "confirmLeaveCoach": "¿Estás seguro de que quieres dejar a tu entrenador actual? Perderás acceso a sus rutinas asignadas.",
+        "leftCoachSuccess": "Has dejado a tu entrenador."
     },
     "errors": {
         "fillAllFields": "Por favor completa todos los campos",

@@ -9,6 +9,9 @@
         "noAccount": "Don't have an account? Sign Up",
         "loggingIn": "Logging in..."
     },
+    "referral": {
+        "button": "Win-Win Program"
+    },
     "register": {
         "title": "Create Account",
         "subtitle": "Sign up to get started",
@@ -40,7 +43,17 @@
         "history": "History",
         "remaining": "remaining",
         "addTime": "Add Time",
-        "expired": "Time's Up!"
+        "expired": "Time's Up!",
+        "leave": "Leave"
+    },
+    "coach": {
+        "manageSubscription": "Manage Subscription",
+        "extendSubscription": "Extend Subscription",
+        "confirmExtension": "Confirm & Extend",
+        "subscriptionUpdated": "Subscription Updated",
+        "paymentAmount": "Payment Amount",
+        "startDate": "Start Date",
+        "duration": "Duration"
     },
     "settings": {
         "title": "Settings",
@@ -74,7 +87,10 @@
         "past": "Past",
         "thisWeek": "This Week",
         "lastWeek": "Last Week",
-        "older": "Older"
+        "older": "Older",
+        "subscriptionExpired": "Your subscription has expired. Access to workouts and progression is restricted. Please contact your coach.",
+        "profile": "Profile",
+        "progression": "Progression"
     },
     "workout": {
         "status": {
@@ -124,7 +140,14 @@
         "sex": "Sex",
         "height": "Height (cm)",
         "weight": "Weight (kg)",
-        "notes": "Pathologies / Notes"
+        "notes": "Pathologies / Notes",
+        "unlink": "Unlink from Coach",
+        "confirmUnlink": "Are you sure you want to unlink from your coach? You will lose access to assignments.",
+        "unlinkSuccess": "Unlinked successfully",
+        "unlinkError": "Failed to unlink",
+        "leaveCoach": "Leave Coach",
+        "confirmLeaveCoach": "Are you sure you want to leave your current coach? You will lose access to assigned workouts.",
+        "leftCoachSuccess": "You have left your coach."
     },
     "errors": {
         "fillAllFields": "Please fill in all fields",
