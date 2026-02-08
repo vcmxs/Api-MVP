@@ -320,6 +320,7 @@ const ActiveWorkoutView = ({
 
 function TraineeDashboard({ token, userId, isExpired }) {
   const { t } = useTranslation();
+  console.log('DEBUG: TraineeDashboard Render', { userId, isExpired });
 
   // Helper component for Sidebar Navigation Button
   const NavButton = ({ active, onClick, icon, label, disabled }) => (
