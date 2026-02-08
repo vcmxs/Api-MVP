@@ -89,6 +89,7 @@
         "lastWeek": "Last Week",
         "older": "Older",
         "subscriptionExpired": "Your subscription has expired. Access to workouts and progression is restricted. Please contact your coach.",
+        "subscriptionExpiredAlert": "Your subscription has expired. Access restricted.",
         "profile": "Profile",
         "progression": "Progression"
     },

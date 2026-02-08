@@ -89,6 +89,7 @@
         "lastWeek": "Semana Pasada",
         "older": "Anteriores",
         "subscriptionExpired": "Tu suscripción ha expirado. El acceso a rutinas y progreso está restringido. Contacta a tu entrenador.",
+        "subscriptionExpiredAlert": "Tu suscripción ha expirado. Acceso restringido.",
         "profile": "Perfil",
         "progression": "Progreso"
     },
