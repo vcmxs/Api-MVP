@@ -17,7 +17,26 @@ exports.getUserById = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
-        res.json(result.rows[0]);
+        const user = result.rows[0];
+
+        // If trainee, fetch coach subscription status
+        if (user.role === 'trainee') {
+            const coachSubResult = await pool.query(
+                `SELECT subscription_status, subscription_end_date, coach_id 
+                 FROM coach_trainee 
+                 WHERE trainee_id = $1 
+                 ORDER BY subscription_end_date DESC 
+                 LIMIT 1`,
+                [user.id]
+            );
+            if (coachSubResult.rows.length > 0) {
+                user.coach_subscription_status = coachSubResult.rows[0].subscription_status;
+                user.coach_subscription_end_date = coachSubResult.rows[0].subscription_end_date;
+                user.assigned_coach_id = coachSubResult.rows[0].coach_id;
+            }
+        }
+
+        res.json(user);
     } catch (err) {
         console.error('Get user error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
