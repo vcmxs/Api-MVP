@@ -184,19 +184,27 @@ exports.getUserProfile = async (req, res) => {
             `;
             const queryParams = [req.params.userId];
 
+            // DEBUG LOGS
+            console.log('getUserProfile - Trainee detected:', user.email);
+            console.log('Requester:', req.user ? `${req.user.role} (${req.user.id})` : 'Unauthenticated/No User');
+
             // If requester is a coach, prioritize THEIR relationship
             // We use optional chaining in case req.user is not set (e.g. public route - though this is protected)
             if (req.user && req.user.role === 'coach') {
                 coachQuery += ` AND ct.coach_id = $2`;
                 queryParams.push(req.user.id);
+                console.log('Filtering by requesting coach ID:', req.user.id);
             } else {
                 // Otherwise show latest (for trainee viewing self)
                 coachQuery += ` ORDER BY ct.subscription_end_date DESC LIMIT 1`;
+                console.log('Showing latest subscription (Trainee View or Other)');
             }
 
             const coachResult = await pool.query(coachQuery, queryParams);
 
+            console.log('Coach Result Rows:', coachResult.rows.length);
             if (coachResult.rows.length > 0) {
+                console.log('Found Status:', coachResult.rows[0].subscription_status);
                 user.assigned_coach = coachResult.rows[0].coach_name;
                 user.coach_id = coachResult.rows[0].coach_id;
                 user.coach_subscription_status = coachResult.rows[0].subscription_status;
