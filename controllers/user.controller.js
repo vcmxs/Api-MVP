@@ -233,7 +233,7 @@ exports.updateProfilePicture = async (req, res) => {
  */
 exports.updateTraineeSubscription = async (req, res) => {
     const { coachId, traineeId } = req.params;
-    const { durationId, amount } = req.body; // '7days', '15days', '1month' + amount
+    const { durationId, amount, startDate } = req.body; // Added startDate
 
     try {
         // 1. Verify connection and get current subscription status
@@ -248,18 +248,29 @@ exports.updateTraineeSubscription = async (req, res) => {
 
         // 2. Calculate new dates
         const now = new Date();
+        let start = new Date();
         let endDate = new Date();
 
-        // If currently active and not expired, extend from current end date? 
-        // User behavior usually expects "Add time from now" or "Add time from previous expiry".
-        // For simplicity and "Reaction" (Oh they just paid), typically adding from NOW is safest unless explicit.
-        // However, if they pay early, it should extend.
+        // If startDate is provided, use it. Otherwise, use logic to extend or start from now.
+        if (startDate) {
+            start = new Date(startDate);
+            // Verify date is valid
+            if (isNaN(start.getTime())) {
+                return res.status(400).json({ error: 'Bad Request', message: 'Invalid Start Date' });
+            }
+            endDate = new Date(start);
+        } else {
+            // Default logic: Extend if active/future, else start now
+            const currentEndStr = connectionCheck.rows[0].subscription_end_date;
+            const currentEnd = currentEndStr ? new Date(currentEndStr) : null;
 
-        const currentEndStr = connectionCheck.rows[0].subscription_end_date;
-        const currentEnd = currentEndStr ? new Date(currentEndStr) : null;
-
-        if (currentEnd && currentEnd > now) {
-            endDate = new Date(currentEnd); // Start from existing end date
+            if (currentEnd && currentEnd > now) {
+                // If it's already active/future, we might want to extend from the END? 
+                // But usually if they are setting a date, they want to set the date.
+                // If no date provided (legacy), keep existing extension logic.
+                start = new Date(currentEnd);
+                endDate = new Date(currentEnd);
+            }
         }
 
         if (durationId === '7days') {
@@ -273,6 +284,8 @@ exports.updateTraineeSubscription = async (req, res) => {
         }
 
         // 3. Update connection table (coach_trainee)
+        // We also update subscription_start_date if we had that column, but we might not?
+        // Let's just update end_date and status.
         await pool.query(
             `UPDATE coach_trainee 
              SET subscription_status = 'active', 
@@ -283,9 +296,9 @@ exports.updateTraineeSubscription = async (req, res) => {
 
         // 4. Log Payment History
         await pool.query(
-            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id) 
-             VALUES ($1, $2, $3, $4)`,
-            [coachId, traineeId, amount || 0, durationId]
+            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, start_date, end_date) 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [coachId, traineeId, amount || 0, durationId, start, endDate]
         );
 
         res.json({
