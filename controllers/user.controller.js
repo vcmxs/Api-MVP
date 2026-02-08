@@ -320,9 +320,9 @@ exports.updateTraineeSubscription = async (req, res) => {
 
         // 4. Log Payment History
         await pool.query(
-            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, start_date, end_date) 
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [coachId, traineeId, amount || 0, durationId, start, endDate]
+            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, end_date) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [coachId, traineeId, amount || 0, durationId, endDate]
         );
 
         res.json({
