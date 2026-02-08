@@ -1618,7 +1618,9 @@ const CoachDashboard = ({ token, userId }) => {
                                   <table style={{ width: '100%', fontSize: '0.85rem' }}>
                                     <thead style={{ background: 'rgba(255,255,255,0.05)' }}>
                                       <tr style={{ textAlign: 'left' }}>
-                                        <th style={{ padding: '5px 10px' }}>Date</th>
+                                        <th style={{ padding: '5px 10px' }}>Payment Date</th>
+                                        <th style={{ padding: '5px 10px' }}>Start Date</th>
+                                        <th style={{ padding: '5px 10px' }}>End Date</th>
                                         <th style={{ padding: '5px 10px' }}>Amount</th>
                                         <th style={{ padding: '5px 10px' }}>Duration</th>
                                       </tr>
@@ -1627,6 +1629,8 @@ const CoachDashboard = ({ token, userId }) => {
                                       {paymentHistory.map((log) => (
                                         <tr key={log.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                                           <td style={{ padding: '5px 10px' }}>{new Date(log.payment_date).toLocaleDateString()}</td>
+                                          <td style={{ padding: '5px 10px' }}>{log.start_date ? new Date(log.start_date).toLocaleDateString() : '-'}</td>
+                                          <td style={{ padding: '5px 10px' }}>{log.end_date ? new Date(log.end_date).toLocaleDateString() : '-'}</td>
                                           <td style={{ padding: '5px 10px' }}>${log.amount}</td>
                                           <td style={{ padding: '5px 10px' }}>{log.duration_id}</td>
                                         </tr>
