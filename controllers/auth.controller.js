@@ -178,10 +178,11 @@ exports.login = async (req, res) => {
 
         // Check for Coach Subscription if Trainee
         let coachSubscription = null;
+        let coachId = null;
         if (user.role === 'trainee') {
             try {
                 const coachSubResult = await pool.query(
-                    `SELECT subscription_status, subscription_end_date 
+                    `SELECT subscription_status, subscription_end_date, coach_id 
                      FROM coach_trainee 
                      WHERE trainee_id = $1 
                      ORDER BY subscription_end_date DESC 
@@ -190,6 +191,7 @@ exports.login = async (req, res) => {
                 );
                 if (coachSubResult.rows.length > 0) {
                     coachSubscription = coachSubResult.rows[0];
+                    coachId = coachSubResult.rows[0].coach_id;
                 }
             } catch (err) {
                 console.error('Error fetching coach subscription:', err);
@@ -223,6 +225,7 @@ exports.login = async (req, res) => {
                 subscriptionTier: user.subscription_tier,
                 coachSubscriptionStatus: coachSubscription ? coachSubscription.subscription_status : null,
                 coachSubscriptionEndDate: coachSubscription ? coachSubscription.subscription_end_date : null,
+                coachId: coachId,
                 status: user.status,
                 referredBy: user.referred_by,
                 referralCode: user.referral_code,

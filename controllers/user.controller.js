@@ -157,7 +157,7 @@ exports.getUserProfile = async (req, res) => {
         // If user is a trainee, fetch assigned coach
         if (user.role === 'trainee') {
             const coachResult = await pool.query(
-                `SELECT u.name as coach_name 
+                `SELECT u.id as coach_id, u.name as coach_name 
                  FROM users u 
                  INNER JOIN coach_trainee ct ON u.id = ct.coach_id 
                  WHERE ct.trainee_id = $1`,
@@ -166,6 +166,7 @@ exports.getUserProfile = async (req, res) => {
 
             if (coachResult.rows.length > 0) {
                 user.assigned_coach = coachResult.rows[0].coach_name;
+                user.coach_id = coachResult.rows[0].coach_id;
             }
         }
 
@@ -294,8 +295,8 @@ exports.updateTraineeSubscription = async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Update subscription error - Full Details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
-        res.status(500).json({ error: 'Internal Server Error', message: err.message, details: err.detail }); // Include err.detail for Postgres errors
+        console.error('Update subscription error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
 
@@ -313,8 +314,8 @@ exports.getCoachTraineeHistory = async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error('Get history error - Full Details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
-        res.status(500).json({ error: 'Internal Server Error', message: err.message, details: err.detail });
+        console.error('Get history error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
 
