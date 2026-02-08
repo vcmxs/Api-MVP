@@ -1426,6 +1426,7 @@ const CoachDashboard = ({ token, userId }) => {
   const [expandedTraineeId, setExpandedTraineeId] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDuration, setPaymentDuration] = useState('1month');
+  const [startDate, setStartDate] = useState(''); // New state for start date
   const [paymentHistory, setPaymentHistory] = useState([]);
 
   const toggleManageTrainee = async (trainee) => {
@@ -1437,6 +1438,7 @@ const CoachDashboard = ({ token, userId }) => {
     setExpandedTraineeId(trainee.id);
     setPaymentAmount('');
     setPaymentDuration('1month');
+    setStartDate(new Date().toISOString().split('T')[0]); // Default to today
     setPaymentHistory([]);
 
     // Fetch history
@@ -1460,11 +1462,12 @@ const CoachDashboard = ({ token, userId }) => {
       const durationText = paymentDuration === '7days' ? '7 days' : paymentDuration === '15days' ? '15 days' : '1 month';
       // We need to find the trainee name for the confirmation alert
       const trainee = trainees.find(t => t.id === traineeId);
-      if (!window.confirm(`Confirm payment of ${paymentAmount} and extension of ${durationText} for ${trainee ? trainee.name : 'this trainee'}?`)) return;
+      if (!window.confirm(`Confirm payment of ${paymentAmount} and extension of ${durationText} for ${trainee ? trainee.name : 'this trainee'} starting from ${startDate}?`)) return;
 
       await axios.put(`${API_URL}/users/coaches/${userId}/trainees/${traineeId}/subscription`, {
         durationId: paymentDuration,
-        amount: parseFloat(paymentAmount)
+        amount: parseFloat(paymentAmount),
+        startDate: startDate // Send selected start date
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1479,8 +1482,7 @@ const CoachDashboard = ({ token, userId }) => {
       loadTrainees(); // Reload list to update status
     } catch (err) {
       console.error('Update subscription error:', err);
-      const funcErrorMsg = err.response?.data?.message || err.message || JSON.stringify(err);
-      alert('Error updating subscription: ' + funcErrorMsg);
+      alert('Error updating subscription: ' + (err.response?.data?.message || err.message));
     }
   };
 

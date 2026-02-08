@@ -189,6 +189,26 @@ function UserProfile({ userId, editable, onUpdate }) {
         }
     };
 
+    const handleUnlink = async () => {
+        if (!profile.coach_id) return;
+
+        if (window.confirm(t('profile.confirmUnlink') || 'Are you sure you want to unlink from your coach? You will lose access to assignments.')) {
+            try {
+                const token = localStorage.getItem('token');
+                await axios.delete(`${API_URL}/users/${profile.id}/connection/${profile.coach_id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                alert(t('profile.unlinkSuccess') || 'Unlinked successfully');
+                loadProfile();
+                // Optionally refresh user context or redirect
+                window.location.reload();
+            } catch (err) {
+                console.error('Unlink error:', err);
+                alert(t('profile.unlinkError') || 'Failed to unlink');
+            }
+        }
+    };
+
     // --- REFERRAL SYSTEM LOGIC ---
     const [referralModalOpen, setReferralModalOpen] = useState(false);
     const [referralStats, setReferralStats] = useState(null);
@@ -640,6 +660,30 @@ function UserProfile({ userId, editable, onUpdate }) {
                             border: currentTheme === 'light' ? '1px solid #FCD34D' : 'none'
                         }}>
                             {currentTierInfo.name} {t('profile.plan')}
+                        </div>
+                    )}
+
+                    {/* Unlink Coach Button (Trainee only) */}
+                    {profile.role === 'trainee' && profile.assigned_coach && (
+                        <div style={{ marginTop: '15px' }}>
+                            <p style={{ color: styles.subText, fontSize: '0.9rem', marginBottom: '5px' }}>
+                                Coach: <strong style={{ color: styles.text }}>{profile.assigned_coach}</strong>
+                            </p>
+                            <button
+                                onClick={handleUnlink}
+                                style={{
+                                    background: 'rgba(255, 71, 87, 0.1)',
+                                    border: '1px solid #ff4757',
+                                    color: '#ff4757',
+                                    padding: '5px 12px',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                {t('profile.unlink') || 'Unlink from Coach'}
+                            </button>
                         </div>
                     )}
                 </div>
