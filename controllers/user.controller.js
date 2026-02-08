@@ -257,16 +257,21 @@ exports.updateProfilePicture = async (req, res) => {
  */
 exports.updateTraineeSubscription = async (req, res) => {
     const { coachId, traineeId } = req.params;
-    const { durationId, amount, startDate } = req.body; // Added startDate
+    const { durationId, amount, startDate } = req.body;
+
+    const client = await pool.connect(); // Get a client for transaction
 
     try {
+        await client.query('BEGIN'); // Start Transaction
+
         // 1. Verify connection and get current subscription status
-        const connectionCheck = await pool.query(
+        const connectionCheck = await client.query(
             'SELECT id, subscription_end_date FROM coach_trainee WHERE coach_id = $1 AND trainee_id = $2',
             [coachId, traineeId]
         );
 
         if (connectionCheck.rowCount === 0) {
+            await client.query('ROLLBACK');
             return res.status(403).json({ error: 'Forbidden', message: 'You are not assigned to this trainee' });
         }
 
@@ -275,11 +280,10 @@ exports.updateTraineeSubscription = async (req, res) => {
         let start = new Date();
         let endDate = new Date();
 
-        // If startDate is provided, use it. Otherwise, use logic to extend or start from now.
         if (startDate) {
             start = new Date(startDate);
-            // Verify date is valid
             if (isNaN(start.getTime())) {
+                await client.query('ROLLBACK');
                 return res.status(400).json({ error: 'Bad Request', message: 'Invalid Start Date' });
             }
             endDate = new Date(start);
@@ -289,12 +293,10 @@ exports.updateTraineeSubscription = async (req, res) => {
             const currentEnd = currentEndStr ? new Date(currentEndStr) : null;
 
             if (currentEnd && currentEnd > now) {
-                // If it's already active/future, we might want to extend from the END? 
-                // But usually if they are setting a date, they want to set the date.
-                // If no date provided (legacy), keep existing extension logic.
-                start = new Date(currentEnd);
+                start = new Date(currentEnd); // Conceptually starts when the old one ends
                 endDate = new Date(currentEnd);
             }
+            // else start defaults to now()
         }
 
         if (durationId === '7days') {
@@ -304,13 +306,12 @@ exports.updateTraineeSubscription = async (req, res) => {
         } else if (durationId === '1month') {
             endDate.setMonth(endDate.getMonth() + 1);
         } else {
+            await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Bad Request', message: 'Invalid duration' });
         }
 
         // 3. Update connection table (coach_trainee)
-        // We also update subscription_start_date if we had that column, but we might not?
-        // Let's just update end_date and status.
-        await pool.query(
+        await client.query(
             `UPDATE coach_trainee 
              SET subscription_status = 'active', 
                  subscription_end_date = $1
@@ -319,11 +320,14 @@ exports.updateTraineeSubscription = async (req, res) => {
         );
 
         // 4. Log Payment History
-        await pool.query(
+        // Explicitly removed start_date as it doesn't exist in schema
+        await client.query(
             `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, end_date) 
              VALUES ($1, $2, $3, $4, $5)`,
             [coachId, traineeId, amount || 0, durationId, endDate]
         );
+
+        await client.query('COMMIT'); // Commit Transaction
 
         res.json({
             message: 'Subscription updated successfully',
@@ -332,8 +336,11 @@ exports.updateTraineeSubscription = async (req, res) => {
         });
 
     } catch (err) {
+        await client.query('ROLLBACK'); // Rollback on error
         console.error('Update subscription error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    } finally {
+        client.release(); // Release client back to pool
     }
 };
 
