@@ -433,6 +433,10 @@ function TraineeDashboard({ token, userId, isExpired }) {
   };
 
   const viewWorkoutDetails = async (plan) => {
+    if (isExpired) {
+      alert(t('dashboard.subscriptionExpiredAlert', 'Your subscription has expired. Access restricted.'));
+      return;
+    }
     setSelectedWorkout(plan);
     const logs = {};
     for (const exercise of plan.exercises) {
@@ -967,14 +971,24 @@ function TraineeDashboard({ token, userId, isExpired }) {
                           >
                             Resume Workout
                           </button>
-                          <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                          <button
+                            onClick={() => viewWorkoutDetails(plan)}
+                            className="btn-secondary"
+                            style={{ marginLeft: '0.5rem', ...(isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+                            disabled={isExpired}
+                          >
                             View Details
                           </button>
                         </>
                       )}
 
                       {plan.status === 'completed' && (
-                        <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                        <button
+                          onClick={() => viewWorkoutDetails(plan)}
+                          className="btn-secondary"
+                          disabled={isExpired}
+                          style={isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                        >
                           View Details
                         </button>
                       )}
@@ -1036,14 +1050,24 @@ function TraineeDashboard({ token, userId, isExpired }) {
                               >
                                 Resume Workout
                               </button>
-                              <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary" style={{ marginLeft: '0.5rem' }}>
+                              <button
+                                onClick={() => viewWorkoutDetails(plan)}
+                                className="btn-secondary"
+                                style={{ marginLeft: '0.5rem', ...(isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+                                disabled={isExpired}
+                              >
                                 View Details
                               </button>
                             </>
                           )}
 
                           {plan.status === 'completed' && (
-                            <button onClick={() => viewWorkoutDetails(plan)} className="btn-secondary">
+                            <button
+                              onClick={() => viewWorkoutDetails(plan)}
+                              className="btn-secondary"
+                              disabled={isExpired}
+                              style={isExpired ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                            >
                               View Details
                             </button>
                           )}
