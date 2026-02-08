@@ -73,13 +73,32 @@ const DashboardContainer = () => {
           user.status === 'blocked' ? (
             <SubscriptionBlocked onLogout={handleLogout} reason="blocked" />
           ) : (
-            // Check coach subscription for trainees
-            (user.coachSubscriptionStatus !== 'active') ||
-              (user.coachSubscriptionEndDate && new Date(user.coachSubscriptionEndDate) < new Date()) ? (
-              <SubscriptionBlocked onLogout={handleLogout} reason="subscription" />
-            ) : (
-              <TraineeDashboard token={token} userId={user.id} />
-            )
+            // Debug Expiration Logic
+            (() => {
+              const isActive = user.coachSubscriptionStatus === 'active';
+              const endDate = user.coachSubscriptionEndDate ? new Date(user.coachSubscriptionEndDate) : null;
+              const now = new Date();
+              const isDateValid = endDate && endDate > now;
+              const shouldBeExpired = !(isActive && isDateValid);
+
+              console.log('DEBUG: Access Check', {
+                status: user.coachSubscriptionStatus,
+                endDateStr: user.coachSubscriptionEndDate,
+                endDateObj: endDate,
+                now: now,
+                isActive,
+                isDateValid,
+                shouldBeExpired
+              });
+
+              return (
+                <TraineeDashboard
+                  token={token}
+                  userId={user.id}
+                  isExpired={shouldBeExpired}
+                />
+              );
+            })()
           )
         )}
       </main>
