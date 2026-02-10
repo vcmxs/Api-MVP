@@ -25,7 +25,9 @@ router.use('/setup', setupRoutes);
 router.use('/nutrition', nutritionRoutes);
 router.use('/programs', require('./programs.routes'));
 router.use('/referrals', require('./referral.routes'));
+router.use('/referrals', require('./referral.routes'));
 router.use('/notifications', require('./notification.routes'));
+router.use('/social', require('./social.routes'));
 // TEMPORARILY DISABLED: Uncomment after Railway cache clears
 router.use('/push-tokens', require('./pushToken.routes'));
 
