@@ -25,11 +25,22 @@ class User {
     }
 
     /**
+     * Find user by Username
+     */
+    static async findByUsername(username) {
+        const result = await pool.query(
+            'SELECT * FROM users WHERE username = $1',
+            [username]
+        );
+        return result.rows[0];
+    }
+
+    /**
      * Find user by ID
      */
     static async findById(id) {
         const result = await pool.query(
-            'SELECT id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, height, weight, created_at, subscription_status, subscription_tier, referral_code, subscription_start_date, subscription_end_date, referred_by, referral_discount_used FROM users WHERE id = $1',
+            'SELECT id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, height, weight, created_at, subscription_status, subscription_tier, referral_code, username, subscription_start_date, subscription_end_date, referred_by, referral_discount_used FROM users WHERE id = $1',
             [id]
         );
         return result.rows[0];
@@ -75,7 +86,18 @@ class User {
      * Update user profile
      */
     static async updateProfile(userId, profileData) {
-        const { name, age, sex, phone, gym, notes, height, weight } = profileData;
+        const { name, age, sex, phone, gym, notes, height, weight, username } = profileData;
+
+        // Check uniqueness if username is being updated
+        if (username) {
+            const existing = await pool.query(
+                'SELECT id FROM users WHERE username = $1 AND id != $2',
+                [username, userId]
+            );
+            if (existing.rows.length > 0) {
+                throw new Error('Username already taken');
+            }
+        }
 
         const result = await pool.query(
             `UPDATE users 
@@ -86,10 +108,11 @@ class User {
            gym = COALESCE($5, gym),
            notes = COALESCE($6, notes),
            height = COALESCE($7, height),
-           weight = COALESCE($8, weight)
-       WHERE id = $9
-       RETURNING id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, height, weight`,
-            [name, age, sex, phone, gym, notes, height, weight, userId]
+           weight = COALESCE($8, weight),
+           username = COALESCE($9, username)
+       WHERE id = $10
+       RETURNING id, name, email, role, age, sex, phone, gym, profile_pic_url, notes, height, weight, username, referral_code`,
+            [name, age, sex, phone, gym, notes, height, weight, username, userId]
         );
 
         return result.rows[0];
