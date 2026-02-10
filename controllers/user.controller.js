@@ -225,10 +225,21 @@ exports.getUserProfile = async (req, res) => {
  */
 exports.updateUserProfile = async (req, res) => {
     const { userId } = req.params;
-    const { name, age, sex, phone, gym, notes, height, weight } = req.body;
+    const { name, age, sex, phone, gym, notes, height, weight, username } = req.body;
+
+    // Validate username format
+    if (username) {
+        const codeRegex = /^[a-zA-Z0-9_]{3,20}$/;
+        if (!codeRegex.test(username)) {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Username must be 3-20 characters long and can only contain letters, numbers, and underscores.'
+            });
+        }
+    }
 
     try {
-        const user = await User.updateProfile(userId, { name, age, sex, phone, gym, notes, height, weight });
+        const user = await User.updateProfile(userId, { name, age, sex, phone, gym, notes, height, weight, username });
 
         if (!user) {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
@@ -237,6 +248,9 @@ exports.updateUserProfile = async (req, res) => {
         res.json(user);
     } catch (err) {
         console.error('Update profile error:', err);
+        if (err.message === 'Username already taken') {
+            return res.status(409).json({ error: 'Conflict', message: 'This username is already taken. Please choose another one.' });
+        }
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
