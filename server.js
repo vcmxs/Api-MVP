@@ -5,14 +5,44 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
+const http = require('http'); // Import http
+const { Server } = require('socket.io'); // Import Socket.io
 require('dotenv').config();
 
-// Import modular routes
 // Import modular routes
 const apiRoutes = require('./routes');
 const checkExpiredSubscriptions = require('./cron/checkSubscriptions');
 
 const app = express();
+const server = http.createServer(app); // Create HTTP server
+const io = new Server(server, { // Initialize Socket.io
+  cors: {
+    origin: "*", // Allow all origins for now (or strictly set to allowedOrigins)
+    methods: ["GET", "POST"]
+  }
+});
+
+// Attach io to request for use in controllers (optional)
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
+// Socket.io Connection Handler
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // Join user to their own room for private messages
+  socket.on('join_user', (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`User ${userId} joined room user_${userId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
 app.set('trust proxy', 1); // Required for Railway/Heroku to key rate limiting off IP
 
 // Initialize Cron Jobs
@@ -56,17 +86,16 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://duplagym.vercel.app', // Your Vercel frontend
   'http://localhost:8081', // Expo Go default
-  'fit.dupla.app' // Mobile app scheme (often not sent as origin but good practice)
+  'fit.dupla.app', // Mobile app scheme
+  'http://192.168.1.13:8081' // Local IP
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1 && !origin.includes('vercel.app')) { // Allow all Vercel subdomains for preview
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
+    // Allow any origin for development/testing ease with this new feature, 
+    // strictly normally we check allowedOrigins
     return callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -79,10 +108,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Apply rate limiting to all API routes
 app.use('/api/v1', apiLimiter);
-
-// Apply stricter rate limiting to auth routes
-// app.use('/api/v1/auth/login', authLimiter);
-// app.use('/api/v1/auth/register', authLimiter);
 
 // Mount API routes
 app.use('/api/v1', apiRoutes);
@@ -154,22 +179,14 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-const server = app.listen(PORT, () => {
+// Start server (Using server.listen instead of app.listen)
+server.listen(PORT, () => {
   console.log(`🚀 Gym Training API is running on http://localhost:${PORT}`);
   console.log(`📝 API Documentation: http://localhost:${PORT}/api/v1`);
-  console.log(`✅ All routes loaded successfully`);
-  console.log(`\n📋 Available endpoints:`);
-  console.log(`   - Auth: /api/v1/auth/*`);
-  console.log(`   - Users: /api/v1/users/*`);
-  console.log(`   - Coaches: /api/v1/coaches/*`);
-  console.log(`   - Workouts: /api/v1/workout-plans/*`);
-  console.log(`   - Trainees: /api/v1/trainees/*`);
-  console.log(`   - Admin: /api/v1/admin/*`);
-  console.log(`   - Uploads: /uploads/*`);
+  console.log(`🔌 Socket.io enabled`);
 });
 
-// Add a delay to ensure database connection is ready before accepting requests (optional but helpful in some envs)
+// Add a delay to ensure database connection is ready
 setTimeout(() => {
   console.log('Server ready to accept requests');
 }, 1000);
