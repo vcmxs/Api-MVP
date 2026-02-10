@@ -290,5 +290,31 @@
         "clearError": "Error al limpiar notificaciones.",
         "workout_assigned": "El Entrenador {{name}} te ha asignado un nuevo entrenamiento: {{workoutName}}",
         "workout_completed": "El Alumno {{name}} ha completado el entrenamiento: {{workoutName}}"
+    },
+    "deleteAccountPage": {
+        "title": "Eliminar Cuenta - Gym Trainer (Dupla)",
+        "requestTitle": "Solicitud de Eliminación de Cuenta",
+        "intro": "En <strong>Gym Trainer (Dupla)</strong>, respetamos tu privacidad y derecho a controlar tus datos. Puedes solicitar la eliminación permanente de tu cuenta y datos asociados a través de esta página o directamente dentro de la aplicación móvil.",
+        "howToTitle": "Cómo Eliminar Tu Cuenta",
+        "option1": "<strong>Opción 1 (En la App):</strong> Vé a <em>Perfil > Configuración > Zona Peligrosa > Eliminar Cuenta</em>. Esto es inmediato.",
+        "option2": "<strong>Opción 2 (Solicitud Web):</strong> Completa el formulario a continuación. Procesaremos tu solicitud dentro de 7 días.",
+        "dataTitle": "Datos Que Serán Eliminados",
+        "dataIntro": "Los siguientes datos serán eliminados permanentemente:",
+        "dataList": {
+            "p1": "Información de Perfil Personal (Nombre, Email, Avatar)",
+            "p2": "Registros e Historial de Entrenamientos",
+            "p3": "Planes y Rutinas de Entrenamiento Creadas",
+            "p4": "Medidas Corporales y Fotos de Progreso",
+            "p5": "Mensajes de Chat e Interacciones Sociales"
+        },
+        "retentionTitle": "Retención de Datos",
+        "retentionText": "Algunos datos pueden ser retenidos por razones legales o contables, como registros de pagos de suscripción, por el período requerido por leyes fiscales. Datos analíticos anonimizados también pueden ser guardados para mejora del servicio.",
+        "successTitle": "Solicitud Enviada",
+        "successMessage": "Si existe una cuenta con este correo, procesaremos la eliminación dentro de 7 días.",
+        "successNote": "Recibirás un correo de confirmación final una vez que el proceso esté completo.",
+        "emailLabel": "Dirección de Correo",
+        "emailPlaceholder": "Ingresa tu correo de cuenta",
+        "submitButton": "Solicitar Eliminación Permanente",
+        "processing": "Procesando..."
     }
 }

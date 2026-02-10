@@ -288,5 +288,31 @@
         "clearError": "Failed to clear notifications.",
         "workout_assigned": "Coach {{name}} has assigned you a new workout: {{workoutName}}",
         "workout_completed": "Trainee {{name}} has completed the workout: {{workoutName}}"
+    },
+    "deleteAccountPage": {
+        "title": "Delete Account - Gym Trainer (Dupla)",
+        "requestTitle": "Account Deletion Request",
+        "intro": "At <strong>Gym Trainer (Dupla)</strong>, we respect your privacy and right to control your data. You can request the permanent deletion of your account and associated data through this page or directly within the mobile application.",
+        "howToTitle": "How to Delete Your Account",
+        "option1": "<strong>Option 1 (In-App):</strong> Go to <em>Profile > Settings > Danger Zone > Delete Account</em>. This is immediate.",
+        "option2": "<strong>Option 2 (Web Request):</strong> Fill out the form below. We will process your request within 7 days.",
+        "dataTitle": "Data That Will Be Deleted",
+        "dataIntro": "The following data will be permanently removed:",
+        "dataList": {
+            "p1": "Personal Profile Information (Name, Email, Avatar)",
+            "p2": "Workout Logs and History",
+            "p3": "Created Workout Plans and Routines",
+            "p4": "Body Measurements and Progress Photos",
+            "p5": "Chat Messages and Social Interactions"
+        },
+        "retentionTitle": "Data Retention",
+        "retentionText": "Some data may be retained for legal or accounting purposes, such as subscription payment records, for a period required by tax laws. Anonymized analytics data may also be kept for service improvement.",
+        "successTitle": "Request Submitted",
+        "successMessage": "If an account exists with this email, we will process the deletion within 7 days.",
+        "successNote": "You will receive a final confirmation email once the process is complete.",
+        "emailLabel": "Email Address",
+        "emailPlaceholder": "Enter your account email",
+        "submitButton": "Request Permanent Deletion",
+        "processing": "Processing..."
     }
 }
