@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const User = require('../models/User'); // Import User model
-const { auth } = require('../middleware/auth'); // Assuming you have an auth middleware
+const { authenticateToken: auth } = require('../middleware/auth');
 
 // --- Friend Request Logic ---
 
