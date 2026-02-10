@@ -2,7 +2,16 @@ import React, { useState } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 
 const DeleteAccount = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+
+    console.log('DEBUG TRANSLATION:', {
+        language: i18n.language,
+        isInitialized: i18n.isInitialized,
+        testKey: t('common.success'), // Should result in "Success"/"Éxito"
+        deleteKey: t('deleteAccountPage.title'),
+        store: i18n.store.data
+    });
+
     const [email, setEmail] = useState('');
     const [status, setStatus] = useState('idle'); // idle, loading, success, error
 
