@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 
 const DeleteAccount = () => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [status, setStatus] = useState('idle'); // idle, loading, success, error
 
@@ -34,28 +36,54 @@ const DeleteAccount = () => {
                 width: '100%',
                 border: '1px solid rgba(255,255,255,0.1)'
             }}>
-                <h1 style={{ color: '#ff4757', marginBottom: '20px', textAlign: 'center' }}>Delete Account Request</h1>
+                <h1 style={{ color: '#ff4757', marginBottom: '20px', textAlign: 'center' }}>{t('deleteAccountPage.title')}</h1>
+
+                <div style={{ color: '#ccc', marginBottom: '30px', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    <h3 style={{ color: '#fff', marginBottom: '10px' }}>{t('deleteAccountPage.requestTitle')}</h3>
+                    <p style={{ marginBottom: '15px' }}>
+                        <Trans i18nKey="deleteAccountPage.intro" />
+                    </p>
+
+                    <h4 style={{ color: '#fff', marginBottom: '5px' }}>{t('deleteAccountPage.howToTitle')}</h4>
+                    <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                        <li><Trans i18nKey="deleteAccountPage.option1" /></li>
+                        <li><Trans i18nKey="deleteAccountPage.option2" /></li>
+                    </ul>
+
+                    <h4 style={{ color: '#fff', marginBottom: '5px' }}>{t('deleteAccountPage.dataTitle')}</h4>
+                    <p style={{ marginBottom: '10px' }}>
+                        {t('deleteAccountPage.dataIntro')}
+                    </p>
+                    <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                        <li>{t('deleteAccountPage.dataList.p1')}</li>
+                        <li>{t('deleteAccountPage.dataList.p2')}</li>
+                        <li>{t('deleteAccountPage.dataList.p3')}</li>
+                        <li>{t('deleteAccountPage.dataList.p4')}</li>
+                        <li>{t('deleteAccountPage.dataList.p5')}</li>
+                    </ul>
+
+                    <h4 style={{ color: '#fff', marginBottom: '5px' }}>{t('deleteAccountPage.retentionTitle')}</h4>
+                    <p>
+                        {t('deleteAccountPage.retentionText')}
+                    </p>
+                </div>
 
                 {status === 'success' ? (
-                    <div style={{ textAlign: 'center', color: '#fff' }}>
-                        <h3 style={{ color: '#00ff88' }}>Request Submitted</h3>
-                        <p>If an account exists with this email, you will receive instructions to finalize the deletion process.</p>
-                        <p style={{ marginTop: '20px', fontSize: '0.9em', color: '#888' }}>
-                            Note: The fastest way to delete your account is directly through the mobile app in Settings {'>'} Danger Zone.
+                    <div style={{ textAlign: 'center', color: '#fff', padding: '20px', backgroundColor: 'rgba(0,255,136,0.1)', borderRadius: '10px' }}>
+                        <h3 style={{ color: '#00ff88', marginBottom: '10px' }}>{t('deleteAccountPage.successTitle')}</h3>
+                        <p>{t('deleteAccountPage.successMessage')}</p>
+                        <p style={{ marginTop: '10px', fontSize: '0.8em', color: '#aaa' }}>
+                            {t('deleteAccountPage.successNote')}
                         </p>
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit}>
-                        <p style={{ color: '#ccc', marginBottom: '20px', textAlign: 'center' }}>
-                            Enter your email address to request permanent account deletion.
-                            This action is irreversible and will remove all your workout history and profile data.
-                        </p>
-
                         <div style={{ marginBottom: '20px' }}>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '8px' }}>Email Address</label>
+                            <label style={{ display: 'block', color: '#fff', marginBottom: '8px', fontWeight: 'bold' }}>{t('deleteAccountPage.emailLabel')}</label>
                             <input
                                 type="email"
                                 required
+                                placeholder={t('deleteAccountPage.emailPlaceholder')}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 style={{
@@ -81,10 +109,11 @@ const DeleteAccount = () => {
                                 color: '#fff',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
-                                opacity: status === 'loading' ? 0.7 : 1
+                                opacity: status === 'loading' ? 0.7 : 1,
+                                fontSize: '1rem'
                             }}
                         >
-                            {status === 'loading' ? 'Processing...' : 'Request Deletion'}
+                            {status === 'loading' ? t('deleteAccountPage.processing') : t('deleteAccountPage.submitButton')}
                         </button>
                     </form>
                 )}
