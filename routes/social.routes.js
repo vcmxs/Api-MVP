@@ -6,16 +6,16 @@ const { authenticateToken: auth } = require('../middleware/auth');
 
 // --- Friend Request Logic ---
 
-// Send Friend Request (using Friend Code)
+// Send Friend Request (using Username)
 router.post('/request', auth, async (req, res) => {
     try {
-        const { friendCode } = req.body;
+        const { username } = req.body;
         const senderId = req.user.id;
 
-        if (!friendCode) return res.status(400).json({ message: 'Friend code is required' });
+        if (!username) return res.status(400).json({ message: 'Username is required' });
 
-        // Find user by code
-        const receiver = await User.findByReferralCode(friendCode);
+        // Find user by username
+        const receiver = await User.findByUsername(username);
         if (!receiver) return res.status(404).json({ message: 'User not found' });
 
         if (receiver.id === senderId) return res.status(400).json({ message: 'You cannot add yourself' });
