@@ -151,6 +151,25 @@ exports.assignTrainee = async (req, res) => {
             [coachId, trainee.id]
         );
 
+        // Auto-friend logic: Create 'accepted' friendship
+        // Standardize IDs: internal logic usually puts smaller ID first for the unique constraint
+        const u1 = Math.min(coachId, trainee.id);
+        const u2 = Math.max(coachId, trainee.id);
+
+        try {
+            await pool.query(
+                `INSERT INTO friendships (user_id_1, user_id_2, status, action_user_id) 
+                 VALUES ($1, $2, 'accepted', $3)
+                 ON CONFLICT (user_id_1, user_id_2) 
+                 DO UPDATE SET status = 'accepted', action_user_id = $3`,
+                [u1, u2, coachId]
+            );
+            console.log(`Auto-fiended Coach ${coachId} and Trainee ${trainee.id}`);
+        } catch (friendErr) {
+            console.error('Auto-friend error (ignoring to prevent failure of main task):', friendErr);
+            // We don't fail the request if this fails, as it's a secondary feature
+        }
+
         res.status(201).json({
             id: trainee.id,
             name: trainee.name,
@@ -370,6 +389,14 @@ exports.updateTraineeSubscription = async (req, res) => {
         );
 
         await client.query('COMMIT'); // Commit Transaction
+
+        if (req.io) {
+            req.io.to(`user_${traineeId}`).emit('subscription_updated', {
+                status: 'active',
+                subscription_end_date: endDate
+            });
+            console.log(`Emitted subscription_updated to user_${traineeId}`);
+        }
 
         res.json({
             message: 'Subscription updated successfully',
