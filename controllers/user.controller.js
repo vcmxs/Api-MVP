@@ -258,10 +258,20 @@ exports.updateUserProfile = async (req, res) => {
     }
 
     try {
+        // [MODIFIED] Pass callback or handle inside User model? 
+        // We can just add the logging logic here in controller for simplicity if User.updateProfile doesn't support it directly without modification
+        // But better to keep business logic encapsulated or just do it here as a side effect.
+
+        // Let's do it here:
         const user = await User.updateProfile(userId, { name, age, sex, phone, gym, notes, height, weight, username });
 
         if (!user) {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+        }
+
+        // [NEW] Log weight if provided
+        if (weight) {
+            await pool.query('INSERT INTO weight_logs (user_id, weight) VALUES ($1, $2)', [userId, weight]);
         }
 
         res.json(user);
@@ -492,6 +502,29 @@ exports.deleteOwnAccount = async (req, res) => {
         res.json({ message: 'Account deleted successfully' });
     } catch (err) {
         console.error('Delete own account error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+
+/**
+ * Get weight history
+ */
+exports.getWeightHistory = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        // Verify access (self or coach) - simpler for now:
+        if (req.user.id !== parseInt(userId) && req.user.role !== 'coach' && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const result = await pool.query(
+            'SELECT weight, logged_at FROM weight_logs WHERE user_id = $1 ORDER BY logged_at ASC',
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Get weight history error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
