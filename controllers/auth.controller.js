@@ -89,7 +89,7 @@ exports.register = async (req, res) => {
                 role: user.role
             },
             JWT_SECRET,
-            { expiresIn: '7d' } // Token expires in 7 days
+            { expiresIn: '365d' } // Token expires in 365 days (1 year)
         );
 
         res.status(201).json({
@@ -210,7 +210,7 @@ exports.login = async (req, res) => {
                 role: user.role
             },
             JWT_SECRET,
-            { expiresIn: '7d' } // Token expires in 7 days
+            { expiresIn: '365d' } // Token expires in 365 days (1 year)
         );
         console.log('Token generated successfully');
 
@@ -318,7 +318,7 @@ exports.googleLogin = async (req, res) => {
                 role: user.role
             },
             JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '365d' } // Token expires in 365 days (1 year)
         );
 
         res.json({
