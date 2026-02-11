@@ -269,9 +269,25 @@ exports.updateUserProfile = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
-        // [NEW] Log weight if provided
+        // [NEW] Log weight if provided AND changed
         if (weight) {
-            await pool.query('INSERT INTO weight_logs (user_id, weight) VALUES ($1, $2)', [userId, weight]);
+            // Check previous weight to avoid duplicate lots (flatlining the chart)
+            // We can check the 'user' object returned above (which is the UPDATED one), 
+            // BUT we need the OLD one. 
+            // Actually, we can just check the last log in history.
+            const lastLog = await pool.query('SELECT weight FROM weight_logs WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1', [userId]);
+
+            let shouldLog = true;
+            if (lastLog.rows.length > 0) {
+                const lastWeight = parseFloat(lastLog.rows[0].weight);
+                if (Math.abs(lastWeight - parseFloat(weight)) < 0.01) { // Float comparison
+                    shouldLog = false;
+                }
+            }
+
+            if (shouldLog) {
+                await pool.query('INSERT INTO weight_logs (user_id, weight) VALUES ($1, $2)', [userId, weight]);
+            }
         }
 
         res.json(user);
