@@ -140,6 +140,86 @@ router.get('/friends', auth, async (req, res) => {
 
 // --- Messaging Logic ---
 
+// Get User's Active Conversations (Inbox)
+router.get('/conversations', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Query to find latest message per conversation
+        // We use a CTE (Common Table Expression) to identify the "other person" in the thread
+        // and partition by that person to get the most recent message.
+        const query = `
+            WITH Conversations AS (
+                SELECT 
+                    id, sender_id, receiver_id, content, created_at, is_read,
+                    CASE 
+                        WHEN sender_id = $1 THEN receiver_id 
+                        ELSE sender_id 
+                    END as contact_id,
+                    ROW_NUMBER() OVER(
+                        PARTITION BY 
+                            CASE 
+                                WHEN sender_id = $1 THEN receiver_id 
+                                ELSE sender_id 
+                            END 
+                        ORDER BY created_at DESC
+                    ) as rn
+                FROM messages
+                WHERE sender_id = $1 OR receiver_id = $1
+            )
+            SELECT 
+                c.id as message_id, 
+                c.sender_id, 
+                c.receiver_id, 
+                c.content as last_message, 
+                c.created_at as last_message_date, 
+                c.is_read,
+                c.contact_id,
+                u.name as contact_name,
+                u.profile_pic_url as contact_pic
+            FROM Conversations c
+            JOIN users u ON c.contact_id = u.id
+            WHERE c.rn = 1
+            ORDER BY c.created_at DESC;
+        `;
+
+        const result = await pool.query(query, [userId]);
+
+        // Count unread messages per conversation
+        // This is a separate lightweight query to attach badge counts
+        const unreadQuery = `
+            SELECT sender_id, COUNT(*) as unread_count
+            FROM messages
+            WHERE receiver_id = $1 AND is_read = false
+            GROUP BY sender_id
+        `;
+        const unreadResult = await pool.query(unreadQuery, [userId]);
+        const unreadMap = {};
+        unreadResult.rows.forEach(row => {
+            unreadMap[row.sender_id] = parseInt(row.unread_count);
+        });
+
+        // Format the response
+        const conversations = result.rows.map(row => ({
+            id: row.contact_id.toString(), // The ID of the other person to easily route to ChatScreen
+            friend: {
+                id: row.contact_id,
+                name: row.contact_name,
+                profile_pic_url: row.contact_pic,
+            },
+            lastMessage: row.last_message,
+            lastMessageDate: row.last_message_date,
+            isRead: row.sender_id === userId ? true : row.is_read, // If I sent the last message, it's not unread to me
+            unreadCount: unreadMap[row.contact_id] || 0
+        }));
+
+        res.json({ conversations });
+    } catch (err) {
+        console.error('Error fetching conversations:', err);
+        res.status(500).json({ message: 'Server error fetching conversations' });
+    }
+});
+
 // Get Messages
 router.get('/messages/:friendId', auth, async (req, res) => {
     try {
