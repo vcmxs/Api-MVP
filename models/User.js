@@ -29,7 +29,7 @@ class User {
      */
     static async findByUsername(username) {
         const result = await pool.query(
-            'SELECT * FROM users WHERE username = $1',
+            'SELECT * FROM users WHERE LOWER(username) = LOWER($1)',
             [username]
         );
         return result.rows[0];
