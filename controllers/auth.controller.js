@@ -138,19 +138,23 @@ exports.login = async (req, res) => {
         // Authenticate user
         console.log(`Login attempt for: '${cleanEmail}'`);
 
-        // First check if user exists by email (for debugging)
-        const userByEmail = await User.findByEmail(cleanEmail);
-        if (!userByEmail) {
-            console.log('User NOT found by email');
+        // First check if user exists by email, fallback to username
+        let userAccount = await User.findByEmail(cleanEmail);
+        if (!userAccount) {
+            userAccount = await User.findByUsername(cleanEmail);
+        }
+
+        if (!userAccount) {
+            console.log('User NOT found by email or username');
             return res.status(401).json({
                 error: 'Unauthorized',
-                message: 'User not found with this email'
+                message: 'User not found with this email or username'
             });
         }
 
         // Check password (direct comparison for now as per current DB setup)
-        if (userByEmail.password !== cleanPassword) {
-            console.log(`Password mismatch. Input: '${cleanPassword}', Stored: '${userByEmail.password}'`);
+        if (userAccount.password !== cleanPassword) {
+            console.log(`Password mismatch. Input: '${cleanPassword}', Stored: '${userAccount.password}'`);
             return res.status(401).json({
                 error: 'Unauthorized',
                 message: 'Incorrect password'
@@ -158,22 +162,22 @@ exports.login = async (req, res) => {
         }
 
         // Check for subscription expiration
-        if (userByEmail.subscription_status === 'active' && userByEmail.subscription_end_date) {
-            const endDate = new Date(userByEmail.subscription_end_date);
+        if (userAccount.subscription_status === 'active' && userAccount.subscription_end_date) {
+            const endDate = new Date(userAccount.subscription_end_date);
             if (endDate < new Date()) {
-                console.log(`Subscription expired for user ${userByEmail.id}. Downgrading to free/starter.`);
+                console.log(`Subscription expired for user ${userAccount.id}. Downgrading to free/starter.`);
                 // Downgrade user
                 await pool.query(
                     "UPDATE users SET subscription_status = 'free', subscription_tier = 'starter' WHERE id = $1",
-                    [userByEmail.id]
+                    [userAccount.id]
                 );
                 // Update local object so response is correct
-                userByEmail.subscription_status = 'free';
-                userByEmail.subscription_tier = 'starter';
+                userAccount.subscription_status = 'free';
+                userAccount.subscription_tier = 'starter';
             }
         }
 
-        const user = userByEmail;
+        const user = userAccount;
         console.log('User authenticated successfully');
 
         // Check for Coach Subscription if Trainee
