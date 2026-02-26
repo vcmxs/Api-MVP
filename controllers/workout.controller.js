@@ -67,6 +67,125 @@ exports.createWorkoutPlan = async (req, res) => {
 };
 
 /**
+ * Create a shared Co-Op workout plan (generates plan for both users)
+ */
+exports.createSharedWorkoutSession = async (req, res) => {
+    try {
+        const { traineeId, coachId, name, description, scheduledDate, exercises } = req.body;
+
+        if (!traineeId || !coachId || !name || !exercises || exercises.length === 0) {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Missing required fields: traineeId, coachId, name, and exercises'
+            });
+        }
+
+        const { sharedSessionId, plans, allExercises } = await Workout.createSharedWithExercises(
+            { traineeId, coachId, name, description, scheduledDate },
+            exercises
+        );
+
+        res.status(201).json({
+            message: 'Shared Co-Op Session created successfully!',
+            sharedSessionId,
+            plans: plans.map(p => ({ id: p.id, trainee_id: p.trainee_id, shared_session_id: p.shared_session_id }))
+        });
+
+        // Notify Trainee (if different from coach)
+        if (String(traineeId) !== String(coachId)) {
+            const coachResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [coachId]);
+            const coachName = coachResult.rows[0]?.name || 'Coach';
+
+            await NotificationController.createNotification(
+                traineeId,
+                'New Co-Op Workout Assigned',
+                JSON.stringify({ name: coachName, workoutName: name }),
+                'workout_assigned',
+                plans.find(p => String(p.trainee_id) === String(traineeId))?.id,
+                true // sendPush
+            );
+        }
+    } catch (err) {
+        console.error('Create shared workout session error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
+ * Get full shared session by shared Session ID
+ */
+exports.getSharedSessionById = async (req, res) => {
+    try {
+        const { sharedSessionId } = req.params;
+
+        // Find all workout plans in this shared session
+        const plansResult = await require('../config/database').query(
+            'SELECT * FROM workout_plans WHERE shared_session_id = $1',
+            [sharedSessionId]
+        );
+
+        if (plansResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'Shared session not found' });
+        }
+
+        const plans = [];
+
+        // For each plan, fetch logic equivalent to findByIdWithExercises and attach logs
+        for (const planRow of plansResult.rows) {
+            const workout = await Workout.findByIdWithExercises(planRow.id);
+            if (workout) {
+                // Attach logs
+                for (const ex of workout.exercises) {
+                    const logsResult = await require('../config/database').query(
+                        'SELECT * FROM exercise_logs WHERE exercise_id = $1 ORDER BY set_number ASC',
+                        [ex.id]
+                    );
+                    ex.logs = logsResult.rows;
+                }
+
+                plans.push({
+                    id: workout.id.toString(),
+                    traineeId: workout.trainee_id.toString(),
+                    coachId: workout.coach_id.toString(),
+                    sharedSessionId: workout.shared_session_id,
+                    name: workout.name,
+                    description: workout.description,
+                    scheduledDate: workout.scheduled_date,
+                    status: workout.status,
+                    createdAt: workout.created_at,
+                    startedAt: workout.started_at,
+                    completedAt: workout.completed_at,
+                    exercises: workout.exercises.map(ex => ({
+                        id: ex.id.toString(),
+                        name: ex.name,
+                        sets: ex.sets,
+                        reps: ex.reps,
+                        targetWeight: parseFloat(ex.target_weight),
+                        weightUnit: ex.weight_unit,
+                        restTime: ex.rest_time,
+                        notes: ex.notes,
+                        order: ex.exercise_order,
+                        rpe: ex.rpe,
+                        rir: ex.rir,
+                        trackRpe: ex.track_rpe !== undefined ? ex.track_rpe : (ex.rpe != null),
+                        trackRir: ex.track_rir !== undefined ? ex.track_rir : (ex.rir != null),
+                        isCardio: ex.is_cardio,
+                        targetDistance: parseFloat(ex.target_distance),
+                        targetDuration: parseFloat(ex.target_duration),
+                        logs: ex.logs
+                    }))
+                });
+            }
+        }
+
+        res.json({ sharedSessionId, plans });
+    } catch (err) {
+        console.error('Get shared session error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
  * Get workout plan by ID
  */
 exports.getWorkoutPlanById = async (req, res) => {
@@ -372,10 +491,47 @@ exports.logExerciseSet = async (req, res) => {
             duration: log.duration,
             calories: log.calories,
             completed: log.completed,
-            completed: log.completed,
             loggedAt: log.logged_at,
             completed: log.completed
         });
+
+        // --- WEBSOCKET BROADCAST LOGIC ---
+        // If this workout plan belongs to a shared session, notify other participants
+        if (req.io) {
+            try {
+                // 1. Check if workout has a shared_session_id
+                const planResult = await require('../config/database').query(
+                    'SELECT shared_session_id FROM workout_plans WHERE id = $1',
+                    [workoutPlanId]
+                );
+
+                const sharedSessionId = planResult.rows[0]?.shared_session_id;
+
+                if (sharedSessionId) {
+                    // 2. Find all OTHER workout plans in this shared session
+                    const peersResult = await require('../config/database').query(
+                        'SELECT trainee_id FROM workout_plans WHERE shared_session_id = $1 AND id != $2',
+                        [sharedSessionId, workoutPlanId]
+                    );
+
+                    // 3. Emit event to all peers' private rooms
+                    peersResult.rows.forEach(peer => {
+                        req.io.to(`user_${peer.trainee_id}`).emit('coop_set_logged', {
+                            sharedSessionId,
+                            exerciseId: log.exercise_id.toString(),
+                            setNumber: log.set_number,
+                            repsCompleted: log.reps_completed,
+                            weightUsed: parseFloat(log.weight_used),
+                            completed: log.completed
+                        });
+                    });
+                }
+            } catch (socketErr) {
+                console.error("Socket emit error for shared session:", socketErr);
+            }
+        }
+        // ---------------------------------
+
     } catch (err) {
         console.error('Log exercise error details:', {
             message: err.message,
@@ -430,10 +586,53 @@ exports.updateExerciseLog = async (req, res) => {
             rir: log.rir,
             distance: log.distance,
             duration: log.duration,
+            distance: log.distance,
+            duration: log.duration,
             calories: log.calories,
             completed: log.completed,
             loggedAt: log.logged_at
         });
+
+        // --- WEBSOCKET BROADCAST LOGIC ---
+        // If this workout plan belongs to a shared session, notify other participants
+        if (req.io) {
+            try {
+                // We need to look up the workoutPlanId since logId only gives us the log and exercise
+                const planResult = await require('../config/database').query(
+                    `SELECT wp.id as workout_plan_id, wp.shared_session_id 
+                     FROM workout_plans wp
+                     JOIN exercises e ON wp.id = e.workout_plan_id
+                     WHERE e.id = $1`,
+                    [log.exercise_id]
+                );
+
+                const planRecord = planResult.rows[0];
+
+                if (planRecord && planRecord.shared_session_id) {
+                    // 2. Find all OTHER workout plans in this shared session
+                    const peersResult = await require('../config/database').query(
+                        'SELECT trainee_id FROM workout_plans WHERE shared_session_id = $1 AND id != $2',
+                        [planRecord.shared_session_id, planRecord.workout_plan_id]
+                    );
+
+                    // 3. Emit event to all peers' private rooms
+                    peersResult.rows.forEach(peer => {
+                        req.io.to(`user_${peer.trainee_id}`).emit('coop_set_logged', {
+                            sharedSessionId: planRecord.shared_session_id,
+                            exerciseId: log.exercise_id.toString(),
+                            setNumber: log.set_number,
+                            repsCompleted: log.reps_completed,
+                            weightUsed: parseFloat(log.weight_used),
+                            completed: log.completed
+                        });
+                    });
+                }
+            } catch (socketErr) {
+                console.error("Socket emit error for shared session update:", socketErr);
+            }
+        }
+        // ---------------------------------
+
     } catch (err) {
         console.error('Update log error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
