@@ -69,6 +69,90 @@ class Workout {
     }
 
     /**
+     * Create a shared Co-Op workout plan assigned to two users
+     */
+    static async createSharedWithExercises(workoutData, exercises) {
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            // 1. Create the overarching shared session
+            const sessionResult = await client.query(
+                `INSERT INTO shared_sessions (creator_id) VALUES ($1) RETURNING *`,
+                [workoutData.coachId]
+            );
+            const sharedSessionId = sessionResult.rows[0].id;
+
+            // 2. Create two identical workout plans, one for each user. Both point to the same coach_id and shared_session_id.
+            const userIds = [workoutData.coachId, workoutData.traineeId]; // Usually Coach and Peer Coach/Trainee
+            const workoutPlans = [];
+            const allInsertedExercises = [];
+
+            for (const userId of userIds) {
+                const planResult = await client.query(
+                    `INSERT INTO workout_plans (trainee_id, coach_id, shared_session_id, name, description, scheduled_date, status)
+             VALUES ($1, $2, $3, $4, $5, $6, 'assigned')
+             RETURNING *`,
+                    [
+                        userId, // Each person becomes a trainee of their own plan
+                        workoutData.coachId, // Original creator is technically the logic 'coach'
+                        sharedSessionId,
+                        workoutData.name,
+                        workoutData.description || '',
+                        workoutData.scheduledDate || new Date().toISOString().split('T')[0]
+                    ]
+                );
+                const workoutPlan = planResult.rows[0];
+                workoutPlans.push(workoutPlan);
+
+                // Insert exercises for this specific plan instance
+                const exercisePromises = exercises.map((ex, index) => {
+                    return client.query(
+                        `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+               RETURNING *`,
+                        [
+                            workoutPlan.id,
+                            ex.name,
+                            ex.sets,
+                            ex.reps,
+                            ex.targetWeight || 0,
+                            ex.weightUnit || 'kg',
+                            ex.restTime || 60,
+                            ex.notes || '',
+                            index + 1,
+                            ex.rpe !== undefined && ex.rpe !== null ? ex.rpe : null,
+                            ex.rir !== undefined && ex.rir !== null ? ex.rir : null,
+                            (ex.isCardio || ex.is_cardio) ? true : false,
+                            ex.targetDistance || ex.target_distance || null,
+                            ex.targetDuration || ex.target_duration || null,
+                            ex.trackRpe || ex.track_rpe || false,
+                            ex.trackRir || ex.track_rir || false
+                        ]
+                    );
+                });
+
+                const exerciseResults = await Promise.all(exercisePromises);
+                allInsertedExercises.push({
+                    userId,
+                    planId: workoutPlan.id,
+                    exercises: exerciseResults.map(r => r.rows[0])
+                });
+            }
+
+            await client.query('COMMIT');
+
+            return { sharedSessionId, plans: workoutPlans, allExercises: allInsertedExercises };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
      * Get workout plan by ID with exercises
      */
     static async findByIdWithExercises(workoutPlanId) {
