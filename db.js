@@ -64,12 +64,22 @@ const createTables = async () => {
       )
     `);
 
+    // Shared Sessions table (Co-op Workouts)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS shared_sessions (
+        id SERIAL PRIMARY KEY,
+        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Workout plans table
     await client.query(`
       CREATE TABLE IF NOT EXISTS workout_plans (
         id SERIAL PRIMARY KEY,
         trainee_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         coach_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        shared_session_id INTEGER REFERENCES shared_sessions(id) ON DELETE SET NULL,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         scheduled_date DATE NOT NULL,
