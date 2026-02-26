@@ -7,6 +7,8 @@ const router = express.Router();
 
 // Workout plan CRUD
 router.post('/', requireActiveSubscription, workoutController.createWorkoutPlan);
+router.post('/shared', requireActiveSubscription, workoutController.createSharedWorkoutSession);
+router.get('/shared/:sharedSessionId', workoutController.getSharedSessionById);
 router.get('/:workoutPlanId', workoutController.getWorkoutPlanById);
 router.put('/:workoutPlanId', workoutController.updateWorkoutPlan);
 router.put('/:planId', requireActiveSubscription, workoutController.updateWorkoutPlan); // Alternate route
