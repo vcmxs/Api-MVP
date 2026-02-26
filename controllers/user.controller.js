@@ -125,14 +125,42 @@ exports.assignTrainee = async (req, res) => {
             });
         }
 
-        if (trainee.role !== 'trainee') {
+        if (trainee.role !== 'trainee' && trainee.role !== 'coach') {
             return res.status(400).json({
                 error: 'Bad Request',
-                message: 'User is not a trainee'
+                message: 'User must be a trainee or a coach to be assigned.'
             });
         }
 
-        // Check if trainee is already assigned to ANY coach
+        // [PEER COACHING LOGIC] If the person being assigned is ALSO a coach...
+        if (trainee.role === 'coach') {
+            // Check their limit as well (Peer Coaching consumes a slot on BOTH sides)
+            // They are taking up 1 slot of their own business to be trained
+            const traineeCoachProfile = await pool.query(
+                'SELECT subscription_status, subscription_tier FROM users WHERE id = $1',
+                [trainee.id]
+            );
+
+            const pTier = traineeCoachProfile.rows[0]?.subscription_tier || 'starter';
+            const pMaxTrainees = getTraineeLimit(pTier);
+
+            const pCurrentTraineeCountResult = await pool.query(
+                'SELECT COUNT(*) FROM coach_trainee WHERE coach_id = $1',
+                [trainee.id]
+            );
+            const pCurrentCount = parseInt(pCurrentTraineeCountResult.rows[0].count);
+
+            if (pCurrentCount >= pMaxTrainees) {
+                const tierInfo = getTierInfo(pTier);
+                return res.status(403).json({
+                    error: 'Limit Reached',
+                    message: `The coach you are trying to add has reached their trainee limit (${pMaxTrainees}) on their ${tierInfo?.name || pTier} plan, so they cannot allocate a slot to be trained right now.`
+                });
+            }
+        }
+
+        // Check if trainee is already assigned to ANY coach (this coach OR another coach)
+        // For peer coaches, we might allow multiple coaches in the future, but standardizing to 1 active assigned coach for now.
         const existingResult = await pool.query(
             'SELECT id FROM coach_trainee WHERE trainee_id = $1',
             [trainee.id]
@@ -141,7 +169,7 @@ exports.assignTrainee = async (req, res) => {
         if (existingResult.rows.length > 0) {
             return res.status(409).json({
                 error: 'Conflict',
-                message: 'This trainee is already assigned to a coach. They must leave their current coach before you can add them.'
+                message: 'This user is already assigned to a coach. They must leave their current coach before you can add them.'
             });
         }
 
