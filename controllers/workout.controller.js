@@ -140,7 +140,22 @@ exports.getSharedSessionById = async (req, res) => {
                         'SELECT * FROM exercise_logs WHERE exercise_id = $1 ORDER BY set_number ASC',
                         [ex.id]
                     );
-                    ex.logs = logsResult.rows;
+                    ex.logs = logsResult.rows.map(log => ({
+                        id: log.id.toString(),
+                        exerciseId: log.exercise_id,
+                        setNumber: log.set_number,
+                        repsCompleted: log.reps_completed,
+                        weightUsed: parseFloat(log.weight_used),
+                        weightUnit: log.weight_unit,
+                        notes: log.notes,
+                        rpe: log.rpe,
+                        rir: log.rir,
+                        distance: log.distance,
+                        duration: log.duration,
+                        calories: log.calories,
+                        completed: log.completed,
+                        completedAt: log.completed_at
+                    }));
                 }
 
                 plans.push({
@@ -235,7 +250,24 @@ exports.getWorkoutPlanById = async (req, res) => {
                 isCardio: ex.is_cardio,
                 targetDistance: ex.target_distance,
                 targetDuration: ex.target_duration,
-                logs: allLogs.filter(l => l.exercise_id === ex.id)
+                logs: allLogs
+                    .filter(l => l.exercise_id === ex.id)
+                    .map(log => ({
+                        id: log.id.toString(),
+                        exerciseId: log.exercise_id,
+                        setNumber: log.set_number,
+                        repsCompleted: log.reps_completed,
+                        weightUsed: parseFloat(log.weight_used),
+                        weightUnit: log.weight_unit,
+                        notes: log.notes,
+                        rpe: log.rpe,
+                        rir: log.rir,
+                        distance: log.distance,
+                        duration: log.duration,
+                        calories: log.calories,
+                        completed: log.completed,
+                        completedAt: log.completed_at
+                    }))
             }))
         });
     } catch (err) {
