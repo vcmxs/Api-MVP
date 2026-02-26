@@ -100,8 +100,8 @@ router.get('/friends', auth, async (req, res) => {
         // Get all friendships
         const result = await pool.query(
             `SELECT f.*, 
-                    u1.id as u1_id, u1.name as u1_name, u1.profile_pic_url as u1_pic, u1.referral_code as u1_code,
-                    u2.id as u2_id, u2.name as u2_name, u2.profile_pic_url as u2_pic, u2.referral_code as u2_code
+                    u1.id as u1_id, u1.name as u1_name, u1.profile_pic_url as u1_pic, u1.referral_code as u1_code, u1.role as u1_role, u1.email as u1_email,
+                    u2.id as u2_id, u2.name as u2_name, u2.profile_pic_url as u2_pic, u2.referral_code as u2_code, u2.role as u2_role, u2.email as u2_email
              FROM friendships f
              JOIN users u1 ON f.user_id_1 = u1.id
              JOIN users u2 ON f.user_id_2 = u2.id
@@ -114,11 +114,15 @@ router.get('/friends', auth, async (req, res) => {
             const friend = isUser1 ? {
                 id: row.u2_id,
                 name: row.u2_name,
+                email: row.u2_email,
+                role: row.u2_role,
                 profile_pic_url: row.u2_pic,
                 friend_code: row.u2_code
             } : {
                 id: row.u1_id,
                 name: row.u1_name,
+                email: row.u1_email,
+                role: row.u1_role,
                 profile_pic_url: row.u1_pic,
                 friend_code: row.u1_code
             };
