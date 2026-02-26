@@ -49,12 +49,12 @@ exports.getUserById = async (req, res) => {
 exports.getCoachTrainees = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT u.id, u.name, u.email, u.gym, ct.assigned_at, 
+            `SELECT u.id, u.name, u.email, u.gym, u.role, ct.assigned_at, 
                     ct.subscription_status as coach_subscription_status, 
                     ct.subscription_end_date as coach_subscription_end_date
        FROM users u
        INNER JOIN coach_trainee ct ON u.id = ct.trainee_id
-       WHERE ct.coach_id = $1 AND u.role = 'trainee'
+       WHERE ct.coach_id = $1
        ORDER BY ct.assigned_at ASC`,
             [req.params.coachId]
         );
