@@ -196,10 +196,20 @@ exports.getWorkoutPlanById = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'Workout plan not found' });
         }
 
+        // Fetch logs for all exercises
+        const logsResult = await require('../config/database').query(
+            'SELECT * FROM exercise_logs WHERE workout_plan_id = $1 ORDER BY set_number ASC',
+            [workout.id]
+        );
+        const allLogs = logsResult.rows;
+
+        // Attach logs to the root or inside the exercises
+        // The frontend expects `workout.logs` flat array for `currentWorkout.logs` OR `ex.logs`
         res.json({
             id: workout.id.toString(),
             traineeId: workout.trainee_id.toString(),
-            coachId: workout.coach_id.toString(),
+            coachId: workout.coach_id?.toString(),
+            shared_session_id: workout.shared_session_id,
             name: workout.name,
             description: workout.description,
             scheduledDate: workout.scheduled_date,
@@ -207,6 +217,7 @@ exports.getWorkoutPlanById = async (req, res) => {
             createdAt: workout.created_at,
             startedAt: workout.started_at,
             completedAt: workout.completed_at,
+            logs: allLogs, // Feed it directly to root for legacy UI logic
             exercises: workout.exercises.map(ex => ({
                 id: ex.id.toString(),
                 name: ex.name,
@@ -223,7 +234,8 @@ exports.getWorkoutPlanById = async (req, res) => {
                 trackRir: ex.track_rir !== undefined ? ex.track_rir : (ex.rir != null),
                 isCardio: ex.is_cardio,
                 targetDistance: ex.target_distance,
-                targetDuration: ex.target_duration
+                targetDuration: ex.target_duration,
+                logs: allLogs.filter(l => l.exercise_id === ex.id)
             }))
         });
     } catch (err) {
