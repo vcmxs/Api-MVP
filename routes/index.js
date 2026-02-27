@@ -35,5 +35,6 @@ router.use('/push-tokens', require('./pushToken.routes'));
 // router.use('/exercises', exerciseRoutes);
 
 router.use('/currency', require('./currency.routes'));
+router.use('/config', require('./config.routes'));
 
 module.exports = router;
