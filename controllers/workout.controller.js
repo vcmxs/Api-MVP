@@ -120,7 +120,10 @@ exports.getSharedSessionById = async (req, res) => {
 
         // Find all workout plans in this shared session
         const plansResult = await require('../config/database').query(
-            'SELECT * FROM workout_plans WHERE shared_session_id = $1',
+            `SELECT wp.*, u.name as trainee_name 
+             FROM workout_plans wp 
+             JOIN users u ON wp.trainee_id = u.id 
+             WHERE wp.shared_session_id = $1`,
             [sharedSessionId]
         );
 
@@ -137,7 +140,10 @@ exports.getSharedSessionById = async (req, res) => {
                 // Attach logs
                 for (const ex of workout.exercises) {
                     const logsResult = await require('../config/database').query(
-                        'SELECT * FROM exercise_logs WHERE exercise_id = $1 ORDER BY set_number ASC',
+                        `SELECT el.* 
+                         FROM exercise_logs el 
+                         WHERE el.exercise_id = $1 
+                         ORDER BY el.set_number ASC`,
                         [ex.id]
                     );
                     ex.logs = logsResult.rows.map(log => ({
@@ -161,6 +167,7 @@ exports.getSharedSessionById = async (req, res) => {
                 plans.push({
                     id: workout.id.toString(),
                     traineeId: workout.trainee_id.toString(),
+                    traineeName: planRow.trainee_name,
                     coachId: workout.coach_id.toString(),
                     sharedSessionId: workout.shared_session_id,
                     name: workout.name,
@@ -298,6 +305,8 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
                     scheduledDate: wp.scheduled_date,
                     status: wp.status,
                     coachName: wp.coach_name,
+                    sharedSessionId: wp.shared_session_id,
+                    partnerName: wp.partner_name,
                     createdAt: wp.created_at,
                     completedAt: wp.completed_at,
                     exercises: exercises.map(ex => ({
