@@ -213,7 +213,11 @@ exports.getWorkoutPlanById = async (req, res) => {
 
         // Fetch logs for all exercises
         const logsResult = await require('../config/database').query(
-            'SELECT * FROM exercise_logs WHERE workout_plan_id = $1 ORDER BY set_number ASC',
+            `SELECT el.* 
+             FROM exercise_logs el 
+             JOIN exercises e ON el.exercise_id = e.id 
+             WHERE e.workout_plan_id = $1 
+             ORDER BY el.set_number ASC`,
             [workout.id]
         );
         const allLogs = logsResult.rows;
