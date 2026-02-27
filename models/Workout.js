@@ -181,11 +181,20 @@ class Workout {
      */
     static async findByTraineeId(traineeId) {
         const result = await pool.query(
-            `SELECT wp.*, u.name as coach_name
-       FROM workout_plans wp
-       LEFT JOIN users u ON wp.coach_id = u.id
-       WHERE wp.trainee_id = $1
-       ORDER BY wp.created_at DESC`,
+            `SELECT wp.*, 
+                u.name as coach_name,
+                (
+                    SELECT pu.name 
+                    FROM workout_plans pwp
+                    JOIN users pu ON pwp.trainee_id = pu.id
+                    WHERE pwp.shared_session_id = wp.shared_session_id
+                    AND pwp.trainee_id != wp.trainee_id
+                    LIMIT 1
+                ) as partner_name
+             FROM workout_plans wp
+             LEFT JOIN users u ON wp.coach_id = u.id
+             WHERE wp.trainee_id = $1
+             ORDER BY wp.created_at DESC`,
             [traineeId]
         );
 
