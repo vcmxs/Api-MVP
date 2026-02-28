@@ -1,10 +1,10 @@
 const { Resend } = require('resend');
 
-// Initialize Resend with the provided API key (hardcoded for now to guarantee functionality, you can later move it to the .env)
-const resend = new Resend(process.env.RESEND_API_KEY || 're_Pj85SQcC_65Azr7CCCFCLoKek64SSzn4R');
+// Initialize Resend with the API key
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// When using the free tier of Resend, you MUST send emails from this specific address
-const FROM_EMAIL = 'onboarding@resend.dev';
+// Use our new verified custom domain!
+const FROM_EMAIL = 'no-reply@duplapp.win';
 
 /**
  * Sends a 6-digit verification code to the registered email address.
