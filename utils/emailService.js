@@ -35,10 +35,27 @@ const sendVerificationEmail = async (toEmail, pin) => {
             `
         };
 
-        await transporter.sendMail(mailOptions);
+        // Wrap in a Promise with a timeout to prevent silent hangs in production
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("SMTP Connection Timeout"));
+            }, 10000);
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                clearTimeout(timeout);
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(info);
+                }
+            });
+        });
+
         console.log(`Verification email sent to ${toEmail}`);
     } catch (error) {
         console.error('Error sending verification email:', error);
+        // We throw the error so the controller knows it failed, 
+        // but the controller itself should catch it and continue the registration.
         throw error;
     }
 };
@@ -66,7 +83,22 @@ const sendPasswordResetEmail = async (toEmail, pin) => {
             `
         };
 
-        await transporter.sendMail(mailOptions);
+        // Wrap in a Promise with a timeout to prevent silent hangs in production
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("SMTP Connection Timeout"));
+            }, 10000);
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                clearTimeout(timeout);
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(info);
+                }
+            });
+        });
+
         console.log(`Password reset email sent to ${toEmail}`);
     } catch (error) {
         console.error('Error sending password reset email:', error);
