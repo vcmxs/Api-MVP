@@ -1,7 +1,7 @@
 // controllers/auth.controller.js
 const User = require('../models/User');
 const pool = require('../config/database');
-const { sendVerificationEmail } = require('../utils/emailService');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 
 /**
  * Register a new user
@@ -423,7 +423,7 @@ exports.resendPin = async (req, res) => {
             [verification_pin, pin_expires_at, user.id]
         );
 
-        await require('../utils/emailService').sendVerificationEmail(email, verification_pin);
+        await sendVerificationEmail(email, verification_pin);
 
         res.json({ message: 'A new verification PIN has been sent.' });
     } catch (err) {
@@ -453,7 +453,7 @@ exports.forgotPassword = async (req, res) => {
             [reset_pin, pin_expires_at, user.id]
         );
 
-        await require('../utils/emailService').sendPasswordResetEmail(user.email, reset_pin);
+        await sendPasswordResetEmail(user.email, reset_pin);
 
         res.json({ message: 'Password reset PIN sent to email.' });
     } catch (err) {
