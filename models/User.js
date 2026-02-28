@@ -51,7 +51,8 @@ class User {
      */
     static async create(userData) {
         const { name, email, password, role, age, sex, phone, gym, notes, height, weight, profilePicUrl,
-            subscription_tier = 'starter', subscription_status = 'active', referredBy = null } = userData;
+            subscription_tier = 'starter', subscription_status = 'active', referredBy = null,
+            verification_pin = null, pin_expires_at = null } = userData;
 
         // Generate unique referral code
         // Simple alphanumeric code logic
@@ -62,10 +63,10 @@ class User {
         // In a high volume system, we'd want a retry loop
 
         const result = await pool.query(
-            `INSERT INTO users (name, email, password, role, age, sex, phone, gym, notes, height, weight, profile_pic_url, subscription_tier, subscription_status, referral_code, referred_by) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) 
-       RETURNING id, name, email, role, age, sex, phone, gym, notes, height, weight, profile_pic_url, subscription_tier, subscription_status, referral_code, referral_discount_used`,
-            [name, email, password, role, age, sex, phone, gym, notes, height, weight, profilePicUrl, subscription_tier, subscription_status, referralCode, referredBy]
+            `INSERT INTO users (name, email, password, role, age, sex, phone, gym, notes, height, weight, profile_pic_url, subscription_tier, subscription_status, referral_code, referred_by, verification_pin, pin_expires_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
+       RETURNING id, name, email, role, age, sex, phone, gym, notes, height, weight, profile_pic_url, subscription_tier, subscription_status, referral_code, referral_discount_used, is_verified`,
+            [name, email, password, role, age, sex, phone, gym, notes, height, weight, profilePicUrl, subscription_tier, subscription_status, referralCode, referredBy, verification_pin, pin_expires_at]
         );
 
         return result.rows[0];
@@ -76,7 +77,7 @@ class User {
      */
     static async authenticate(email, password) {
         const result = await pool.query(
-            'SELECT id, name, email, role, subscription_status, status FROM users WHERE email = $1 AND password = $2',
+            'SELECT id, name, email, role, subscription_status, status, is_verified FROM users WHERE email = $1 AND password = $2',
             [email, password]
         );
         return result.rows[0];
