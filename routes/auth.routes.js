@@ -2,8 +2,20 @@
 const express = require('express');
 const authController = require('../controllers/auth.controller');
 const upload = require('../config/upload');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
+
+// Stricter rate limiter for authentication endpoints - 5 attempts per 15 minutes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Limit each IP to 5 login attempts per windowMs
+    message: {
+        error: 'Too Many Login Attempts',
+        message: 'Too many login attempts from this IP, please try again after 15 minutes.'
+    },
+    skipSuccessfulRequests: true, // Don't count successful requests
+});
 
 // POST /api/v1/auth/register - with optional profile picture upload
 router.post('/register', upload.single('profilePic'), authController.register);
