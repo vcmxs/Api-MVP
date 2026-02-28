@@ -1,6 +1,7 @@
 // controllers/auth.controller.js
 const User = require('../models/User');
 const pool = require('../config/database');
+const { sendVerificationEmail } = require('../utils/emailService');
 
 /**
  * Register a new user
@@ -61,7 +62,13 @@ exports.register = async (req, res) => {
             profilePicUrl = `/uploads/profile-pics/${req.file.filename}`;
         }
 
-        // Create new user with profile picture
+        // Generate 6-digit confirmation PIN
+        const verification_pin = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Expiration time: 15 minutes from now
+        const pin_expires_at = new Date(Date.now() + 15 * 60 * 1000);
+
+        // Create new user with profile picture and PIN
         const user = await User.create({
             name,
             email,
@@ -75,37 +82,30 @@ exports.register = async (req, res) => {
             height,
             weight,
             profilePicUrl,
-            referredBy
+            referredBy,
+            verification_pin,
+            pin_expires_at
         });
 
-        // Generate JWT token
-        const jwt = require('jsonwebtoken');
-        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
+        // Send the verification email using Nodemailer
+        try {
+            await sendVerificationEmail(email, verification_pin);
+        } catch (emailError) {
+            console.error("Failed to send verification email but user was created:", emailError);
+            // We proceed anyway, they can request a new PIN using "Resend" later.
+        }
 
-        const token = jwt.sign(
-            {
-                id: user.id,
-                email: user.email,
-                role: user.role
-            },
-            JWT_SECRET,
-            { expiresIn: '365d' } // Token expires in 365 days (1 year)
-        );
-
+        // IMPORTANT: We NO LONGER return a JWT token upon registration. 
+        // The user must verify the email before they get a token.
         res.status(201).json({
-            token,
+            message: 'User registered successfully. Please verify your email.',
+            requiresVerification: true,
             user: {
                 id: user.id.toString(),
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                profilePicUrl: user.profile_pic_url,
-                referredBy: user.referred_by,
-                referralCode: user.referral_code,
-                referralDiscountUsed: false, // New users haven't used it yet
-                // Default subscription status for new users (not yet assigned to a coach)
-                coachSubscriptionStatus: null,
-                coachSubscriptionEndDate: null
+                is_verified: user.is_verified
             }
         });
     } catch (err) {
@@ -158,6 +158,17 @@ exports.login = async (req, res) => {
             return res.status(401).json({
                 error: 'Unauthorized',
                 message: 'Incorrect password'
+            });
+        }
+
+        // Check if the user's email is verified
+        if (userAccount.is_verified === false) {
+            console.log(`User ${userAccount.email} attempted to log in without email verification.`);
+            return res.status(403).json({
+                error: 'Forbidden',
+                message: 'Please verify your email address to continue.',
+                needsVerification: true,
+                email: userAccount.email
             });
         }
 
@@ -346,5 +357,135 @@ exports.googleLogin = async (req, res) => {
             error: 'Internal Server Error',
             message: err.message
         });
+    }
+};
+/**
+ * Verify a user's email using the 6-digit PIN
+ */
+exports.verifyEmail = async (req, res) => {
+    try {
+        const { email, pin } = req.body;
+
+        if (!email || !pin) {
+            return res.status(400).json({ error: 'Bad Request', message: 'Email and PIN are required' });
+        }
+
+        const user = await User.findByEmail(email.trim().toLowerCase());
+        if (!user) {
+            return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+        }
+
+        if (user.is_verified) {
+            return res.status(400).json({ error: 'Bad Request', message: 'Email is already verified' });
+        }
+
+        // Check PIN validity
+        if (user.verification_pin !== pin) {
+            return res.status(400).json({ error: 'Bad Request', message: 'Invalid verification PIN' });
+        }
+
+        // Check expiration
+        if (new Date(user.pin_expires_at) < new Date()) {
+            return res.status(400).json({ error: 'Bad Request', message: 'Verification PIN has expired' });
+        }
+
+        // Mark as verified and clear PIN
+        await pool.query(
+            "UPDATE users SET is_verified = TRUE, verification_pin = NULL, pin_expires_at = NULL WHERE id = $1",
+            [user.id]
+        );
+
+        res.json({ message: 'Email verified successfully. You can now log in.' });
+    } catch (err) {
+        console.error('Email verification error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Resend Verification PIN
+ */
+exports.resendPin = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Bad Request', message: 'Email is required' });
+
+        const user = await User.findByEmail(email.trim().toLowerCase());
+        if (!user) return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+        if (user.is_verified) return res.status(400).json({ error: 'Bad Request', message: 'Email is already verified' });
+
+        // Generate new PIN
+        const verification_pin = Math.floor(100000 + Math.random() * 900000).toString();
+        const pin_expires_at = new Date(Date.now() + 15 * 60 * 1000);
+
+        await pool.query(
+            "UPDATE users SET verification_pin = $1, pin_expires_at = $2 WHERE id = $3",
+            [verification_pin, pin_expires_at, user.id]
+        );
+
+        await require('../utils/emailService').sendVerificationEmail(email, verification_pin);
+
+        res.json({ message: 'A new verification PIN has been sent.' });
+    } catch (err) {
+        console.error('Resend PIN error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Request Password Reset (Generates PIN)
+ */
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Bad Request', message: 'Email is required' });
+
+        const user = await User.findByEmail(email.trim().toLowerCase());
+        if (!user) return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+
+        // We allow reset even if not strictly verified (up to business logic)
+
+        const reset_pin = Math.floor(100000 + Math.random() * 900000).toString();
+        const pin_expires_at = new Date(Date.now() + 15 * 60 * 1000);
+
+        await pool.query(
+            "UPDATE users SET reset_pin = $1, pin_expires_at = $2 WHERE id = $3",
+            [reset_pin, pin_expires_at, user.id]
+        );
+
+        await require('../utils/emailService').sendPasswordResetEmail(user.email, reset_pin);
+
+        res.json({ message: 'Password reset PIN sent to email.' });
+    } catch (err) {
+        console.error('Forgot Password error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Execute Password Reset with PIN
+ */
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, pin, newPassword } = req.body;
+        if (!email || !pin || !newPassword) return res.status(400).json({ error: 'Bad Request', message: 'All fields are required' });
+        if (newPassword.length < 6) return res.status(400).json({ error: 'Bad Request', message: 'Password must be at least 6 characters' });
+
+        const user = await User.findByEmail(email.trim().toLowerCase());
+        if (!user) return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+
+        if (user.reset_pin !== pin) return res.status(400).json({ error: 'Bad Request', message: 'Invalid reset PIN' });
+        if (new Date(user.pin_expires_at) < new Date()) return res.status(400).json({ error: 'Bad Request', message: 'Reset PIN has expired' });
+
+        // Update password and clear reset PIN
+        await pool.query(
+            "UPDATE users SET password = $1, reset_pin = NULL, pin_expires_at = NULL WHERE id = $2",
+            [newPassword, user.id]
+        );
+
+        res.json({ message: 'Password has been reset successfully. You can now log in.' });
+    } catch (err) {
+        console.error('Reset Password error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 };
