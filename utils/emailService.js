@@ -1,18 +1,10 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
-    requireTLS: true,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false
-    }
-});
+// Initialize Resend with the provided API key (hardcoded for now to guarantee functionality, you can later move it to the .env)
+const resend = new Resend(process.env.RESEND_API_KEY || 're_Pj85SQcC_65Azr7CCCFCLoKek64SSzn4R');
+
+// When using the free tier of Resend, you MUST send emails from this specific address
+const FROM_EMAIL = 'onboarding@resend.dev';
 
 /**
  * Sends a 6-digit verification code to the registered email address.
@@ -21,8 +13,8 @@ const transporter = nodemailer.createTransport({
  */
 const sendVerificationEmail = async (toEmail, pin) => {
     try {
-        const mailOptions = {
-            from: `"Dupla App" <${process.env.EMAIL_USER}>`,
+        const { data, error } = await resend.emails.send({
+            from: FROM_EMAIL,
             to: toEmail,
             subject: 'Verify your Dupla Account',
             html: `
@@ -36,30 +28,17 @@ const sendVerificationEmail = async (toEmail, pin) => {
                     <p style="font-size: 12px; color: #888;">If you did not create an account, no further action is required.</p>
                 </div>
             `
-        };
-
-        // Wrap in a Promise with a timeout to prevent silent hangs in production
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error("SMTP Connection Timeout"));
-            }, 10000);
-
-            transporter.sendMail(mailOptions, (error, info) => {
-                clearTimeout(timeout);
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(info);
-                }
-            });
         });
 
-        console.log(`Verification email sent to ${toEmail}`);
-    } catch (error) {
-        console.error('Error sending verification email:', error);
-        // We throw the error so the controller knows it failed, 
-        // but the controller itself should catch it and continue the registration.
-        throw error;
+        if (error) {
+            console.error('Resend API returned an error:', error);
+            throw error;
+        }
+
+        console.log(`Verification email sent to ${toEmail} via Resend. ID:`, data?.id);
+    } catch (err) {
+        console.error('Error sending verification email with Resend:', err);
+        throw err;
     }
 };
 
@@ -70,8 +49,8 @@ const sendVerificationEmail = async (toEmail, pin) => {
  */
 const sendPasswordResetEmail = async (toEmail, pin) => {
     try {
-        const mailOptions = {
-            from: `"Dupla App Support" <${process.env.EMAIL_USER}>`,
+        const { data, error } = await resend.emails.send({
+            from: FROM_EMAIL,
             to: toEmail,
             subject: 'Reset your Dupla Password',
             html: `
@@ -84,28 +63,17 @@ const sendPasswordResetEmail = async (toEmail, pin) => {
                     <p style="font-size: 12px; color: #888;">If you did not request a password reset, you can safely ignore this email.</p>
                 </div>
             `
-        };
-
-        // Wrap in a Promise with a timeout to prevent silent hangs in production
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error("SMTP Connection Timeout"));
-            }, 10000);
-
-            transporter.sendMail(mailOptions, (error, info) => {
-                clearTimeout(timeout);
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(info);
-                }
-            });
         });
 
-        console.log(`Password reset email sent to ${toEmail}`);
-    } catch (error) {
-        console.error('Error sending password reset email:', error);
-        throw error;
+        if (error) {
+            console.error('Resend API returned an error:', error);
+            throw error;
+        }
+
+        console.log(`Password reset email sent to ${toEmail} via Resend. ID:`, data?.id);
+    } catch (err) {
+        console.error('Error sending password reset email with Resend:', err);
+        throw err;
     }
 };
 
