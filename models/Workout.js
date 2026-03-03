@@ -182,6 +182,7 @@ class Workout {
     static async findByTraineeId(traineeId) {
         const result = await pool.query(
             `SELECT wp.*, 
+                (wp.shared_session_id IS NOT NULL) as is_shared,
                 u.name as coach_name,
                 (
                     SELECT pu.name 
