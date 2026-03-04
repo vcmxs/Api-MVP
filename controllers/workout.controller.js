@@ -305,6 +305,7 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
                     description: wp.description,
                     scheduledDate: wp.scheduled_date,
                     status: wp.status,
+                    coach_id: wp.coach_id,
                     coachName: wp.coach_name,
                     is_shared: wp.is_shared,
                     sharedSessionId: wp.shared_session_id,
