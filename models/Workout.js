@@ -157,7 +157,7 @@ class Workout {
      */
     static async findByIdWithExercises(workoutPlanId) {
         const planResult = await pool.query(
-            'SELECT * FROM workout_plans WHERE id = $1',
+            'SELECT *, (shared_session_id IS NOT NULL) as is_shared FROM workout_plans WHERE id = $1',
             [workoutPlanId]
         );
 
