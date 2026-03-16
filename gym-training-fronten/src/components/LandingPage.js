@@ -157,7 +157,7 @@ const LandingPage = () => {
                     <div className="pricing-card gold">
                         <div className="card-header">
                             <h3>Gold</h3>
-                            <div className="price">$80<span>/mo</span></div>
+                            <div className="price">$50<span>/mo</span></div>
                         </div>
                         <ul className="card-features">
                             <li>Up to 25 Trainees</li>
