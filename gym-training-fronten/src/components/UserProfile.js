@@ -340,7 +340,7 @@ function UserProfile({ userId, editable, onUpdate }) {
         { id: 'starter', name: 'Starter', trainees: 1, price: 'Free' },
         { id: 'bronze', name: 'Bronze', trainees: 4, price: '$15/mo' },
         { id: 'silver', name: 'Silver', trainees: 10, price: '$30/mo' },
-        { id: 'gold', name: 'Gold', trainees: 25, price: '$80/mo' },
+        { id: 'gold', name: 'Gold', trainees: 25, price: '$50/mo' },
         { id: 'olympian', name: 'Olympian', trainees: 'Unlimited', price: '$100/mo' }
     ];
 
