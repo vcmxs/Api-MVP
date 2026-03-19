@@ -194,19 +194,22 @@ exports.login = async (req, res) => {
         // Check for Coach Subscription if Trainee
         let coachSubscription = null;
         let coachId = null;
+        let coachName = null;
         if (user.role === 'trainee') {
             try {
                 const coachSubResult = await pool.query(
-                    `SELECT subscription_status, subscription_end_date, coach_id 
-                     FROM coach_trainee 
-                     WHERE trainee_id = $1 
-                     ORDER BY subscription_end_date DESC 
+                    `SELECT ct.subscription_status, ct.subscription_end_date, ct.coach_id, u.name as coach_name 
+                     FROM coach_trainee ct
+                     JOIN users u ON u.id = ct.coach_id
+                     WHERE ct.trainee_id = $1 
+                     ORDER BY ct.subscription_end_date DESC 
                      LIMIT 1`,
                     [user.id]
                 );
                 if (coachSubResult.rows.length > 0) {
                     coachSubscription = coachSubResult.rows[0];
                     coachId = coachSubResult.rows[0].coach_id;
+                    coachName = coachSubResult.rows[0].coach_name;
                 }
             } catch (err) {
                 console.error('Error fetching coach subscription:', err);
@@ -241,6 +244,8 @@ exports.login = async (req, res) => {
                 coachSubscriptionStatus: coachSubscription ? coachSubscription.subscription_status : null,
                 coachSubscriptionEndDate: coachSubscription ? coachSubscription.subscription_end_date : null,
                 coachId: coachId,
+                coachName: coachName,
+                assigned_coach: coachName,
                 status: user.status,
                 referredBy: user.referred_by,
                 referralCode: user.referral_code,
@@ -336,6 +341,31 @@ exports.googleLogin = async (req, res) => {
             { expiresIn: '365d' } // Token expires in 365 days (1 year)
         );
 
+        let coachSubStatus = null;
+        let coachSubEnd = null;
+        let coachId = null;
+        let coachName = null;
+
+        if (user.role === 'trainee') {
+            try {
+                const coachSubResult = await pool.query(
+                    `SELECT ct.subscription_status, ct.subscription_end_date, ct.coach_id, u.name as coach_name 
+                     FROM coach_trainee ct
+                     JOIN users u ON u.id = ct.coach_id
+                     WHERE ct.trainee_id = $1 
+                     ORDER BY ct.subscription_end_date DESC 
+                     LIMIT 1`,
+                    [user.id]
+                );
+                if (coachSubResult.rows.length > 0) {
+                    coachSubStatus = coachSubResult.rows[0].subscription_status;
+                    coachSubEnd = coachSubResult.rows[0].subscription_end_date;
+                    coachId = coachSubResult.rows[0].coach_id;
+                    coachName = coachSubResult.rows[0].coach_name;
+                }
+            } catch(e) { console.error(e) }
+        }
+
         res.json({
             token,
             user: {
@@ -345,6 +375,11 @@ exports.googleLogin = async (req, res) => {
                 role: user.role,
                 subscriptionStatus: user.subscription_status,
                 subscriptionTier: user.subscription_tier,
+                coachSubscriptionStatus: coachSubStatus,
+                coachSubscriptionEndDate: coachSubEnd,
+                coachId: coachId,
+                coachName: coachName,
+                assigned_coach: coachName,
                 status: user.status,
                 referredBy: user.referred_by,
                 referralCode: user.referral_code,
@@ -486,6 +521,66 @@ exports.resetPassword = async (req, res) => {
         res.json({ message: 'Password has been reset successfully. You can now log in.' });
     } catch (err) {
         console.error('Reset Password error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Get current user data
+ */
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+        }
+
+        let coachSubStatus = null;
+        let coachSubEnd = null;
+        let coachId = null;
+        let coachName = null;
+
+        if (user.role === 'trainee') {
+            try {
+                const coachSubResult = await pool.query(
+                    `SELECT ct.subscription_status, ct.subscription_end_date, ct.coach_id, u.name as coach_name 
+                     FROM coach_trainee ct
+                     JOIN users u ON u.id = ct.coach_id
+                     WHERE ct.trainee_id = $1 
+                     ORDER BY ct.subscription_end_date DESC 
+                     LIMIT 1`,
+                    [user.id]
+                );
+                if (coachSubResult.rows.length > 0) {
+                    coachSubStatus = coachSubResult.rows[0].subscription_status;
+                    coachSubEnd = coachSubResult.rows[0].subscription_end_date;
+                    coachId = coachSubResult.rows[0].coach_id;
+                    coachName = coachSubResult.rows[0].coach_name;
+                }
+            } catch(e) { console.error('Error fetching coach subscription in getMe:', e) }
+        }
+
+        res.json({
+            user: {
+                id: user.id.toString(),
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                subscriptionStatus: user.subscription_status,
+                subscriptionTier: user.subscription_tier,
+                coachSubscriptionStatus: coachSubStatus,
+                coachSubscriptionEndDate: coachSubEnd,
+                coachId: coachId,
+                coachName: coachName,
+                assigned_coach: coachName,
+                status: user.status,
+                referredBy: user.referred_by,
+                referralCode: user.referral_code,
+                referralDiscountUsed: user.referral_discount_used
+            }
+        });
+    } catch (err) {
+        console.error('Get Me error:', err);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };

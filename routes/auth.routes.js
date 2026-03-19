@@ -3,6 +3,7 @@ const express = require('express');
 const authController = require('../controllers/auth.controller');
 const upload = require('../config/upload');
 const rateLimit = require('express-rate-limit');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -31,5 +32,8 @@ router.post('/verify-email', authController.verifyEmail);
 router.post('/resend-pin', authLimiter, authController.resendPin);
 router.post('/forgot-password', authLimiter, authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
+
+// GET /api/v1/auth/me
+router.get('/me', authenticateToken, authController.getMe);
 
 module.exports = router;
