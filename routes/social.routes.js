@@ -270,12 +270,33 @@ router.post('/messages', auth, async (req, res) => {
 
         const message = result.rows[0];
 
+        // Resolve sender name for push notifications (fallback if not in JWT)
+        let senderName = req.user.name || 'Your coach/client';
+        if (!req.user.name) {
+            try {
+                const senderFallback = await User.findById(userId);
+                if (senderFallback) senderName = senderFallback.name;
+            } catch (e) {}
+        }
+
         // Emit Socket Event
         if (req.io) {
             // Emitting to receiver's room
             req.io.to(`user_${friendId}`).emit('new_message', message);
             // Also emit to sender (for multiple devices or confirmation)
             req.io.to(`user_${userId}`).emit('message_sent', message);
+        }
+
+        // Trigger Expo Push Notification to make it urgent outside app
+        try {
+            const { sendPushNotification } = require('../controllers/notification.controller');
+            await sendPushNotification(friendId, `New message from ${senderName}`, content, {
+                type: 'direct_message',
+                senderId: userId,
+                conversationId: userId.toString()
+            });
+        } catch (pushErr) {
+            console.error('Error triggering push for new message:', pushErr);
         }
 
         res.json({ message });

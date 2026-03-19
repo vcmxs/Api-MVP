@@ -188,3 +188,6 @@ async function sendPushNotification(userId, title, body, data = {}) {
     }
 }
 
+// Export the push notification helper for direct use
+exports.sendPushNotification = sendPushNotification;
+
