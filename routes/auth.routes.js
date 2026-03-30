@@ -32,6 +32,8 @@ router.post('/verify-email', authController.verifyEmail);
 router.post('/resend-pin', authLimiter, authController.resendPin);
 router.post('/forgot-password', authLimiter, authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
+router.post('/request-delete-account', authLimiter, authController.requestDeleteAccount);
+router.post('/confirm-delete-account', authController.confirmDeleteAccount);
 
 // GET /api/v1/auth/me
 router.get('/me', authenticateToken, authController.getMe);

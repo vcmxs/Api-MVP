@@ -77,7 +77,44 @@ const sendPasswordResetEmail = async (toEmail, pin) => {
     }
 };
 
+/**
+ * Sends a 6-digit account deletion confirmation PIN.
+ * @param {string} toEmail
+ * @param {string} pin
+ */
+const sendDeleteAccountEmail = async (toEmail, pin) => {
+    try {
+        const { data, error } = await resend.emails.send({
+            from: FROM_EMAIL,
+            to: toEmail,
+            subject: 'Confirm Account Deletion – Dupla',
+            html: `
+                <div style="font-family: Arial, sans-serif; text-align: center; color: #333; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #ef4444;">Account Deletion Request</h2>
+                    <p>We received a request to permanently delete your Dupla account. Use the PIN below to confirm. It will expire in 15 minutes.</p>
+                    <div style="margin: 20px 0; padding: 15px; background: #16161a; color: #ef4444; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px;">
+                        ${pin}
+                    </div>
+                    <p style="color: #ef4444; font-weight: bold;">⚠️ This action is permanent and cannot be undone.</p>
+                    <p style="font-size: 12px; color: #888;">If you did not request account deletion, you can safely ignore this email. Your account will remain active.</p>
+                </div>
+            `
+        });
+
+        if (error) {
+            console.error('Resend API returned an error:', error);
+            throw error;
+        }
+
+        console.log(`Delete account email sent to ${toEmail} via Resend. ID:`, data?.id);
+    } catch (err) {
+        console.error('Error sending delete account email with Resend:', err);
+        throw err;
+    }
+};
+
 module.exports = {
     sendVerificationEmail,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    sendDeleteAccountEmail
 };

@@ -1,7 +1,7 @@
 // controllers/auth.controller.js
 const User = require('../models/User');
 const pool = require('../config/database');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
+const { sendVerificationEmail, sendPasswordResetEmail, sendDeleteAccountEmail } = require('../utils/emailService');
 
 /**
  * Register a new user
@@ -521,6 +521,59 @@ exports.resetPassword = async (req, res) => {
         res.json({ message: 'Password has been reset successfully. You can now log in.' });
     } catch (err) {
         console.error('Reset Password error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Request Account Deletion (sends PIN)
+ */
+exports.requestDeleteAccount = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Bad Request', message: 'Email is required' });
+
+        const user = await User.findByEmail(email.trim().toLowerCase());
+        if (!user) {
+            return res.json({ message: 'If this email exists, a deletion PIN has been sent.' });
+        }
+
+        const delete_pin = Math.floor(100000 + Math.random() * 900000).toString();
+        const pin_expires_at = new Date(Date.now() + 15 * 60 * 1000);
+
+        await pool.query(
+            "UPDATE users SET reset_pin = $1, pin_expires_at = $2 WHERE id = $3",
+            [delete_pin, pin_expires_at, user.id]
+        );
+
+        await sendDeleteAccountEmail(user.email, delete_pin);
+
+        res.json({ message: 'If this email exists, a deletion PIN has been sent.' });
+    } catch (err) {
+        console.error('Request Delete Account error:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Confirm Account Deletion with PIN
+ */
+exports.confirmDeleteAccount = async (req, res) => {
+    try {
+        const { email, pin } = req.body;
+        if (!email || !pin) return res.status(400).json({ error: 'Bad Request', message: 'Email and PIN are required' });
+
+        const user = await User.findByEmail(email.trim().toLowerCase());
+        if (!user) return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+
+        if (user.reset_pin !== pin) return res.status(400).json({ error: 'Bad Request', message: 'Invalid PIN' });
+        if (new Date(user.pin_expires_at) < new Date()) return res.status(400).json({ error: 'Bad Request', message: 'PIN has expired' });
+
+        await pool.query("DELETE FROM users WHERE id = $1", [user.id]);
+
+        res.json({ message: 'Account permanently deleted.' });
+    } catch (err) {
+        console.error('Confirm Delete Account error:', err);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
