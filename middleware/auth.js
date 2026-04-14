@@ -84,14 +84,15 @@ const requireActiveSubscription = async (req, res, next) => {
 
             const { subscription_status, subscription_tier } = result.rows[0];
 
-            // Allow access if active OR if on starter/basic plan (which doesn't require activation)
-            const isActive = subscription_status === 'active';
-            const isStarter = subscription_tier === 'starter' || subscription_tier === 'basic' || !subscription_tier;
+            const isStarter = !subscription_tier || subscription_tier === 'starter' || subscription_tier === 'basic';
+            const isExpired = subscription_status === 'expired';
 
-            if (!isActive && !isStarter) {
+            // Only block if the subscription is explicitly expired AND they're on a paid tier.
+            // A paid tier assigned by admin (even with status 'free') means they have access.
+            if (isExpired && !isStarter) {
                 return res.status(403).json({
                     error: 'Subscription Required',
-                    message: 'Active subscription required to access this feature'
+                    message: 'Your subscription has expired. Please contact support to renew.'
                 });
             }
 
