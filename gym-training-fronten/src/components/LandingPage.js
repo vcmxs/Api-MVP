@@ -1,252 +1,252 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Zap, Smartphone, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import dashboardPreview from '../assets/dashboard-preview.jpg';
 import './LandingPage.css';
 
-const LandingPage = () => {
+const FEATURE_ICONS = ['🏋️', '📊', '🥗', '📈', '💬', '⏱️'];
+const TIER_PRICES   = { starter: null, bronze: 15, silver: 30, gold: 50, olympian: 100 };
+const TIER_DISABLED = { starter: [3, 4], bronze: [], silver: [], gold: [], olympian: [] };
+const TIER_COLORS   = { starter: '#6B7280', bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', olympian: '#8B5CF6' };
+const TIER_BADGES   = { starter: '🆓', bronze: '🥉', silver: '🥈', gold: '🥇', olympian: '🏆' };
+const TIER_ORDER    = ['starter', 'bronze', 'silver', 'gold', 'olympian'];
+
+export default function LandingPage() {
+    const { t, i18n } = useTranslation();
     const [selectedPlan, setSelectedPlan] = useState(null);
 
+    const toggleLang = () => i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es');
+
+    const features     = t('landing.features.items',    { returnObjects: true });
+    const coachSteps   = t('landing.how.coachSteps',   { returnObjects: true });
+    const traineeSteps = t('landing.how.traineeSteps', { returnObjects: true });
+
     return (
-        <div className="landing-container">
-            <nav className="landing-nav">
-                <div className="landing-logo">
-                    <img src="/icon.png" alt="Dupla Logo" className="logo-img" />
-                    <span>DUPLA</span>
-                </div>
-                <div className="nav-links">
-                    <Link to="/login" className="nav-btn-outline">Login</Link>
+        <div className="lp">
+
+            {/* ── Navbar ───────────────────────────────────────── */}
+            <nav className="lp-nav">
+                <Link to="/" className="lp-logo">
+                    <img src="/icon.png" alt="Dupla" />
+                    DUPLA
+                </Link>
+                <div className="lp-nav-right">
+                    <button className="lp-lang" onClick={toggleLang}>
+                        {i18n.language === 'es' ? '🇺🇸 EN' : '🇻🇪 ES'}
+                    </button>
+                    <Link to="/login" className="lp-nav-login">{t('landing.nav.signIn')}</Link>
+                    <Link to="/register" className="lp-nav-cta">{t('landing.hero.ctaPrimary')}</Link>
                 </div>
             </nav>
 
+            {/* ── Hero ─────────────────────────────────────────── */}
+            <section className="lp-hero">
+                <div className="lp-hero-content">
+                    <div className="lp-badge">
+                        <span className="lp-dot" />
+                        {t('landing.hero.badge')}
+                    </div>
 
-
-
-            <header className="hero-section">
-                <div className="hero-content">
-                    <h1 className="hero-title">
-                        TRAIN <span className="highlight">SMARTER</span><br />
-                        NOT HARDER.
+                    <h1 className="lp-headline">
+                        {t('landing.hero.title1')}<br />
+                        <span className="lp-gradient">{t('landing.hero.title2')}</span>
                     </h1>
-                    <p className="hero-subtitle">
-                        The ultimate fitness companion connecting you with professional coaches.
-                        Personalized workouts, smart nutrition tracking, and direct feedback from your trainer.
-                    </p>
-                    <div className="hero-buttons">
-                        <button className="cta-button primary">
-                            Get the App <Smartphone size={20} style={{ marginLeft: 8 }} />
-                        </button>
-                        <Link to="/login" className="cta-button secondary">
-                            Web Dashboard
-                        </Link>
+
+                    <p className="lp-sub">{t('landing.hero.subtitle')}</p>
+
+                    <div className="lp-hero-actions">
+                        <Link to="/register" className="lp-btn-primary">{t('landing.hero.ctaPrimary')}</Link>
+                        <Link to="/login"    className="lp-btn-ghost"  >{t('landing.hero.ctaSecondary')}</Link>
                     </div>
-                </div>
-                <div className="hero-visual">
-                    <div className="phone-mockup">
-                        <div className="screen-content carousel-container">
-                            <div className="carousel-track">
-                                <div className="carousel-slide">
-                                    <img src={dashboardPreview} alt="Dashboard Preview 1" />
-                                </div>
-                                {/* Duplicating for carousel effect as requested */}
-                                <div className="carousel-slide">
-                                    <img src={dashboardPreview} alt="Dashboard Preview 2" style={{ filter: 'hue-rotate(90deg)' }} />
-                                </div>
-                                <div className="carousel-slide">
-                                    <img src={dashboardPreview} alt="Dashboard Preview 3" style={{ filter: 'hue-rotate(180deg)' }} />
-                                </div>
+
+                    <div className="lp-stats">
+                        {[
+                            { val: t('landing.hero.stat1Value'), label: t('landing.hero.stat1Label') },
+                            { val: t('landing.hero.stat2Value'), label: t('landing.hero.stat2Label') },
+                            { val: t('landing.hero.stat3Value'), label: t('landing.hero.stat3Label') },
+                        ].map((s, i) => (
+                            <div key={i} className="lp-stat">
+                                <span className="lp-stat-val">{s.val}</span>
+                                <span className="lp-stat-label">{s.label}</span>
                             </div>
-                            <div className="carousel-indicators">
-                                <span className="indicator active"></span>
-                                <span className="indicator"></span>
-                                <span className="indicator"></span>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="lp-hero-img">
+                    <div className="lp-screen-frame">
+                        <div className="lp-screen-bar">
+                            <span /><span /><span />
+                        </div>
+                        <img src={dashboardPreview} alt="Dupla dashboard" />
+                    </div>
+                </div>
+            </section>
+
+            {/* ── Features ─────────────────────────────────────── */}
+            <section className="lp-section lp-features-section">
+                <div className="lp-section-head">
+                    <span className="lp-label">{t('landing.features.label')}</span>
+                    <h2>{t('landing.features.title')}</h2>
+                    <p>{t('landing.features.subtitle')}</p>
+                </div>
+                <div className="lp-features-grid">
+                    {Array.isArray(features) && features.map((f, i) => (
+                        <div className="lp-feature-card" key={i}>
+                            <div className="lp-feature-icon">{FEATURE_ICONS[i]}</div>
+                            <h3>{f.title}</h3>
+                            <p>{f.desc}</p>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            {/* ── How It Works ─────────────────────────────────── */}
+            <section className="lp-section lp-how-section">
+                <div className="lp-section-head">
+                    <span className="lp-label">{t('landing.how.label')}</span>
+                    <h2>{t('landing.how.title')}</h2>
+                    <p>{t('landing.how.subtitle')}</p>
+                </div>
+                <div className="lp-how-grid">
+                    {[
+                        { cls: 'coaches',  label: t('landing.how.coachLabel'),   title: t('landing.how.coachTitle'),   steps: coachSteps,   color: 'var(--cyan)' },
+                        { cls: 'trainees', label: t('landing.how.traineeLabel'), title: t('landing.how.traineeTitle'), steps: traineeSteps, color: 'var(--violet)' },
+                    ].map(({ cls, label, title, steps, color }) => (
+                        <div className={`lp-how-card ${cls}`} key={cls}>
+                            <p className="lp-how-label" style={{ color }}>{label}</p>
+                            <h3>{title}</h3>
+                            <div className="lp-steps">
+                                {Array.isArray(steps) && steps.map((s, i) => (
+                                    <div className="lp-step" key={i}>
+                                        <div className="lp-step-num" style={{ color, borderColor: color, background: `${color}18` }}>{i + 1}</div>
+                                        <div>
+                                            <strong>{s.title}</strong>
+                                            <span>{s.desc}</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </div>
-                </div>
-            </header>
-
-            <section className="features-section">
-                <div className="feature-card">
-                    <div className="icon-wrapper"><Zap color="#00ffff" /></div>
-                    <h3>Custom Plans</h3>
-                    <p>Workouts tailored specifically to your goals by your coach.</p>
-                </div>
-                <div className="feature-card">
-                    <div className="icon-wrapper"><Shield color="#00ffff" /></div>
-                    <h3>Coach Connect</h3>
-                    <p>Real certified coaches monitoring your form and progress.</p>
-                </div>
-                <div className="feature-card">
-                    <div className="icon-wrapper"><CheckCircle color="#00ffff" /></div>
-                    <h3>Nutrition Tracking</h3>
-                    <p>Macro-perfect meal plans integrated with your training.</p>
+                    ))}
                 </div>
             </section>
 
-            <section className="referral-section">
-                <div className="referral-content">
-                    <h2 className="section-title">🚀 Win-Win Program</h2>
-                    <p className="referral-subtitle">Grow together. Earn forever.</p>
-
-                    <div className="referral-steps">
-                        <div className="referral-step">
-                            <div className="step-number">1</div>
-                            <h4>Invite Coaches</h4>
-                            <p>Share your unique code with fellow trainers.</p>
+            {/* ── Referral ─────────────────────────────────────── */}
+            <section className="lp-section lp-referral-section">
+                <div className="lp-section-head">
+                    <span className="lp-label">{t('landing.referral.label')}</span>
+                    <h2>{t('landing.referral.title')}</h2>
+                    <p>{t('landing.referral.subtitle')}</p>
+                </div>
+                <div className="lp-referral-grid">
+                    {[
+                        { num: 1, title: t('landing.referral.step1Title'), desc: t('landing.referral.step1Desc') },
+                        { num: 2, title: t('landing.referral.step2Title'), desc: t('landing.referral.step2Desc') },
+                        { num: 3, title: t('landing.referral.step3Title'), desc: t('landing.referral.step3Desc') },
+                    ].map(({ num, title, desc }) => (
+                        <div className="lp-referral-card" key={num}>
+                            <div className="lp-referral-num">{num}</div>
+                            <h4>{title}</h4>
+                            <p>{desc}</p>
                         </div>
-                        <div className="referral-step">
-                            <div className="step-number">2</div>
-                            <h4>They Get 20% Off</h4>
-                            <p>Your friends get a <strong>20% discount</strong> on their first month.</p>
-                        </div>
-                        <div className="referral-step">
-                            <div className="step-number">3</div>
-                            <h4>You Earn 10%</h4>
-                            <p>You get <strong>10% commission</strong> on every payment they make, forever.</p>
-                        </div>
-                    </div>
-
-                    <Link to="/register" className="referral-cta">Start Earning Now</Link>
+                    ))}
+                </div>
+                <div style={{ textAlign: 'center', marginTop: '40px' }}>
+                    <Link to="/register" className="lp-btn-primary">{t('landing.referral.cta')}</Link>
                 </div>
             </section>
 
-            <section className="pricing-section">
-                <h2 className="section-title">Choose Your Plan</h2>
-                <div className="pricing-grid">
-                    <div className="pricing-card starter">
-                        <div className="card-header">
-                            <h3>Starter</h3>
-                            <div className="price">Free</div>
-                        </div>
-                        <ul className="card-features">
-                            <li>1 Trainee Limit</li>
-                            <li>Basic Tracking</li>
-                            <li className="disabled">Advanced Stats</li>
-                        </ul>
-                        <Link to="/register" className="pricing-btn">Start Free</Link>
-                    </div>
+            {/* ── Pricing ──────────────────────────────────────── */}
+            <section className="lp-section lp-pricing-section">
+                <div className="lp-section-head">
+                    <span className="lp-label">{t('landing.pricing.label')}</span>
+                    <h2>{t('landing.pricing.title')}</h2>
+                    <p>{t('landing.pricing.subtitle')}</p>
+                </div>
+                <div className="lp-pricing-scroll">
+                    <div className="lp-pricing-grid">
+                        {TIER_ORDER.map((key) => {
+                            const tier      = t(`landing.pricing.tiers.${key}`, { returnObjects: true });
+                            const price     = TIER_PRICES[key];
+                            const disabled  = TIER_DISABLED[key];
+                            const isPopular = key === 'silver';
+                            const feats     = Array.isArray(tier.features) ? tier.features : [];
+                            const color     = TIER_COLORS[key];
 
-                    <div className="pricing-card bronze">
-                        <div className="card-header">
-                            <h3>Bronze</h3>
-                            <div className="price">$15<span>/mo</span></div>
-                        </div>
-                        <ul className="card-features">
-                            <li>Up to 4 Trainees</li>
-                            <li>Advanced Stats</li>
-                            <li>Small Group Support</li>
-                        </ul>
-                        <button onClick={() => setSelectedPlan({ name: 'Bronze', color: '#cd7f32' })} className="pricing-btn">Get Started</button>
-                    </div>
-
-                    <div className="pricing-card silver popular">
-                        <div className="popular-tag">MOST POPULAR</div>
-                        <div className="card-header">
-                            <h3>Silver</h3>
-                            <div className="price">$30<span>/mo</span></div>
-                        </div>
-                        <ul className="card-features">
-                            <li>Up to 10 Trainees</li>
-                            <li>Priority Support</li>
-                            <li>Full Analytics</li>
-                        </ul>
-                        <button onClick={() => setSelectedPlan({ name: 'Silver', color: '#00ffff' })} className="pricing-btn primary">Go Silver</button>
-                    </div>
-
-                    <div className="pricing-card gold">
-                        <div className="card-header">
-                            <h3>Gold</h3>
-                            <div className="price">$50<span>/mo</span></div>
-                        </div>
-                        <ul className="card-features">
-                            <li>Up to 25 Trainees</li>
-                            <li>All Features Unlocked</li>
-                            <li>24/7 Support</li>
-                        </ul>
-                        <button onClick={() => setSelectedPlan({ name: 'Gold', color: '#ffd700' })} className="pricing-btn">Get Gold</button>
-                    </div>
-
-                    <div className="pricing-card olympian">
-                        <div className="card-header">
-                            <h3>Olympian</h3>
-                            <div className="price">$100<span>/mo</span></div>
-                        </div>
-                        <ul className="card-features">
-                            <li>Unlimited Trainees</li>
-                            <li>VIP Access</li>
-                            <li>Enterprise Tools</li>
-                        </ul>
-                        <button onClick={() => setSelectedPlan({ name: 'Olympian', color: '#85a9f7' })} className="pricing-btn">Contact Sales</button>
+                            return (
+                                <div className={`lp-price-card${isPopular ? ' popular' : ''}`} key={key} style={{ '--tier-color': color }}>
+                                    {isPopular && <div className="lp-popular-tag">{t('landing.pricing.mostPopular')}</div>}
+                                    <div className="lp-tier-top">
+                                        <span className="lp-tier-badge">{TIER_BADGES[key]}</span>
+                                        <span className="lp-tier-name">{tier.name}</span>
+                                    </div>
+                                    <div className="lp-tier-price">
+                                        {price
+                                            ? <><strong>${price}</strong><span>{t('landing.pricing.perMonth')}</span></>
+                                            : <><strong>Free</strong></>
+                                        }
+                                    </div>
+                                    <p className="lp-tier-sub">{tier.sub}</p>
+                                    <div className="lp-divider" />
+                                    <ul className="lp-feat-list">
+                                        {feats.map((feat, i) => (
+                                            <li key={i} className={disabled.includes(i) ? 'off' : ''}>
+                                                <span>{disabled.includes(i) ? '✗' : '✓'}</span>
+                                                {feat}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    {key === 'starter'
+                                        ? <Link to="/register" className="lp-tier-btn">{tier.cta}</Link>
+                                        : <button className={`lp-tier-btn${isPopular ? ' highlighted' : ''}`} onClick={() => setSelectedPlan({ name: tier.name, color })}>{tier.cta}</button>
+                                    }
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </section>
 
-            {/* Payment / Contact Modal */}
+            {/* ── Footer ───────────────────────────────────────── */}
+            <footer className="lp-footer">
+                <Link to="/" className="lp-logo">
+                    <img src="/icon.png" alt="Dupla" />
+                    DUPLA
+                </Link>
+                <div className="lp-footer-links">
+                    <Link to="/privacy">Privacy Policy</Link>
+                    <span>·</span>
+                    <Link to="/terms">Terms</Link>
+                    <span>·</span>
+                    <Link to="/delete-account">Delete Account</Link>
+                </div>
+                <p className="lp-copyright">{t('landing.footer.copyright')}</p>
+            </footer>
+
+            {/* ── Contact Modal ─────────────────────────────────── */}
             {selectedPlan && (
-                <div className="modal-overlay" onClick={() => setSelectedPlan(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ borderColor: selectedPlan.color }}>
-                        <button className="close-modal" onClick={() => setSelectedPlan(null)}>×</button>
-                        <h2 style={{ color: selectedPlan.name === 'Starter' ? '#fff' : selectedPlan.color }}>
-                            Upgrade to {selectedPlan.name}
-                        </h2>
-
-                        <div className="modal-body">
-                            <p className="modal-text">To process your payment and activate this plan, please contact our sales team.</p>
-
+                <div className="lp-modal-overlay" onClick={() => setSelectedPlan(null)}>
+                    <div className="lp-modal" onClick={e => e.stopPropagation()}>
+                        <button className="lp-modal-close" onClick={() => setSelectedPlan(null)}>✕</button>
+                        <div className="lp-modal-badge" style={{ background: selectedPlan.color }}>
+                            {t('landing.modal.title')}
                         </div>
-
-                        {/* WhatsApp Support Link */}
-                        <a
-                            href="https://wa.me/584127854824"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px',
-                                backgroundColor: '#25D366',
-                                color: '#fff',
-                                textDecoration: 'none',
-                                padding: '12px',
-                                borderRadius: '8px',
-                                fontWeight: 'bold',
-                                fontSize: '16px',
-                                marginBottom: '20px',
-                                transition: 'transform 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        >
-                            Contact Support via WhatsApp 💬
+                        <h2>{selectedPlan.name}</h2>
+                        <p>{t('landing.modal.body')}</p>
+                        <a href="https://wa.me/584127854824" target="_blank" rel="noopener noreferrer" className="lp-modal-wa">
+                            💬 {t('landing.modal.whatsapp')}
                         </a>
-
-                        <div className="contact-box">
-                            <div className="email">duplatraining@gmail.com</div>
-                            <div className="phone">+58 412 785 4824</div>
+                        <div className="lp-modal-contact">
+                            <span>duplatraining@gmail.com</span>
+                            <span>+58 412 785 4824</span>
                         </div>
-                        <div className="contact-actions">
-                            <a href={`mailto:duplatraining@gmail.com?subject=Upgrade to ${selectedPlan.name} Plan`} className="cta-button primary">
-                                Contact to Upgrade
-                            </a>
-                        </div>
+                        <a href={`mailto:duplatraining@gmail.com?subject=Plan ${selectedPlan.name}`} className="lp-modal-email">
+                            {t('landing.modal.emailBtn')}
+                        </a>
                     </div>
                 </div>
             )}
-
-
-
-            <footer className="landing-footer">
-                <div className="footer-links">
-                    <Link to="/privacy">Privacy Policy</Link>
-                    <Link to="/terms">Terms & Conds</Link>
-                    <Link to="/delete-account">Delete Account</Link>
-                </div>
-                <p className="copyright">© 2026 Dupla. Powered by Kevin.</p>
-            </footer>
-        </div >
+        </div>
     );
-};
-
-export default LandingPage;
+}

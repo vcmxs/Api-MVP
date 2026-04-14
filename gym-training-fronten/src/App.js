@@ -107,9 +107,9 @@ const DashboardContainer = () => {
 };
 
 // Login Wrapper to handle success redirect
-const LoginWrapper = () => {
+const LoginWrapper = ({ startOnRegister = false }) => {
   const navigate = useNavigate();
-  const [showRegister, setShowRegister] = useState(false);
+  const [showRegister, setShowRegister] = useState(startOnRegister);
 
   const handleLoginSuccess = (userData, userToken) => {
     localStorage.setItem('user', JSON.stringify(userData));
@@ -139,6 +139,7 @@ function App() {
             <Route path="/terms" element={<TermsAndConditions />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
             <Route path="/login" element={<LoginWrapper />} />
+            <Route path="/register" element={<LoginWrapper startOnRegister={true} />} />
             <Route path="/dashboard" element={<DashboardContainer />} />
             {/* Catch all - redirect home */}
             <Route path="*" element={<Navigate to="/" replace />} />

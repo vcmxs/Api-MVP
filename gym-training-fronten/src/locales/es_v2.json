@@ -409,11 +409,9 @@
             "step1Title": "Invita Entrenadores",
             "step1Desc": "Comparte tu código de referido con otros entrenadores de tu red.",
             "step2Title": "Ellos Obtienen 20% Off",
-            "step2Desc": "Tus amigos obtienen un {discount} en su primer mes — una gran oportunidad para comenzar.",
-            "step2Discount": "20% de descuento",
+            "step2Desc": "Tus amigos obtienen un 20% de descuento en su primer mes — una gran oportunidad para comenzar.",
             "step3Title": "Tú Ganas 10%",
-            "step3Desc": "Ganas {commission} en cada pago que realicen, por siempre.",
-            "step3Commission": "10% de comisión",
+            "step3Desc": "Ganas 10% de comisión en cada pago que realicen, por siempre.",
             "cta": "Comenzar a Ganar →"
         },
         "footer": {

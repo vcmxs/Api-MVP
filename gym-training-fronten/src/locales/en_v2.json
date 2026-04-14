@@ -407,11 +407,9 @@
             "step1Title": "Invite Coaches",
             "step1Desc": "Share your unique referral code with fellow trainers in your network.",
             "step2Title": "They Get 20% Off",
-            "step2Desc": "Your friends get a {discount} discount on their first month — a great deal to get started.",
-            "step2Discount": "20% discount",
+            "step2Desc": "Your friends get a 20% discount on their first month — a great deal to get started.",
             "step3Title": "You Earn 10%",
-            "step3Desc": "You earn {commission} on every payment they make, for as long as they stay.",
-            "step3Commission": "10% commission",
+            "step3Desc": "You earn 10% commission on every payment they make, for as long as they stay.",
             "cta": "Start Earning →"
         },
         "footer": {
