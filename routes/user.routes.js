@@ -15,6 +15,7 @@ router.put('/:userId/profile', userController.updateUserProfile);
 router.put('/:userId/profile-picture', upload.single('profilePic'), userController.updateProfilePicture);
 router.put('/coaches/:coachId/trainees/:traineeId/subscription', userController.updateTraineeSubscription);
 router.get('/coaches/:coachId/trainees/:traineeId/history', userController.getCoachTraineeHistory);
+router.get('/:userId/notes', authenticateToken, userController.getTraineeNotes);
 router.delete('/:userId/account', authenticateToken, userController.deleteOwnAccount);
 router.delete('/:userId/connection/:targetId', userController.removeConnection);
 

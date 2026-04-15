@@ -468,6 +468,96 @@ exports.updateTraineeSubscription = async (req, res) => {
 };
 
 /**
+ * Get coach monthly revenue (current month vs previous month)
+ */
+exports.getCoachMonthlyRevenue = async (req, res) => {
+    const { coachId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT
+                COALESCE(SUM(CASE WHEN DATE_TRUNC('month', payment_date) = DATE_TRUNC('month', NOW()) THEN amount ELSE 0 END), 0) AS this_month,
+                COALESCE(SUM(CASE WHEN DATE_TRUNC('month', payment_date) = DATE_TRUNC('month', NOW() - INTERVAL '1 month') THEN amount ELSE 0 END), 0) AS last_month
+             FROM coach_payments
+             WHERE coach_id = $1`,
+            [coachId]
+        );
+        const { this_month, last_month } = result.rows[0];
+        const thisMonth = parseFloat(this_month);
+        const lastMonth = parseFloat(last_month);
+        let growthPct = 0;
+        if (lastMonth > 0) {
+            growthPct = ((thisMonth - lastMonth) / lastMonth) * 100;
+        } else if (thisMonth > 0) {
+            growthPct = 100;
+        }
+        res.json({
+            revenue: thisMonth.toFixed(0),
+            revenueGrowth: growthPct.toFixed(0) + '%',
+            revenueDirection: growthPct >= 0 ? 'up' : 'down'
+        });
+    } catch (err) {
+        console.error('Get monthly revenue error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
+ * Blast message — send a notification to all (or selected) trainees of a coach
+ * Body: { message: string, traineeIds?: number[] }
+ * If traineeIds is omitted / empty, sends to ALL trainees.
+ */
+exports.blastMessage = async (req, res) => {
+    const { coachId } = req.params;
+    const { message, traineeIds } = req.body;
+
+    if (!message || !message.trim()) {
+        return res.status(400).json({ error: 'Bad Request', message: 'Message is required' });
+    }
+
+    // Security: requester must be the coach
+    if (req.user.id !== parseInt(coachId)) {
+        return res.status(403).json({ error: 'Forbidden', message: 'Not your account' });
+    }
+
+    try {
+        const { createNotification } = require('./notification.controller');
+
+        // Get all of this coach's trainees
+        const traineesResult = await pool.query(
+            `SELECT trainee_id FROM coach_trainee WHERE coach_id = $1`,
+            [coachId]
+        );
+
+        // Filter to specified ids, or use all
+        let targets = traineesResult.rows.map(r => r.trainee_id);
+        if (traineeIds && traineeIds.length > 0) {
+            const allowed = new Set(targets);
+            targets = traineeIds.filter(id => allowed.has(id));
+        }
+
+        if (targets.length === 0) {
+            return res.status(400).json({ error: 'Bad Request', message: 'No trainees to notify' });
+        }
+
+        // Get coach name for the title
+        const coachResult = await pool.query('SELECT name FROM users WHERE id = $1', [coachId]);
+        const coachName = coachResult.rows[0]?.name || 'Your Coach';
+
+        // Send notification to each trainee (non-blocking)
+        await Promise.all(
+            targets.map(traineeId =>
+                createNotification(traineeId, `📢 ${coachName}`, message.trim(), 'blast', null)
+            )
+        );
+
+        res.json({ message: `Blast sent to ${targets.length} trainee(s)` });
+    } catch (err) {
+        console.error('Blast message error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
  * Get Coach-Trainee payment history
  */
 exports.getCoachTraineeHistory = async (req, res) => {
@@ -515,6 +605,29 @@ exports.removeConnection = async (req, res) => {
         res.json({ message: 'Connection removed successfully' });
     } catch (err) {
         console.error('Remove connection error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
+ * Get all exercise log notes for a trainee (coach view)
+ */
+exports.getTraineeNotes = async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT el.notes, el.created_at, e.name AS exercise_name, wp.name AS workout_name, wp.scheduled_date
+             FROM exercise_logs el
+             JOIN exercises e ON el.exercise_id = e.id
+             JOIN workout_plans wp ON e.workout_plan_id = wp.id
+             WHERE wp.user_id = $1 AND el.notes IS NOT NULL AND TRIM(el.notes) <> ''
+             ORDER BY el.created_at DESC
+             LIMIT 100`,
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Get trainee notes error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };
