@@ -407,6 +407,32 @@ exports.updateTraineeSubscription = async (req, res) => {
             // else start defaults to now()
         }
 
+        // ── Cancel path ──────────────────────────────────────────────────────
+        if (durationId === 'cancel') {
+            await client.query(
+                `UPDATE coach_trainee
+                 SET subscription_status = 'cancelled',
+                     subscription_end_date = NOW()
+                 WHERE coach_id = $1 AND trainee_id = $2`,
+                [coachId, traineeId]
+            );
+
+            await client.query('COMMIT');
+
+            if (req.io) {
+                req.io.to(`user_${traineeId}`).emit('subscription_updated', {
+                    status: 'cancelled',
+                    subscription_end_date: new Date()
+                });
+            }
+
+            return res.json({
+                message: 'Subscription cancelled successfully',
+                status: 'cancelled'
+            });
+        }
+
+        // ── Extension path ────────────────────────────────────────────────────
         if (durationId === '7days') {
             endDate.setDate(endDate.getDate() + 7);
         } else if (durationId === '15days') {
@@ -427,8 +453,8 @@ exports.updateTraineeSubscription = async (req, res) => {
 
         // 3. Update connection table (coach_trainee)
         await client.query(
-            `UPDATE coach_trainee 
-             SET subscription_status = 'active', 
+            `UPDATE coach_trainee
+             SET subscription_status = 'active',
                  subscription_start_date = $1,
                  subscription_end_date = $2
              WHERE coach_id = $3 AND trainee_id = $4`,
@@ -437,7 +463,7 @@ exports.updateTraineeSubscription = async (req, res) => {
 
         // 4. Log Payment History
         await client.query(
-            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, start_date, end_date) 
+            `INSERT INTO coach_payments (coach_id, trainee_id, amount, duration_id, start_date, end_date)
              VALUES ($1, $2, $3, $4, $5, $6)`,
             [coachId, traineeId, amount || 0, durationId, start, endDate]
         );
