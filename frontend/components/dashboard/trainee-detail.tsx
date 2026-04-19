@@ -1,0 +1,712 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import {
+  ArrowLeft, BarChart3, Apple, MessageCircle, CreditCard, Plus,
+  ChevronDown, ChevronUp, Dumbbell, Calendar, Mail, Phone,
+  Building, User, Loader2, X, ChevronRight,
+} from "lucide-react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { AssignWorkoutModal } from "./assign-workout-modal"
+import { ManageSubscriptionModal } from "./manage-subscription-modal"
+import { apiFetch, getUserInfo } from "@/lib/api"
+import { useT } from "@/lib/i18n"
+import type { ApiTrainee } from "./trainees-view"
+
+// ── API types ─────────────────────────────────────────────────────────────
+
+interface ApiSetLog {
+  id: number
+  set_number?: number
+  setNumber?: number
+  weight_used?: number
+  weightUsed?: number
+  reps_completed?: number
+  repsCompleted?: number
+  completed?: boolean
+  is_completed?: boolean
+  rpe?: number | null
+  rir?: number | null
+  // Cardio
+  duration?: number | null
+  distance?: number | null
+  calories?: number | null
+}
+
+interface ApiExercise {
+  id: number
+  name: string
+  sets: number
+  reps: number
+  target_weight?: number
+  targetWeight?: number
+  weight_unit?: string
+  rest_time?: number
+  notes?: string
+  exerciseOrder?: number
+  is_cardio?: boolean
+  isCardio?: boolean
+  track_rpe?: boolean
+  trackRpe?: boolean
+  track_rir?: boolean
+  trackRir?: boolean
+  logs?: ApiSetLog[]
+}
+
+interface ApiWorkout {
+  id: number
+  name: string
+  description?: string
+  scheduledDate: string
+  status: "pending" | "assigned" | "completed"
+  exercises?: ApiExercise[]
+  coach_id?: number
+  coachId?: number
+}
+
+interface ApiNote {
+  id: number
+  exercise_name?: string
+  exerciseName?: string
+  note: string
+  created_at?: string
+  createdAt?: string
+  workout_name?: string
+  workoutName?: string
+}
+
+interface ApiProfile {
+  id: number
+  name: string
+  email: string
+  phone?: string
+  gym?: string
+  age?: number
+  sex?: string
+  height?: number
+  weight?: number
+  notes?: string
+  subscriptionTier?: string
+  subscriptionStatus?: string
+  subscriptionExpiry?: string
+  status?: string
+}
+
+// ── Date grouping ─────────────────────────────────────────────────────────
+
+function dayStart(d: Date) { const c = new Date(d); c.setHours(0, 0, 0, 0); return c }
+
+function getDateGroup(date: Date): { label: string; sortKey: number } {
+  const today = dayStart(new Date())
+  const d = dayStart(date)
+  const diffDays = Math.round((today.getTime() - d.getTime()) / 86400000)
+  if (diffDays < -1) return { label: date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }), sortKey: diffDays }
+  if (diffDays === -1) return { label: "__tomorrow__", sortKey: -1 }
+  if (diffDays === 0) return { label: "__today__", sortKey: 0 }
+  if (diffDays === 1) return { label: "__yesterday__", sortKey: 1 }
+  if (diffDays < 7) return { label: date.toLocaleDateString("en-US", { weekday: "long" }), sortKey: diffDays }
+  return { label: date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }), sortKey: diffDays }
+}
+
+function groupWorkoutsByDate(workouts: ApiWorkout[]): { label: string; sortKey: number; items: ApiWorkout[] }[] {
+  const map = new Map<string, { label: string; sortKey: number; items: ApiWorkout[] }>()
+  workouts.forEach((w) => {
+    const date = w.scheduledDate ? new Date(w.scheduledDate) : new Date(0)
+    const { label, sortKey } = getDateGroup(date)
+    if (!map.has(label)) map.set(label, { label, sortKey, items: [] })
+    map.get(label)!.items.push(w)
+  })
+  return Array.from(map.values()).sort((a, b) => a.sortKey - b.sortKey)
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────
+
+const tierColors: Record<string, string> = {
+  BRONZE: "#cd7f32",
+  SILVER: "#c0c0c0",
+  GOLD: "#ffd700",
+  PLATINUM: "#e5e4e2",
+  starter: "#888888",
+  bronze: "#cd7f32",
+  silver: "#c0c0c0",
+  gold: "#ffd700",
+  olympian: "#85a9f7",
+}
+
+const getStatusColor = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case "completed": return { bg: "rgba(0,255,136,0.15)", text: "#00ff88" }
+    case "assigned": return { bg: "rgba(255,215,0,0.15)", text: "#ffd700" }
+    default: return { bg: "rgba(255,255,255,0.08)", text: "#888888" }
+  }
+}
+
+const getSubscriptionStatusColor = (status?: string) => {
+  switch (status?.toLowerCase()) {
+    case "active": return { bg: "rgba(0,255,136,0.15)", text: "#00ff88" }
+    case "inactive":
+    case "blocked": return { bg: "rgba(255,68,68,0.15)", text: "#ff4444" }
+    case "expiring": return { bg: "rgba(255,215,0,0.15)", text: "#ffd700" }
+    default: return { bg: "rgba(255,255,255,0.08)", text: "#888888" }
+  }
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────
+
+interface TraineeDetailProps {
+  trainee: ApiTrainee
+  onBack: () => void
+  onOpenProgression?: (trainee: { id: number; name: string }) => void
+  onOpenMessages?: (traineeId: number) => void
+  onOpenNutrition?: (trainee: { id: number; name: string }) => void
+}
+
+export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessages, onOpenNutrition }: TraineeDetailProps) {
+  const { t } = useT()
+  const [profile, setProfile] = useState<ApiProfile | null>(null)
+  const [workouts, setWorkouts] = useState<ApiWorkout[]>([])
+  const [notes, setNotes] = useState<ApiNote[]>([])
+  const [workoutsLoading, setWorkoutsLoading] = useState(false)
+  const [notesExpanded, setNotesExpanded] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [showSubModal, setShowSubModal] = useState(false)
+  const [detailWorkout, setDetailWorkout] = useState<ApiWorkout | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [lastLogsMap, setLastLogsMap] = useState<Record<string, Record<number, string>>>({})
+
+  useEffect(() => {
+    // Fetch full profile
+    apiFetch<ApiProfile>(`/users/${trainee.id}/profile`)
+      .then((data) => setProfile(data))
+      .catch(() => setProfile(null))
+
+    // Fetch workouts
+    setWorkoutsLoading(true)
+    apiFetch<{ workoutPlans: ApiWorkout[] }>(`/trainees/${trainee.id}/workout-plans`)
+      .then((data) => setWorkouts(data.workoutPlans ?? []))
+      .catch(() => setWorkouts([]))
+      .finally(() => setWorkoutsLoading(false))
+
+    // Fetch notes
+    apiFetch<ApiNote[]>(`/users/${trainee.id}/notes`)
+      .then((data) => setNotes(Array.isArray(data) ? data : []))
+      .catch(() => setNotes([]))
+  }, [trainee.id])
+
+  // Fetch previous-session history for each exercise whenever the detail workout changes
+  useEffect(() => {
+    if (!detailWorkout?.exercises?.length) { setLastLogsMap({}); return }
+    const workoutDate = detailWorkout.scheduledDate
+      ? detailWorkout.scheduledDate.split("T")[0]
+      : new Date().toISOString().split("T")[0]
+    const map: Record<string, Record<number, string>> = {}
+    let pending = detailWorkout.exercises.length
+    for (const ex of detailWorkout.exercises) {
+      if (!ex.name) { pending--; continue }
+      apiFetch<{ progression?: { date?: string; completed_at?: string; setNumber?: number; set_number?: number; weight?: number; weight_used?: number; weightUsed?: number; reps?: number; reps_completed?: number; repsCompleted?: number; weightUnit?: string; weight_unit?: string }[] }>(
+        `/workout-plans/users/${trainee.id}/progression?exercise=${encodeURIComponent(ex.name)}`
+      ).then(d => {
+        const rawLogs = d.progression ?? []
+        const byDate: Record<string, typeof rawLogs> = {}
+        for (const l of rawLogs) {
+          const date = (l.date || l.completed_at || "").split("T")[0] || "unknown"
+          ;(byDate[date] ??= []).push(l)
+        }
+        const targetDate = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).find(d => d < workoutDate)
+        if (targetDate) {
+          const setMap: Record<number, string> = {}
+          for (const l of byDate[targetDate]) {
+            const setNum = l.setNumber ?? l.set_number
+            const w = l.weight ?? l.weightUsed ?? l.weight_used
+            const r = l.reps ?? l.repsCompleted ?? l.reps_completed
+            const unit = l.weightUnit ?? l.weight_unit ?? "kg"
+            if (setNum != null && w != null && r != null) setMap[setNum] = `${w}${unit}×${r}`
+          }
+          map[ex.name] = setMap
+        }
+      }).catch(() => {}).finally(() => {
+        pending--
+        if (pending === 0) setLastLogsMap({ ...map })
+      })
+    }
+  }, [detailWorkout?.id, trainee.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openDetail = async (workout: ApiWorkout) => {
+    // Always fetch the full workout — the list endpoint returns exercises without logs
+    setDetailLoading(true)
+    setDetailWorkout(workout) // open sheet immediately with basic data
+    try {
+      const full = await apiFetch<ApiWorkout>(`/workout-plans/${workout.id}`)
+      setDetailWorkout(full)
+    } catch {
+      // keep the basic workout data already set
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  // Merge: use profile data if available, fall back to list data
+  const display = {
+    name: profile?.name ?? trainee.name,
+    email: profile?.email ?? trainee.email,
+    phone: profile?.phone ?? trainee.phone,
+    gym: profile?.gym ?? trainee.gym,
+    age: profile?.age ?? trainee.age,
+    sex: profile?.sex,
+    height: profile?.height,
+    weight: profile?.weight,
+    notes: profile?.notes,
+    subscriptionTier: profile?.subscriptionTier ?? trainee.subscriptionTier,
+    subscriptionStatus: profile?.subscriptionStatus ?? trainee.subscriptionStatus ?? trainee.status,
+    subscriptionExpiry: profile?.subscriptionExpiry ?? trainee.subscriptionExpiry,
+  }
+
+  const tier = display.subscriptionTier?.toUpperCase() ?? ""
+  const tierColor = tierColors[tier] ?? tierColors[display.subscriptionTier ?? ""] ?? "#888888"
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-[#161b22] text-[#888888] transition-colors hover:text-white"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl font-bold text-white">{display.name}</h1>
+        </div>
+
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#00ffff]/30 to-[#00ff88]/30 text-lg font-bold text-[#00ffff]">
+          {display.name.split(" ").map((n) => n[0]).join("")}
+        </div>
+      </div>
+
+      {/* Main content grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left column */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* Action buttons */}
+          <div className="grid grid-cols-2 gap-4">
+            <ActionButton icon={<BarChart3 className="h-5 w-5" />} label={t.traineeDetail.progression} color="#00ffff" onClick={() => onOpenProgression?.({ id: trainee.id, name: trainee.name })} />
+            <ActionButton icon={<Apple className="h-5 w-5" />} label={t.traineeDetail.nutrition} color="#00ff88" onClick={() => onOpenNutrition?.({ id: trainee.id, name: trainee.name })} />
+            <ActionButton icon={<MessageCircle className="h-5 w-5" />} label={t.traineeDetail.message} color="#a78bfa" onClick={() => onOpenMessages?.(trainee.id)} />
+            <ActionButton icon={<CreditCard className="h-5 w-5" />} label={t.traineeDetail.subscription} color="#ffd700" onClick={() => setShowSubModal(true)} />
+          </div>
+
+          {/* Assigned Workouts */}
+          <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">{t.traineeDetail.assignedWorkouts}</h2>
+              <button
+                onClick={() => setAssignOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-[#00ffff] px-3 py-2 text-sm font-semibold text-black transition-all hover:bg-[#00ffff]/90"
+              >
+                <Plus className="h-4 w-4" />
+                {t.traineeDetail.assignWorkout}
+              </button>
+            </div>
+
+            {workoutsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-[#555555]" />
+              </div>
+            ) : workouts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10">
+                <Dumbbell className="mb-3 h-8 w-8 text-[#333]" />
+                <p className="text-sm text-[#555555]">{t.traineeDetail.noWorkouts}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {groupWorkoutsByDate(workouts).map((group) => (
+                  <div key={group.label}>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#555555]">
+                      {group.label === "__today__" ? t.traineeDetail.today : group.label === "__yesterday__" ? t.traineeDetail.yesterday : group.label === "__tomorrow__" ? t.traineeDetail.tomorrow : group.label}
+                    </p>
+                    <div className="space-y-2">
+                      {group.items.map((workout) => {
+                        const sc = getStatusColor(workout.status)
+                        const isCoachAssigned = !!(workout.coach_id || workout.coachId)
+                        const isCompleted = workout.status?.toLowerCase() === "completed"
+                        return (
+                          <button
+                            key={workout.id}
+                            onClick={() => openDetail(workout)}
+                            className="flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4 text-left transition-all hover:border-white/[0.25] hover:bg-[#161b22]"
+                            style={isCoachAssigned && !isCompleted ? { borderLeftWidth: "4px", borderLeftColor: "#ffd700" } : undefined}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#161b22]">
+                                <Dumbbell className="h-5 w-5 text-[#888888]" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-white">{workout.name}</h3>
+                                {workout.exercises && (
+                                  <p className="text-sm text-[#888888]">{workout.exercises.length} exercises</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
+                                style={{ backgroundColor: sc.bg, color: sc.text }}
+                              >
+                                {workout.status}
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-[#555555]" />
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Exercise Notes - Collapsible */}
+          {notes.length > 0 && (
+            <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
+              <button
+                onClick={() => setNotesExpanded(!notesExpanded)}
+                className="flex w-full items-center justify-between p-6 text-left transition-colors hover:bg-[#1c222b]"
+              >
+                <h2 className="text-lg font-bold text-white">Exercise Notes ({notes.length})</h2>
+                {notesExpanded ? <ChevronUp className="h-5 w-5 text-[#888888]" /> : <ChevronDown className="h-5 w-5 text-[#888888]" />}
+              </button>
+
+              {notesExpanded && (
+                <div className="border-t border-white/[0.08] p-6 pt-0">
+                  <div className="mt-4 space-y-3">
+                    {notes.map((note) => (
+                      <div key={note.id} className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-white">
+                            {note.exercise_name ?? note.exerciseName ?? "Exercise"}
+                          </h3>
+                          <span className="text-xs text-[#555555]">
+                            {new Date(note.created_at ?? note.createdAt ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-[#888888]">{note.note}</p>
+                        {(note.workout_name ?? note.workoutName) && (
+                          <p className="mt-2 text-xs text-[#555555]">{note.workout_name ?? note.workoutName}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right column - Trainee Info */}
+        <div className="lg:col-span-1">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-6">
+            <h2 className="mb-4 text-lg font-bold text-white">{t.traineeDetail.traineeInfo}</h2>
+            <div className="space-y-4">
+              {display.gym && <InfoRow icon={<Building className="h-4 w-4" />} label={t.traineeDetail.gym} value={display.gym} />}
+              <InfoRow icon={<Mail className="h-4 w-4" />} label={t.traineeDetail.email} value={display.email} />
+              {display.phone && <InfoRow icon={<Phone className="h-4 w-4" />} label={t.traineeDetail.phone} value={display.phone} />}
+              {display.age && <InfoRow icon={<User className="h-4 w-4" />} label={t.traineeDetail.age} value={`${display.age} ${t.traineeDetail.years}`} />}
+              {display.sex && <InfoRow icon={<User className="h-4 w-4" />} label={t.traineeDetail.sex} value={display.sex.charAt(0).toUpperCase() + display.sex.slice(1)} />}
+              {display.height != null && <InfoRow icon={<User className="h-4 w-4" />} label={t.traineeDetail.height} value={`${display.height} cm`} />}
+              {display.weight != null && <InfoRow icon={<User className="h-4 w-4" />} label={t.traineeDetail.weight} value={`${display.weight} kg`} />}
+
+              {display.notes && (
+                <div className="border-t border-white/[0.06] pt-4">
+                  <p className="mb-1.5 text-sm text-[#888888]">{t.traineeDetail.pathologies}</p>
+                  <p className="text-sm leading-relaxed text-white">{display.notes}</p>
+                </div>
+              )}
+
+              {display.subscriptionTier && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[#888888]">{t.traineeDetail.tier}</span>
+                  <span
+                    className="rounded px-2 py-1 text-xs font-bold uppercase tracking-wider"
+                    style={{ backgroundColor: `${tierColor}20`, color: tierColor }}
+                  >
+                    {display.subscriptionTier}
+                  </span>
+                </div>
+              )}
+
+              {display.subscriptionStatus && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[#888888]">{t.traineeDetail.status}</span>
+                  <span
+                    className="rounded-full px-2.5 py-1 text-xs font-semibold uppercase"
+                    style={{
+                      backgroundColor: getSubscriptionStatusColor(display.subscriptionStatus).bg,
+                      color: getSubscriptionStatusColor(display.subscriptionStatus).text,
+                    }}
+                  >
+                    {display.subscriptionStatus}
+                  </span>
+                </div>
+              )}
+
+              {display.subscriptionExpiry && (
+                <div className="flex items-center justify-between border-t border-white/[0.08] pt-4">
+                  <span className="text-sm text-[#888888]">{t.traineeDetail.expires}</span>
+                  <span className="text-sm font-medium text-white">{display.subscriptionExpiry}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showSubModal && (
+        <ManageSubscriptionModal
+          trainee={{
+            id: trainee.id,
+            name: trainee.name,
+            coachSubscriptionEndDate: display.subscriptionExpiry,
+            coachSubscriptionStatus: display.subscriptionStatus,
+          }}
+          onClose={() => setShowSubModal(false)}
+        />
+      )}
+
+      <AssignWorkoutModal
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        preselectedTraineeId={trainee.id}
+        onAssigned={() => {
+          setAssignOpen(false)
+          apiFetch<{ workoutPlans: ApiWorkout[] }>(`/trainees/${trainee.id}/workout-plans`)
+            .then((data) => setWorkouts(data.workoutPlans ?? []))
+            .catch(() => {})
+        }}
+      />
+
+      {/* Workout Detail Sheet */}
+      <Sheet open={detailWorkout !== null} onOpenChange={(v) => { if (!v) setDetailWorkout(null) }}>
+        <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-md">
+          <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00ffff]/10">
+                <Dumbbell className="h-5 w-5 text-[#00ffff]" />
+              </div>
+              <SheetTitle className="text-lg font-bold text-white">{detailWorkout?.name ?? ""}</SheetTitle>
+            </div>
+            <button
+              onClick={() => setDetailWorkout(null)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] transition-colors hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            {/* Workout meta */}
+            {detailWorkout && (
+              <div className="mb-6 flex items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-[#888888]">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    {detailWorkout.scheduledDate
+                      ? new Date(detailWorkout.scheduledDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                      : "—"}
+                  </span>
+                </div>
+                <div
+                  className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                  style={{ backgroundColor: getStatusColor(detailWorkout.status).bg, color: getStatusColor(detailWorkout.status).text }}
+                >
+                  {detailWorkout.status}
+                </div>
+              </div>
+            )}
+
+            {/* Exercises */}
+            {detailLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-[#555555]" />
+              </div>
+            ) : !detailWorkout?.exercises || detailWorkout.exercises.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Dumbbell className="mb-3 h-8 w-8 text-[#333]" />
+                <p className="text-sm text-[#555555]">No exercises found</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#555555]">
+                  {detailWorkout.exercises.length} Exercise{detailWorkout.exercises.length !== 1 ? "s" : ""}
+                </p>
+                {detailWorkout.exercises
+                  .slice()
+                  .sort((a, b) => (a.exerciseOrder ?? 0) - (b.exerciseOrder ?? 0))
+                  .map((ex, idx) => {
+                    const targetWeight = ex.target_weight ?? ex.targetWeight
+                    const isCardio = !!(ex.is_cardio || ex.isCardio)
+                    const showRpe = !!(ex.track_rpe || ex.trackRpe)
+                    const showRir = !!(ex.track_rir || ex.trackRir)
+                    const logs = (ex.logs ?? []).slice().sort(
+                      (a, b) => (a.set_number ?? a.setNumber ?? 0) - (b.set_number ?? b.setNumber ?? 0)
+                    )
+                    const hasLogs = logs.length > 0
+                    const completedLogs = logs.filter(l => l.completed || l.is_completed)
+
+                    return (
+                      <div key={ex.id} className="rounded-xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
+                        {/* Exercise header */}
+                        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#00ffff]/10 text-xs font-bold text-[#00ffff]">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-white truncate">{ex.name}</p>
+                            <p className="text-xs text-[#555555]">
+                              Target: {ex.sets} sets × {ex.reps} reps
+                              {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${ex.weight_unit ?? "kg"}`}
+                            </p>
+                          </div>
+                          {hasLogs && (
+                            <span className="shrink-0 text-xs font-semibold" style={{ color: completedLogs.length === logs.length ? "#00ff88" : "#ffd700" }}>
+                              {completedLogs.length}/{logs.length} done
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Sets table */}
+                        {hasLogs ? (
+                          <div className="p-3">
+                            {/* Table header */}
+                            <div className={`grid text-[10px] font-bold uppercase tracking-wider text-[#555555] mb-2 px-1 ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}>
+                              <span>Set</span>
+                              {isCardio ? (
+                                <>
+                                  <span className="text-center">Time</span>
+                                  <span className="text-center">Dist</span>
+                                  <span className="text-center">kcal</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-center">Last</span>
+                                  <span className="text-center">Weight</span>
+                                  <span className="text-center">Reps</span>
+                                  {showRpe && <span className="text-center">RPE</span>}
+                                  {showRir && <span className="text-center">RIR</span>}
+                                  {!showRpe && !showRir && <span className="text-center">Status</span>}
+                                </>
+                              )}
+                            </div>
+
+                            {/* Set rows */}
+                            <div className="space-y-1">
+                              {logs.map((log) => {
+                                const setNum = log.set_number ?? log.setNumber ?? "—"
+                                const isDone = !!(log.completed || log.is_completed)
+                                const weight = log.weight_used ?? log.weightUsed
+                                const reps = log.reps_completed ?? log.repsCompleted
+
+                                const lastVal = lastLogsMap[ex.name]?.[log.set_number ?? log.setNumber ?? 0]
+                                return (
+                                  <div
+                                    key={log.id}
+                                    className={`grid items-center rounded-lg px-3 py-2 text-sm ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}
+                                    style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}
+                                  >
+                                    <span className="font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>
+                                      {setNum}
+                                    </span>
+
+                                    {isCardio ? (
+                                      <>
+                                        <span className="text-center text-white">
+                                          {log.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}
+                                        </span>
+                                        <span className="text-center text-white">
+                                          {log.distance != null ? `${log.distance}km` : "—"}
+                                        </span>
+                                        <span className="text-center text-white">
+                                          {log.calories != null ? `${log.calories}` : "—"}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="text-center text-[10px] font-bold" style={{ color: lastVal ? "#00ffff" : "#444444" }}>
+                                          {lastVal ?? "—"}
+                                        </span>
+                                        <span className="text-center font-medium text-white">
+                                          {weight != null ? `${weight}${ex.weight_unit ?? "kg"}` : "—"}
+                                        </span>
+                                        <span className="text-center font-medium text-white">
+                                          {reps != null ? `${reps}` : "—"}
+                                        </span>
+                                        {showRpe && (
+                                          <span className="text-center text-[#888888]">
+                                            {log.rpe != null ? log.rpe : "—"}
+                                          </span>
+                                        )}
+                                        {showRir && (
+                                          <span className="text-center text-[#888888]">
+                                            {log.rir != null ? log.rir : "—"}
+                                          </span>
+                                        )}
+                                        {!showRpe && !showRir && (
+                                          <span className="text-center text-xs font-semibold" style={{ color: isDone ? "#00ff88" : "#555555" }}>
+                                            {isDone ? "✓" : "—"}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="px-4 py-3 text-xs text-[#555555]">{t.traineeDetail.noSets}</p>
+                        )}
+
+                        {/* Exercise note */}
+                        {ex.notes && (
+                          <div className="mx-3 mb-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
+                            <p className="text-xs text-[#aaa]">{ex.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+}
+
+function ActionButton({ icon, label, color, onClick }: { icon: React.ReactNode; label: string; color: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-[#161b22] p-6 transition-all hover:border-white/[0.15] hover:bg-[#1c222b]"
+      style={{ boxShadow: `0 0 20px ${color}15` }}
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}20`, color }}>
+        {icon}
+      </div>
+      <span className="text-sm font-medium text-white">{label}</span>
+    </button>
+  )
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2 text-sm text-[#888888]">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <span className="text-sm text-white">{value}</span>
+    </div>
+  )
+}
