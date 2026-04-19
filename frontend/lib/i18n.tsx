@@ -49,7 +49,7 @@ export function useLanguage() {
 export function useT() {
   const { t: dictionary } = useContext(I18nContext)
 
-  const t = (path: string, defaultValue?: string) => {
+  const translate = (path: string, defaultValue?: string) => {
     const keys = path.split('.')
     let result: any = dictionary
 
@@ -63,6 +63,9 @@ export function useT() {
 
     return result
   }
+
+  // Combine the function and the dictionary for backward compatibility
+  const t = Object.assign(translate, dictionary)
 
   return { t }
 }
