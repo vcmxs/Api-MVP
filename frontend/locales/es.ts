@@ -326,6 +326,98 @@ const es: TranslationKeys = {
     fillFields: "Por favor completa todos los campos.",
     failed: "Error al iniciar sesión",
   },
+
+  // ── Landing Page ──────────────────────────────────────────────────────────
+  landing: {
+    nav: {
+      signIn: "Iniciar Sesión"
+    },
+    hero: {
+      badge: "Creado para entrenadores profesionales",
+      title1: "Entrena Mejor.",
+      title2: "Gestiona Mejor.",
+      subtitle: "La plataforma todo en uno que conecta entrenadores con sus alumnos. Rutinas personalizadas, seguimiento en tiempo real y gestión nutricional — todo en un solo lugar.",
+      ctaPrimary: "Empieza Gratis →",
+      ctaSecondary: "Iniciar Sesión",
+      stat1Value: "500+",
+      stat1Label: "Entrenadores activos",
+      stat2Value: "2k+",
+      stat2Label: "Alumnos",
+      stat3Value: "50k+",
+      stat3Label: "Rutinas registradas"
+    },
+    features: {
+      label: "Todo lo que necesitas",
+      title: "Creado para dar Resultados",
+      subtitle: "Todas las herramientas que los entrenadores necesitan para crecer y todas las funciones que los alumnos necesitan para lograr sus metas.",
+      items: [
+        { title: "Planes Personalizados", desc: "Crea y asigna rutinas con ejercicios, series, reps, peso y objetivos de RPE para cada cliente." },
+        { title: "Seguimiento en Vivo", desc: "Los alumnos registran sus series en tiempo real. Cada rep, cada serie, cada sesión — capturada al instante." },
+        { title: "Gestión Nutricional", desc: "Registro diario de calorías y macros con buscador de alimentos, metas y reportes semanales." },
+        { title: "Gráficas de Progreso", desc: "Gráficas de 1RM e historial de peso corporal para que entrenadores y alumnos vean resultados reales." },
+        { title: "Mensajería Directa", desc: "Chat 1:1 en tiempo real entre entrenadores y alumnos. Mantén la comunicación fluida y constante." },
+        { title: "Temporizador y Cardio", desc: "Temporizador de descanso con alertas de sonido y contador de cardio con estimación de calorías." }
+      ]
+    },
+    how: {
+      label: "Cómo funciona",
+      title: "Una Plataforma, Dos Perspectivas",
+      subtitle: "Dupla le da a los entrenadores las herramientas para gestionar su negocio y a los alumnos la experiencia para entrenar al máximo.",
+      coachLabel: "Para Entrenadores",
+      coachTitle: "Haz crecer tu negocio de coaching",
+      coachSteps: [
+        { title: "Agrega a tus alumnos", desc: "Invita a clientes por email y gestiónalos a todos desde un solo panel de control." },
+        { title: "Crea sus programas", desc: "Diseña planes de entrenamiento personalizados con ejercicios adaptados a sus metas." },
+        { title: "Rastrea su progreso", desc: "Mira registros en tiempo real, gráficas de progresión y datos nutricionales de cada alumno." },
+        { title: "Aumenta tus ingresos", desc: "Lleva el control de pagos por cliente y escala con un plan que se adapte a tu negocio." }
+      ],
+      traineeLabel: "Para Alumnos",
+      traineeTitle: "Entrena con propósito y claridad",
+      traineeSteps: [
+        { title: "Conecta con tu coach", desc: "Tu entrenador te agrega a la plataforma y te asigna tu programa personalizado." },
+        { title: "Sigue tu plan", desc: "Mira tus rutinas programadas, inicia sesiones y registra tus series con temporizador integrado." },
+        { title: "Controla tu nutrición", desc: "Registra tus comidas diarias para mantenerte en el objetivo de tus macros." },
+        { title: "Mira tu progreso", desc: "Visualiza tu progresión de fuerza (1RM) e historial de peso para mantener la motivación." }
+      ]
+    },
+    pricing: {
+      label: "Precios",
+      title: "Planes para cada Entrenador",
+      subtitle: "Comienza gratis con un alumno. Escala a medida que crezca tu lista de clientes.",
+      foreverFree: "Gratis por siempre",
+      mostPopular: "MÁS POPULAR",
+      perMonth: "/mes",
+      tiers: {
+        starter: { name: "Starter", sub: "Gratis por siempre", cta: "Empieza gratis", features: ["1 Alumno", "Creador de rutinas", "Seguimiento de sesiones"] },
+        bronze:  { name: "Bronze",  sub: "Hasta 4 alumnos",  cta: "Obtener Bronze",    features: ["4 Alumnos", "Todo lo de Starter", "Estadísticas avanzadas", "Control de pagos"] },
+        silver:  { name: "Silver",  sub: "Hasta 10 alumnos", cta: "Ir a Silver",       features: ["10 Alumnos", "Soporte prioritario", "Analítica completa", "Reportes semanales"] },
+        gold:    { name: "Gold",    sub: "Hasta 25 alumnos", cta: "Obtener Gold",      features: ["25 Alumnos", "Todas las funciones", "Soporte 24/7", "Programa de referidos"] },
+        olympian:{ name: "Olympian",sub: "Alumnos ilimitados",cta: "Contactar Ventas", features: ["Alumnos ilimitados", "Acceso VIP", "Herramientas Enterprise", "Soporte dedicado"] }
+      }
+    },
+    modal: {
+      title: "Mejorar a",
+      subtitle: "Contáctanos para activar tu plan",
+      body: "Para procesar tu pago y activar tu suscripción, ponte en contacto con nuestro equipo por WhatsApp o email.",
+      whatsapp: "Contactar por WhatsApp",
+      emailBtn: "Enviar Email en su lugar"
+    },
+    referral: {
+      label: "Programa de referidos",
+      title: "Programa Win-Win",
+      subtitle: "Crezcan juntos. Gana para siempre.",
+      step1Title: "Invita Entrenadores",
+      step1Desc: "Comparte tu código único con otros entrenadores de tu red.",
+      step2Title: "Ellos reciben 20% Off",
+      step2Desc: "Tus amigos obtienen un 20% de descuento en su primer mes — un gran trato para empezar.",
+      step3Title: "Tú ganas el 10%",
+      step3Desc: "Ganas un 10% de comisión por cada pago que realicen, mientras permanezcan activos.",
+      cta: "Empieza a Ganar →"
+    },
+    footer: {
+      copyright: "© 2026 Dupla. Todos los derechos reservados."
+    }
+  },
 }
 
 export default es

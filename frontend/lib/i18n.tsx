@@ -41,6 +41,28 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   )
 }
 
+export function useLanguage() {
+  const { lang, setLang } = useContext(I18nContext)
+  return { language: lang, setLanguage: setLang }
+}
+
 export function useT() {
-  return useContext(I18nContext)
+  const { t: dictionary } = useContext(I18nContext)
+
+  const t = (path: string, defaultValue?: string) => {
+    const keys = path.split('.')
+    let result: any = dictionary
+
+    for (const key of keys) {
+      if (result && typeof result === 'object' && key in result) {
+        result = result[key]
+      } else {
+        return defaultValue || path
+      }
+    }
+
+    return result
+  }
+
+  return { t }
 }

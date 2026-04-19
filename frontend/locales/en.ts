@@ -324,6 +324,98 @@ const en = {
     fillFields: "Please fill in all fields.",
     failed: "Login failed",
   },
+
+  // ── Landing Page ──────────────────────────────────────────────────────────
+  landing: {
+    nav: {
+      signIn: "Sign In"
+    },
+    hero: {
+      badge: "Built for professional coaches",
+      title1: "Train Smarter.",
+      title2: "Coach Better.",
+      subtitle: "The all-in-one platform connecting personal trainers with their clients. Personalized workouts, real-time session tracking, and nutrition management — all in one place.",
+      ctaPrimary: "Start for Free →",
+      ctaSecondary: "Sign In",
+      stat1Value: "500+",
+      stat1Label: "Active coaches",
+      stat2Value: "2k+",
+      stat2Label: "Trainees",
+      stat3Value: "50k+",
+      stat3Label: "Workouts logged"
+    },
+    features: {
+      label: "Everything you need",
+      title: "Built for Results",
+      subtitle: "Every tool coaches need to grow their business and every feature trainees need to reach their goals.",
+      items: [
+        { title: "Custom Workout Plans", desc: "Build and assign workout plans with exercises, sets, reps, weight, and RPE targets tailored to each client." },
+        { title: "Live Session Tracking", desc: "Trainees log sets in real-time during workouts. Every rep, every set, every session — captured instantly." },
+        { title: "Nutrition Tracking", desc: "Daily calorie and macro logging with food search, goal setting, and weekly nutrition reports." },
+        { title: "Progression Analytics", desc: "1RM progression charts and body weight history so coaches and trainees can see real results over time." },
+        { title: "Direct Messaging", desc: "Real-time 1:1 chat between coaches and trainees. Keep the feedback loop tight and responsive." },
+        { title: "Rest Timer & Cardio", desc: "Built-in rest timer with sound alerts and a cardio timer with calorie estimates, right inside the session." }
+      ]
+    },
+    how: {
+      label: "How it works",
+      title: "One Platform, Two Perspectives",
+      subtitle: "Dupla gives coaches the tools to manage their business and trainees the experience to train at their best.",
+      coachLabel: "For Coaches",
+      coachTitle: "Grow your coaching business",
+      coachSteps: [
+        { title: "Add your trainees", desc: "Invite clients by email and manage all of them from a single dashboard." },
+        { title: "Build their programs", desc: "Create custom workout plans with exercises tailored to each client's specific goals." },
+        { title: "Track their progress", desc: "See real-time session logs, progression charts, and nutrition data for every trainee." },
+        { title: "Grow your revenue", desc: "Track payments per client and scale with a subscription plan that fits your business." }
+      ],
+      traineeLabel: "For Trainees",
+      traineeTitle: "Train with purpose and clarity",
+      traineeSteps: [
+        { title: "Connect with your coach", desc: "Your coach adds you to the platform and assigns your personalized training program." },
+        { title: "Follow your plan", desc: "View scheduled workouts, start sessions, and log sets with a rest timer built in." },
+        { title: "Track your nutrition", desc: "Log daily meals and calories to stay on target with your macro goals." },
+        { title: "See your progress", desc: "View 1RM progression and body weight history to stay motivated by real results." }
+      ]
+    },
+    pricing: {
+      label: "Pricing",
+      title: "Plans for Every Coach",
+      subtitle: "Start free with one trainee. Scale up as your client list grows.",
+      foreverFree: "Forever free",
+      mostPopular: "MOST POPULAR",
+      perMonth: "/mo",
+      tiers: {
+        starter: { name: "Starter", sub: "Forever free", cta: "Get started free", features: ["1 Trainee", "Workout builder", "Session tracking"] },
+        bronze:  { name: "Bronze",  sub: "Up to 4 trainees",  cta: "Get Bronze",        features: ["4 Trainees", "All Starter features", "Advanced stats", "Revenue tracking"] },
+        silver:  { name: "Silver",  sub: "Up to 10 trainees", cta: "Go Silver",         features: ["10 Trainees", "Priority support", "Full analytics", "Weekly insights"] },
+        gold:    { name: "Gold",    sub: "Up to 25 trainees", cta: "Get Gold",          features: ["25 Trainees", "All features", "24/7 support", "Referral program"] },
+        olympian:{ name: "Olympian",sub: "Unlimited trainees",cta: "Contact Sales",     features: ["Unlimited trainees", "VIP access", "Enterprise tools", "Dedicated support"] }
+      }
+    },
+    modal: {
+      title: "Upgrade to",
+      subtitle: "Contact us to activate your plan",
+      body: "To process your payment and activate your subscription, reach out to our team via WhatsApp or email.",
+      whatsapp: "Contact via WhatsApp",
+      emailBtn: "Send Email Instead"
+    },
+    referral: {
+      label: "Referral program",
+      title: "Win-Win Program",
+      subtitle: "Grow together. Earn forever.",
+      step1Title: "Invite Coaches",
+      step1Desc: "Share your unique referral code with fellow trainers in your network.",
+      step2Title: "They Get 20% Off",
+      step2Desc: "Your friends get a 20% discount on their first month — a great deal to get started.",
+      step3Title: "You Earn 10%",
+      step3Desc: "You earn 10% commission on every payment they make, for as long as they stay.",
+      cta: "Start Earning →"
+    },
+    footer: {
+      copyright: "© 2026 Dupla. All rights reserved."
+    }
+  },
 }
 
 export type TranslationKeys = typeof en
