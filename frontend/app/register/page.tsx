@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useT } from '@/lib/i18n';
-import { setToken, setUserInfo, API_URL } from '@/lib/api';
+import { setAuth, API_URL } from '@/lib/api';
 
 export default function RegisterPage() {
   const { t } = useT();
@@ -70,8 +70,7 @@ export default function RegisterPage() {
         throw new Error(resData.message || t('registerPage.errorGeneric'));
       }
 
-      setToken(resData.token);
-      setUserInfo(resData.user);
+      setAuth(resData.token, resData.user);
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || t('registerPage.errorGeneric'));

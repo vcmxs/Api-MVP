@@ -418,6 +418,57 @@ const es: TranslationKeys = {
       copyright: "© 2026 Dupla. Todos los derechos reservados."
     }
   },
+
+  // ── Register Page ─────────────────────────────────────────────────────────
+  registerPage: {
+    title: "Crear Cuenta",
+    subtitle: "Únete a Dupla hoy",
+    roleQuestion: "Soy un...",
+    roleCoach: "Entrenador",
+    roleTrain: "Alumno",
+    photoLabel: "Foto de Perfil",
+    photoOptional: "(Opcional)",
+    nameLabel: "Nombre Completo",
+    emailLabel: "Correo",
+    sexLabel: "Sexo",
+    sexSelect: "Seleccionar...",
+    sexMale: "Hombre",
+    sexFemale: "Mujer",
+    sexOther: "Otro",
+    ageLabel: "Edad",
+    phoneLabel: "Teléfono",
+    gymLabel: "Gimnasio",
+    notesLabel: "Patologías / Notas",
+    notesPlaceholder: "Condiciones médicas, lesiones, metas...",
+    passwordLabel: "Contraseña",
+    passwordHint: "Mínimo 6 caracteres",
+    confirmLabel: "Confirmar Contraseña",
+    referralLabel: "Código de Referido",
+    referralOptional: "(Opcional)",
+    referralPlaceholder: "Ingrésalo si tienes uno",
+    submit: "Crear Cuenta",
+    submitting: "Creando cuenta...",
+    haveAccount: "¿Ya tienes cuenta?",
+    signIn: "Iniciar sesión →",
+    errorPasswordMismatch: "Las contraseñas no coinciden",
+    errorPasswordShort: "La contraseña debe tener al menos 6 caracteres",
+    errorImageType: "Solo se permiten imágenes (JPEG, PNG, WEBP)",
+    errorImageSize: "La imagen debe ser menor a 5MB",
+    errorGeneric: "Error en el registro. Inténtalo de nuevo."
+  },
+
+  // ── Login Page ────────────────────────────────────────────────────────────
+  loginPage: {
+    emailLabel: "Correo",
+    passwordLabel: "Contraseña",
+    rememberMe: "Recordar mi correo",
+    signIn: "Iniciar Sesión",
+    signingIn: "Iniciando sesión...",
+    noAccount: "¿No tienes cuenta?",
+    createAccount: "Crear una cuenta →",
+    welcomeBack: "Bienvenido de nuevo",
+    error: "Error al iniciar sesión. Verifica tus credenciales."
+  },
 }
 
 export default es

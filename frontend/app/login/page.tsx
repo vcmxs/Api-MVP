@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { setToken, setUserInfo } from '@/lib/api';
+import { setAuth, getUserInfo, apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
-import { apiFetch } from '@/lib/api';
 
 export default function LoginPage() {
   const { t } = useT();
@@ -40,11 +39,10 @@ export default function LoginPage() {
         localStorage.removeItem('rememberedEmail');
       }
 
-      setToken(response.token);
-      setUserInfo(response.user);
+      setAuth(response.token, response.user);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      setError(err.message || t('loginPage.error'));
     } finally {
       setLoading(false);
     }
@@ -110,7 +108,7 @@ export default function LoginPage() {
             <img src="/icon.png" alt="Dupla" style={{ width: '34px', height: '34px', objectFit: 'contain' }} />
           </div>
           <h2 style={{ color: '#EDF2F7', fontSize: '22px', fontWeight: '900', letterSpacing: '3px', margin: '0 0 6px' }}>DUPLA</h2>
-          <p style={{ color: '#8892A4', fontSize: '14px', margin: 0, fontWeight: '500' }}>Welcome back</p>
+          <p style={{ color: '#8892A4', fontSize: '14px', margin: 0, fontWeight: '500' }}>{t('loginPage.welcomeBack')}</p>
         </div>
 
         <div style={{
@@ -124,7 +122,7 @@ export default function LoginPage() {
         }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#8892A4', marginBottom: '6px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Email</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#8892A4', marginBottom: '6px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{t('loginPage.emailLabel')}</label>
               <input
                 type="email"
                 value={email}
@@ -137,7 +135,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#8892A4', marginBottom: '6px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Password</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#8892A4', marginBottom: '6px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{t('loginPage.passwordLabel')}</label>
               <input
                 type="password"
                 value={password}
@@ -157,7 +155,7 @@ export default function LoginPage() {
                 onChange={e => setRememberMe(e.target.checked)}
                 style={{ accentColor: '#00C4FF', width: '15px', height: '15px', cursor: 'pointer' }}
               />
-              <label htmlFor="rememberMe" style={{ color: '#8892A4', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>Remember my email</label>
+              <label htmlFor="rememberMe" style={{ color: '#8892A4', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>{t('loginPage.rememberMe')}</label>
             </div>
             {error && (
               <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#F87171', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', lineHeight: '1.5' }}>
@@ -184,15 +182,15 @@ export default function LoginPage() {
                 fontFamily: "'Inter', -apple-system, sans-serif",
               }}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('loginPage.signingIn') : t('loginPage.signIn')}
             </button>
           </form>
         </div>
 
         <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <p style={{ color: '#4A5568', fontSize: '13px', margin: '0 0 6px' }}>Don't have an account?</p>
+          <p style={{ color: '#4A5568', fontSize: '13px', margin: '0 0 6px' }}>{t('loginPage.noAccount')}</p>
           <Link href="/register" style={{ textDecoration: 'none', color: '#00C4FF', fontWeight: '600', fontSize: '14px', cursor: 'pointer', padding: 0, fontFamily: "'Inter', -apple-system, sans-serif" }}>
-            Create an account →
+            {t('loginPage.createAccount')}
           </Link>
         </div>
       </div>

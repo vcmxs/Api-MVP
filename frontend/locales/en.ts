@@ -416,6 +416,57 @@ const en = {
       copyright: "© 2026 Dupla. All rights reserved."
     }
   },
+
+  // ── Register Page ─────────────────────────────────────────────────────────
+  registerPage: {
+    title: "Create Account",
+    subtitle: "Join Dupla today",
+    roleQuestion: "I am a...",
+    roleCoach: "Coach",
+    roleTrain: "Trainee",
+    photoLabel: "Profile Photo",
+    photoOptional: "(Optional)",
+    nameLabel: "Full Name",
+    emailLabel: "Email",
+    sexLabel: "Sex",
+    sexSelect: "Select...",
+    sexMale: "Male",
+    sexFemale: "Female",
+    sexOther: "Other",
+    ageLabel: "Age",
+    phoneLabel: "Phone",
+    gymLabel: "Gym",
+    notesLabel: "Notes / Conditions",
+    notesPlaceholder: "Medical conditions, injuries, goals...",
+    passwordLabel: "Password",
+    passwordHint: "Minimum 6 characters",
+    confirmLabel: "Confirm Password",
+    referralLabel: "Referral Code",
+    referralOptional: "(Optional)",
+    referralPlaceholder: "Enter code if you have one",
+    submit: "Create Account",
+    submitting: "Creating account...",
+    haveAccount: "Already have an account?",
+    signIn: "Sign in →",
+    errorPasswordMismatch: "Passwords don't match",
+    errorPasswordShort: "Password must be at least 6 characters",
+    errorImageType: "Only images allowed (JPEG, PNG, WEBP)",
+    errorImageSize: "Image must be under 5MB",
+    errorGeneric: "Registration failed. Please try again."
+  },
+
+  // ── Login Page ────────────────────────────────────────────────────────────
+  loginPage: {
+    emailLabel: "Email",
+    passwordLabel: "Password",
+    rememberMe: "Remember my email",
+    signIn: "Sign In",
+    signingIn: "Signing in...",
+    noAccount: "Don't have an account?",
+    createAccount: "Create an account →",
+    welcomeBack: "Welcome back",
+    error: "Login failed. Please check your credentials."
+  },
 }
 
 export type TranslationKeys = typeof en
