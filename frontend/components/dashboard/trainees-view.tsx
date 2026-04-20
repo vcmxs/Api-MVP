@@ -28,6 +28,14 @@ export interface ApiTrainee {
 function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () => void }) {
   const { t } = useT()
   const isBlocked = trainee.status === "blocked"
+  
+  // Calculate if subscription is expired
+  let isExpired = false
+  if (trainee.subscriptionExpiry) {
+    // Treat as expired if the expiry date has passed
+    const diff = new Date(trainee.subscriptionExpiry).getTime() - new Date().getTime()
+    isExpired = Math.ceil(diff / (1000 * 60 * 60 * 24)) < 0
+  }
 
   return (
     <button
@@ -48,12 +56,12 @@ function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () =>
       <div className="flex flex-col items-end gap-1.5">
         <div
           className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${
-            isBlocked
+            isBlocked || isExpired
               ? "bg-[#ff4444]/15 text-[#ff4444]"
               : "bg-[#00ff88]/15 text-[#00ff88]"
           }`}
         >
-          {isBlocked ? t.trainees.blocked : t.trainees.active}
+          {isBlocked ? t.trainees.blocked : isExpired ? "Expired" : t.trainees.active}
         </div>
         {trainee.subscriptionTier && (
           <span className="text-xs text-[#555555] uppercase tracking-wider">

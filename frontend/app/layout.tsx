@@ -12,8 +12,21 @@ export const metadata: Metadata = {
   description: 'Premium fitness coaching platform for managing trainees, workouts, and programs',
   generator: 'v0.app',
   icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
+    icon: [
+      {
+        url: '/icon-light-32x32.png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32x32.png',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+    apple: '/apple-icon.png',
   },
 }
 
@@ -26,7 +39,7 @@ export default function RootLayout({
     <html lang="en" className="dark bg-[#0a0a0f]">
       <body className="font-sans antialiased bg-[#0a0a0f]">
         <Providers>{children}</Providers>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {process.env.VERCEL === '1' && <Analytics />}
       </body>
     </html>
   )

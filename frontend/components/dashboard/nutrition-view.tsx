@@ -100,7 +100,9 @@ function AddFoodModal({ date, onClose, onAdded }: { date: string; onClose: () =>
     setSearching(true)
     try {
       const res = await apiFetch<Food[]>(`/nutrition/foods?search=${encodeURIComponent(search)}`)
-      setFoods(Array.isArray(res) ? res : [])
+      const fetched = Array.isArray(res) ? res : []
+      const term = search.toLowerCase()
+      setFoods(fetched.filter(f => f.name.toLowerCase().includes(term)))
     } catch { setFoods([]) }
     finally { setSearching(false) }
   }, [search])
