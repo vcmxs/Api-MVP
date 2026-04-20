@@ -57,7 +57,15 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
     try {
       // Fetch nutrition
       const nRes = await apiFetch<any>(`/nutrition/summary/${dateStr}`)
-      if (nRes && nRes.summary) setNutrition(nRes.summary)
+      if (nRes) {
+        const fetchedMeals = nRes.meals ?? []
+        const sum = nRes.summary ? { ...nRes.summary } : { calorie_goal: 2000, protein_goal: 150, carb_goal: 250, fat_goal: 70 }
+        sum.total_calories = fetchedMeals.reduce((acc: number, m: any) => acc + (Number(m.calories) || 0), 0)
+        sum.total_proteins = fetchedMeals.reduce((acc: number, m: any) => acc + (Number(m.proteins) || 0), 0)
+        sum.total_carbs = fetchedMeals.reduce((acc: number, m: any) => acc + (Number(m.carbs) || 0), 0)
+        sum.total_fats = fetchedMeals.reduce((acc: number, m: any) => acc + (Number(m.fats) || 0), 0)
+        setNutrition(sum)
+      }
     } catch (e) {}
 
     try {

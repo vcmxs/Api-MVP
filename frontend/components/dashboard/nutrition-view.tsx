@@ -273,8 +273,21 @@ function DailyTab({ targetUserId, readonly }: { targetUserId?: number; readonly?
     try {
       const qs = targetUserId ? `?userId=${targetUserId}` : ""
       const res = await apiFetch<{ summary: DailySummary; meals: MealLog[] }>(`/nutrition/summary/${date}${qs}`)
-      setSummary(res.summary)
-      setMeals(res.meals ?? [])
+      
+      const fetchedMeals = res.meals ?? []
+      let newSummary = res.summary ? { ...res.summary } : { 
+        total_calories: 0, total_proteins: 0, total_carbs: 0, total_fats: 0, 
+        calorie_goal: 2000, protein_goal: 150, carb_goal: 250, fat_goal: 70 
+      } as DailySummary
+      
+      // Dynamically calculate the totals from the meal list to ensure perfect sync
+      newSummary.total_calories = fetchedMeals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0)
+      newSummary.total_proteins = fetchedMeals.reduce((sum, m) => sum + (Number(m.proteins) || 0), 0)
+      newSummary.total_carbs = fetchedMeals.reduce((sum, m) => sum + (Number(m.carbs) || 0), 0)
+      newSummary.total_fats = fetchedMeals.reduce((sum, m) => sum + (Number(m.fats) || 0), 0)
+
+      setSummary(newSummary)
+      setMeals(fetchedMeals)
     } catch {
       setSummary(null); setMeals([])
     } finally { setLoading(false) }
