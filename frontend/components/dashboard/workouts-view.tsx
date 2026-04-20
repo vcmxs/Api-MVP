@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Dumbbell, X, UserPlus,
   ArrowLeft, CheckCircle2, Clock, ClipboardList,
   ChevronRight, Users, Search, Loader2, AlertCircle,
-  Calendar, CalendarDays, RefreshCw, Pencil, RotateCcw, Check,
+  Calendar, CalendarDays, RefreshCw, Pencil, RotateCcw, Check, Lock
 } from "lucide-react"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
@@ -192,11 +192,12 @@ function StatCard({ label, value, icon, color, active, onClick }: {
 
 // ── Workout Card ──────────────────────────────────────────────────────────
 
-function WorkoutCard({ workout, onClick, onDelete, onAssign }: {
+function WorkoutCard({ workout, onClick, onDelete, onAssign, isExpired }: {
   workout: DisplayWorkout
   onClick: () => void
   onDelete: (id: number) => void
   onAssign: (id: number) => void
+  isExpired?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
   const sc = getStatusConfig(workout.status)
@@ -214,12 +215,17 @@ function WorkoutCard({ workout, onClick, onDelete, onAssign }: {
 
   const inner = (
     <div
-      className={cn("relative flex cursor-pointer items-center justify-between rounded-2xl bg-[#161b22] p-4 transition-all", borderClass, hovered && !workout.isCoOp && !workout.isCoachAssigned && "bg-[#1c2128]")}
+      className={cn("relative flex cursor-pointer items-center justify-between rounded-2xl bg-[#161b22] p-4 transition-all overflow-hidden", borderClass, hovered && !workout.isCoOp && !workout.isCoachAssigned && "bg-[#1c2128]")}
       style={workout.isCoOp || workout.isCoachAssigned ? { borderRadius: "14px" } : {}}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={onClick}
+      onClick={isExpired ? () => alert("Your subscription has expired. Please contact your coach to resume your training.") : onClick}
     >
+      {isExpired && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Lock className="h-6 w-6 text-white/70" />
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <h3 className="truncate font-bold text-white">{workout.name}</h3>
@@ -1079,6 +1085,7 @@ export function WorkoutsView() {
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [assigningWorkoutId, setAssigningWorkoutId] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "assigned" | "pending">("all")
+  const [isExpired, setIsExpired] = useState(false)
 
   // ── Fetch workouts ────────────────────────────────────────────────────
 
@@ -1086,6 +1093,14 @@ export function WorkoutsView() {
     // Read user fresh on every call — avoids stale closure from initial render
     const user = getUserInfo()
     if (!user?.id) { setError("Not logged in"); setLoading(false); return }
+    
+    // Calculate expiry
+    const endDate = user?.coachSubscriptionEndDate ?? user?.coach_subscription_end_date
+    if (endDate) {
+      const diff = new Date(endDate).getTime() - new Date().getTime()
+      setIsExpired(Math.ceil(diff / (1000 * 60 * 60 * 24)) < 0)
+    }
+
     setLoading(true); setError("")
     try {
       const data = await apiFetch<{ workoutPlans: ApiWorkout[] }>(`/trainees/${user.id}/workout-plans`)
@@ -1248,7 +1263,7 @@ export function WorkoutsView() {
               <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#555555]">{label}</h3>
               <div className="space-y-3">
                 {items.map((workout) => (
-                  <WorkoutCard key={workout.id} workout={workout} onClick={() => setDetailWorkout(workout)} onDelete={handleDelete} onAssign={handleAssign} />
+                  <WorkoutCard key={workout.id} workout={workout} onClick={() => setDetailWorkout(workout)} onDelete={handleDelete} onAssign={handleAssign} isExpired={isExpired} />
                 ))}
               </div>
             </div>

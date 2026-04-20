@@ -9,6 +9,7 @@ import { RecentActivity } from "@/components/dashboard/recent-activity"
 import { TraineesView } from "@/components/dashboard/trainees-view"
 import type { ApiTrainee } from "@/components/dashboard/trainees-view"
 import { TraineeDetail } from "@/components/dashboard/trainee-detail"
+import { TraineeOverview } from "@/components/dashboard/trainee-overview"
 import { WorkoutsView } from "@/components/dashboard/workouts-view"
 import { MessagesView } from "@/components/dashboard/messages-view"
 import { InsightsView } from "@/components/dashboard/insights-view"
@@ -247,37 +248,41 @@ export default function Dashboard() {
           <div className="mx-auto max-w-6xl space-y-8">
 
             {activeTab === "overview" && (
-              <>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <KPICard
-                    title={t.kpi.activeTrainees}
-                    value={traineeCount !== null ? String(traineeCount) : "—"}
-                    change={{ value: "", trend: "up" }}
-                    accentColor="#00ffff"
-                    icon={<Users className="h-6 w-6" />}
-                    clickable
-                    onClick={() => changeTab("trainees")}
-                  />
-                  <KPICard
-                    title={t.kpi.monthlyRevenue}
-                    value={revenue ? `$${Number(revenue.amount).toLocaleString()}` : "—"}
-                    change={revenue ? { value: revenue.growth, trend: revenue.direction === "up" ? "up" : "down" } : { value: "", trend: "up" }}
-                    accentColor="#00ff88"
-                    icon={<DollarSign className="h-6 w-6" />}
-                    clickable
-                    onClick={() => changeTab("insights")}
-                  />
-                </div>
+              user?.role === "trainee" ? (
+                <TraineeOverview onChangeTab={changeTab} />
+              ) : (
+                <>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <KPICard
+                      title={t.kpi.activeTrainees}
+                      value={traineeCount !== null ? String(traineeCount) : "—"}
+                      change={{ value: "", trend: "up" }}
+                      accentColor="#00ffff"
+                      icon={<Users className="h-6 w-6" />}
+                      clickable
+                      onClick={() => changeTab("trainees")}
+                    />
+                    <KPICard
+                      title={t.kpi.monthlyRevenue}
+                      value={revenue ? `$${Number(revenue.amount).toLocaleString()}` : "—"}
+                      change={revenue ? { value: revenue.growth, trend: revenue.direction === "up" ? "up" : "down" } : { value: "", trend: "up" }}
+                      accentColor="#00ff88"
+                      icon={<DollarSign className="h-6 w-6" />}
+                      clickable
+                      onClick={() => changeTab("insights")}
+                    />
+                  </div>
 
-                <QuickActions
-                  onAddTrainee={() => changeTab("trainees")}
-                  onNewWorkout={() => changeTab("workouts")}
-                  onCreateProgram={() => changeTab("programs")}
-                  onBlastMessage={() => setBlastOpen(true)}
-                />
+                  <QuickActions
+                    onAddTrainee={() => changeTab("trainees")}
+                    onNewWorkout={() => changeTab("workouts")}
+                    onCreateProgram={() => changeTab("programs")}
+                    onBlastMessage={() => setBlastOpen(true)}
+                  />
 
-                <RecentActivity onViewAll={() => changeTab("notifications")} />
-              </>
+                  <RecentActivity onViewAll={() => changeTab("notifications")} />
+                </>
+              )
             )}
 
             {activeTab === "trainees" && !selectedTrainee && (

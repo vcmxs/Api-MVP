@@ -5,7 +5,7 @@ export function getToken(): string | null {
   return localStorage.getItem("userToken")
 }
 
-export function getUserInfo(): { id: number; name: string; email: string; role: string } | null {
+export function getUserInfo(): { id: number; name: string; email: string; role: string; coachSubscriptionEndDate?: string; coach_subscription_end_date?: string; weight?: number } | null {
   if (typeof window === "undefined") return null
   const raw = localStorage.getItem("userInfo")
   if (!raw) return null

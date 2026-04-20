@@ -99,19 +99,31 @@ export function Sidebar({ activeTab, onTabChange, collapsed, onToggleCollapse }:
     router.replace("/login")
   }
 
-  const navItems = [
-    { id: "overview",      icon: <LayoutDashboard className="h-5 w-5" />, label: t.nav.overview },
-    { id: "trainees",      icon: <Users className="h-5 w-5" />,           label: t.nav.trainees },
-    { id: "workouts",      icon: <Dumbbell className="h-5 w-5" />,        label: t.nav.workouts },
-    { id: "programs",      icon: <ClipboardList className="h-5 w-5" />,   label: t.nav.programs },
-    { id: "messages",      icon: <MessageSquare className="h-5 w-5" />,   label: t.nav.messages },
-    { id: "insights",      icon: <BarChart3 className="h-5 w-5" />,       label: t.nav.insights },
-    { id: "nutrition",     icon: <Apple className="h-5 w-5" />,           label: t.nav.nutrition },
-    { id: "progression",   icon: <TrendingUp className="h-5 w-5" />,      label: t.nav.progression },
-    { id: "revenue",       icon: <DollarSign className="h-5 w-5" />,      label: t.nav.revenue },
-    { id: "winwin",        icon: <Gift className="h-5 w-5" />,            label: t.nav.winwin },
-    { id: "notifications", icon: <Bell className="h-5 w-5" />,            label: t.nav.notifications },
-  ]
+  const isTrainee = user?.role === "trainee"
+
+  const navItems = isTrainee
+    ? [
+        { id: "overview",      icon: <LayoutDashboard className="h-5 w-5" />, label: t.nav.overview },
+        { id: "workouts",      icon: <Dumbbell className="h-5 w-5" />,        label: t.nav.workouts },
+        { id: "messages",      icon: <MessageSquare className="h-5 w-5" />,   label: t.nav.messages },
+        { id: "nutrition",     icon: <Apple className="h-5 w-5" />,           label: t.nav.nutrition },
+        { id: "progression",   icon: <TrendingUp className="h-5 w-5" />,      label: t.nav.progression },
+        { id: "notifications", icon: <Bell className="h-5 w-5" />,            label: t.nav.notifications },
+      ]
+    : [
+        { id: "overview",      icon: <LayoutDashboard className="h-5 w-5" />, label: t.nav.overview },
+        { id: "trainees",      icon: <Users className="h-5 w-5" />,           label: t.nav.trainees },
+        { id: "workouts",      icon: <Dumbbell className="h-5 w-5" />,        label: t.nav.workouts },
+        { id: "programs",      icon: <ClipboardList className="h-5 w-5" />,   label: t.nav.programs },
+        { id: "messages",      icon: <MessageSquare className="h-5 w-5" />,   label: t.nav.messages },
+        { id: "insights",      icon: <BarChart3 className="h-5 w-5" />,       label: t.nav.insights },
+        { id: "nutrition",     icon: <Apple className="h-5 w-5" />,           label: t.nav.nutrition },
+        { id: "progression",   icon: <TrendingUp className="h-5 w-5" />,      label: t.nav.progression },
+        { id: "revenue",       icon: <DollarSign className="h-5 w-5" />,      label: t.nav.revenue },
+        { id: "winwin",        icon: <Gift className="h-5 w-5" />,            label: t.nav.winwin },
+        { id: "notifications", icon: <Bell className="h-5 w-5" />,            label: t.nav.notifications },
+      ]
+
 
   const width = collapsed ? "w-16" : "w-64"
 
