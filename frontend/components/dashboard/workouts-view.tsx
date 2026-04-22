@@ -515,15 +515,15 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   const [loading, setLoading] = useState(false)
   const [completing, setCompleting] = useState(false)
 
-  const fetchDetail = useCallback(async (id: number) => {
-    setLoading(true)
+  const fetchDetail = useCallback(async (id: number, silent: boolean = false) => {
+    if (!silent) setLoading(true)
     try {
       const data = await apiFetch<ApiWorkout>(`/workout-plans/${id}`)
       setRawDetail(data)
     } catch {
       setRawDetail(null)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -602,7 +602,7 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                   index={idx}
                   workoutId={workout.id}
                   workoutDate={workout.scheduledDate instanceof Date ? workout.scheduledDate.toISOString().split("T")[0] : String(workout.scheduledDate).split("T")[0]}
-                  onRefresh={() => fetchDetail(workout.id)}
+                  onRefresh={() => fetchDetail(workout.id, true)}
                 />
               ))}
             </div>
