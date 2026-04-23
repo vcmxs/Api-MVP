@@ -7,6 +7,7 @@ import { AdminOverview } from "@/components/admin/admin-overview"
 import { AdminUsersView } from "@/components/admin/admin-users-view"
 import { AdminFinanceView } from "@/components/admin/admin-finance-view"
 import { AdminReferralsView } from "@/components/admin/admin-referrals-view"
+import { AdminAuditView } from "@/components/admin/admin-audit-view"
 import { Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getToken, getUserInfo } from "@/lib/api"
@@ -95,7 +96,7 @@ export default function AdminDashboard() {
               <div className="text-white">Referrals Component (WIP)</div>
             )}
             {activeTab === "audit" && (
-              <div className="text-white">Audit Logs Component (WIP)</div>
+              <AdminAuditView />
             )}
           </div>
         </div>

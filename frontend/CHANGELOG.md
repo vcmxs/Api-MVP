@@ -109,7 +109,7 @@
   - [x] Overview stats (total users, coaches, trainees, subscriptions)
   - [x] User management table (view, block/unblock, delete, change plan)
   - [x] Financial charts (MRR, revenue by tier, churn)
-  - [ ] Referral & commission payout management
-  - [ ] Audit logs
+  - [x] Referral & commission payout management
+  - [x] Audit logs
 - [x] Install `recharts` for data visualization in Admin and Insights views
 - [x] Protect `/admin` route with server-side role guard (admin only)
