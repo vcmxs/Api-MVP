@@ -14,6 +14,7 @@ router.patch('/users/:userId/block', requireAdmin, adminController.blockUser);
 router.delete('/users/:userId', requireAdmin, adminController.deleteUser);
 router.get('/subscription/tiers', requireAdmin, adminController.getSubscriptionTiers);
 router.get('/stats', requireAdmin, adminController.getStats);
+router.get('/finance', requireAdmin, adminController.getFinance);
 
 module.exports = router;
 
