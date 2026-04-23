@@ -25,25 +25,12 @@ export function AdminReferralsView() {
 
   const fetchEarnings = async () => {
     try {
-      // In a real scenario, this connects to the referral_earnings table
       const res = await apiFetch<{ earnings: ReferralEarning[] }>("/admin/referrals")
-      if (res && res.earnings) {
-        setEarnings(res.earnings)
-      } else {
-        // Fallback mock data if endpoint is not fully wired up yet
-        setEarnings([
-          { id: 1, coachId: 101, coachName: "Coach Mike", coachEmail: "mike@gym.com", amount: 45.0, status: "pending", createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), traineeName: "John Doe" },
-          { id: 2, coachId: 101, coachName: "Coach Mike", coachEmail: "mike@gym.com", amount: 15.0, status: "pending", createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), traineeName: "Jane Smith" },
-          { id: 3, coachId: 105, coachName: "Sarah Connor", coachEmail: "sarah@gym.com", amount: 60.0, status: "paid", createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), traineeName: "Terminator" },
-        ])
-      }
+      setEarnings(res?.earnings ?? [])
     } catch (err) {
-      console.warn("Failed to load real referrals, using mock data", err)
-      setEarnings([
-        { id: 1, coachId: 101, coachName: "Coach Mike", coachEmail: "mike@gym.com", amount: 45.0, status: "pending", createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), traineeName: "John Doe" },
-        { id: 2, coachId: 101, coachName: "Coach Mike", coachEmail: "mike@gym.com", amount: 15.0, status: "pending", createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), traineeName: "Jane Smith" },
-        { id: 3, coachId: 105, coachName: "Sarah Connor", coachEmail: "sarah@gym.com", amount: 60.0, status: "paid", createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), traineeName: "T-800" },
-      ])
+      console.warn("Failed to load referrals from API", err)
+      // True fallback only if endpoint fails completely
+      setEarnings([])
     } finally {
       setLoading(false)
     }
@@ -58,20 +45,12 @@ export function AdminReferralsView() {
 
     setActionLoading(earningId)
     try {
-      await apiFetch(`/admin/referrals/${earningId}/pay`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "paid" }),
-      })
-      // Optimistically update local state
+      await apiFetch(`/admin/referrals/${earningId}/pay`, { method: "PATCH" })
       setEarnings((prev) =>
         prev.map((e) => (e.id === earningId ? { ...e, status: "paid" } : e))
       )
     } catch (err: any) {
-      alert("Note: Backend endpoint not ready yet. " + (err.message || "Failed to mark as paid"))
-      // For mock purposes, just update the state anyway
-      setEarnings((prev) =>
-        prev.map((e) => (e.id === earningId ? { ...e, status: "paid" } : e))
-      )
+      alert(err.message || "Failed to mark as paid")
     } finally {
       setActionLoading(null)
     }

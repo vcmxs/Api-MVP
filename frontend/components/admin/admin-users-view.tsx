@@ -50,6 +50,7 @@ export function AdminUsersView() {
   // Edit Plan State
   const [editingPlan, setEditingPlan] = useState(false)
   const [newPlan, setNewPlan] = useState("starter")
+  const [isComped, setIsComped] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   const fetchUsers = async () => {
@@ -75,6 +76,7 @@ export function AdminUsersView() {
       const data = await apiFetch<{ user: UserDetails }>(`/admin/users/${userId}/details`)
       setDetails(data.user)
       setNewPlan(data.user.subscriptionTier?.toLowerCase() || "starter")
+      setIsComped((data.user as any).isComped ?? false)
     } catch (err: any) {
       alert(err.message || "Failed to load user details")
       setSelectedUser(null)
@@ -129,12 +131,12 @@ export function AdminUsersView() {
     try {
       await apiFetch(`/admin/users/${selectedUser}/subscription`, {
         method: "PATCH",
-        body: JSON.stringify({ tier: newPlan, status: "active" }),
+        body: JSON.stringify({ tier: newPlan, status: "active", isComped }),
       })
-      alert("Subscription updated successfully!")
+      alert(isComped ? "Comped subscription granted (no revenue logged)." : "Subscription updated and payment logged!")
       setEditingPlan(false)
-      handleViewDetails(selectedUser) // Refresh details
-      fetchUsers() // Refresh main list
+      handleViewDetails(selectedUser)
+      fetchUsers()
     } catch (err: any) {
       alert(err.message || "Failed to update plan")
     } finally {
@@ -290,25 +292,40 @@ export function AdminUsersView() {
 
                     <div className="flex items-center gap-4">
                       {editingPlan ? (
-                        <div className="flex w-full items-center gap-3">
-                          <select
-                            value={newPlan}
-                            onChange={(e) => setNewPlan(e.target.value)}
-                            className="flex-1 rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-2 text-white focus:border-[#00ffff]/50 focus:outline-none"
-                          >
-                            <option value="starter">STARTER</option>
-                            <option value="bronze">BRONZE</option>
-                            <option value="silver">SILVER</option>
-                            <option value="gold">GOLD</option>
-                            <option value="olympian">OLYMPIAN</option>
-                          </select>
-                          <button
-                            onClick={handleUpdatePlan}
-                            disabled={actionLoading}
-                            className="rounded-xl bg-[#00ff88] px-4 py-2 font-bold text-black transition-colors hover:bg-[#00e57a] disabled:opacity-50"
-                          >
-                            {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save"}
-                          </button>
+                        <div className="flex w-full flex-col gap-3">
+                          <div className="flex items-center gap-3">
+                            <select
+                              value={newPlan}
+                              onChange={(e) => setNewPlan(e.target.value)}
+                              className="flex-1 rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-2 text-white focus:border-[#00ffff]/50 focus:outline-none"
+                            >
+                              <option value="starter">STARTER</option>
+                              <option value="bronze">BRONZE</option>
+                              <option value="silver">SILVER</option>
+                              <option value="gold">GOLD</option>
+                              <option value="olympian">OLYMPIAN</option>
+                            </select>
+                            <button
+                              onClick={handleUpdatePlan}
+                              disabled={actionLoading}
+                              className="rounded-xl bg-[#00ff88] px-4 py-2 font-bold text-black transition-colors hover:bg-[#00e57a] disabled:opacity-50"
+                            >
+                              {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save"}
+                            </button>
+                          </div>
+                          {/* Comped Toggle */}
+                          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#ffd700]/20 bg-[#ffd700]/5 px-4 py-2">
+                            <input
+                              type="checkbox"
+                              checked={isComped}
+                              onChange={(e) => setIsComped(e.target.checked)}
+                              className="h-4 w-4 accent-[#ffd700]"
+                            />
+                            <div>
+                              <p className="text-sm font-bold text-[#ffd700]">Comped Subscription</p>
+                              <p className="text-xs text-[#888888]">No payment or referral commission will be recorded</p>
+                            </div>
+                          </label>
                         </div>
                       ) : (
                         <div className="flex w-full items-center justify-between rounded-xl bg-[#0a0a0f] px-4 py-3">

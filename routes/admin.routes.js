@@ -15,6 +15,8 @@ router.delete('/users/:userId', requireAdmin, adminController.deleteUser);
 router.get('/subscription/tiers', requireAdmin, adminController.getSubscriptionTiers);
 router.get('/stats', requireAdmin, adminController.getStats);
 router.get('/finance', requireAdmin, adminController.getFinance);
+router.get('/referrals', requireAdmin, adminController.getReferrals);
+router.patch('/referrals/:earningId/pay', requireAdmin, adminController.payReferral);
 
 module.exports = router;
 

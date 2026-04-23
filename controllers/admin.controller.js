@@ -78,7 +78,7 @@ exports.updateUserRole = async (req, res) => {
  */
 exports.updateSubscription = async (req, res) => {
     try {
-        const { status, tier } = req.body;
+        const { status, tier, isComped } = req.body;
 
         if (status && !['free', 'active'].includes(status)) {
             return res.status(400).json({
@@ -96,7 +96,7 @@ exports.updateSubscription = async (req, res) => {
 
         // Check if user is a coach
         const userCheck = await pool.query(
-            'SELECT role, subscription_status, subscription_start_date, referred_by, referral_discount_used, subscription_tier FROM users WHERE id = $1',
+            'SELECT role, subscription_status, subscription_start_date, referred_by, referral_discount_used, subscription_tier, is_comped FROM users WHERE id = $1',
             [req.params.userId]
         );
 
@@ -153,34 +153,43 @@ exports.updateSubscription = async (req, res) => {
             valueIndex++;
         }
 
-        query += ` WHERE id = $${valueIndex} RETURNING id, name, email, role, subscription_status, subscription_tier, subscription_start_date, subscription_end_date`;
+        if (isComped !== undefined) {
+            query += `, is_comped = $${valueIndex}`;
+            values.push(isComped);
+            valueIndex++;
+        }
+
+        query += ` WHERE id = $${valueIndex} RETURNING id, name, email, role, subscription_status, subscription_tier, subscription_start_date, subscription_end_date, is_comped`;
         values.push(req.params.userId);
 
         const result = await pool.query(query, values);
 
-        // --- REFERRAL COMMISSION LOGIC ---
-        // Trigger only if status becomes active (or is active) and we just updated/renewed (tier change or status change)
-        // We assume if admin updates subscription to Active, payment was verified.
-        // Logic: If user has a Referrer, calculate commission.
+        // --- PAYMENT LEDGER + REFERRAL COMMISSION LOGIC ---
+        // Only fires if a real subscription change happened (dates updated)
         if (shouldUpdateDates && (newStatus === 'active' || currentStatus === 'active')) {
-            const referrerId = currentUser.referred_by;
-            if (referrerId) {
-                const finalTier = tier || currentUser.subscription_tier || 'starter';
-                const tierInfo = getTierInfo(finalTier);
-                const basePrice = tierInfo?.price || 0;
+            const finalComped = isComped !== undefined ? isComped : currentUser.is_comped;
+            const finalTier = tier || currentUser.subscription_tier || 'starter';
+            const tierInfo = getTierInfo(finalTier);
+            const basePrice = tierInfo?.price || 0;
 
-                if (basePrice > 0) {
+            // 1. Log the payment in the payments ledger (only if this is a REAL payment, not comped)
+            if (!finalComped && basePrice > 0) {
+                await pool.query(
+                    'INSERT INTO payments (coach_id, amount, tier, status, created_at) VALUES ($1, $2, $3, $4, NOW())',
+                    [req.params.userId, basePrice, finalTier, 'succeeded']
+                );
+                console.log(`[Payments] Logged $${basePrice} payment for coach ${req.params.userId} (${finalTier})`);
+            }
+
+            // 2. Referral commission logic (skip entirely for comped subs)
+            if (!finalComped) {
+                const referrerId = currentUser.referred_by;
+                if (referrerId && basePrice > 0) {
                     let effectivePrice = basePrice;
                     const isFirstDiscount = !currentUser.referral_discount_used;
 
-                    // If discount hasn't been used, mark it as used NOW (assuming this is the first payment)
-                    // The 20% discount applies to the First Month.
-                    // If isFirstDiscount, then the user PAID 80% of price.
-                    // Commission is 10% of what they PAID (or 10% of base? Prompt said "10% commission on referred coach payments").
-                    // Usually commission follows revenue.
                     if (isFirstDiscount) {
-                        effectivePrice = basePrice * 0.80; // User paid 80%
-                        // Mark discount as used
+                        effectivePrice = basePrice * 0.80; // First month: coach got 20% off
                         await pool.query('UPDATE users SET referral_discount_used = TRUE WHERE id = $1', [req.params.userId]);
                         console.log(`[Referral] Marked discount used for user ${req.params.userId}`);
                     }
@@ -196,6 +205,8 @@ exports.updateSubscription = async (req, res) => {
                         console.log(`[Referral] Commission of $${commissionAmount} recorded for referrer ${referrerId}`);
                     }
                 }
+            } else {
+                console.log(`[Comped] Skipping payment + referral for comped coach ${req.params.userId}`);
             }
         }
         // --------------------------------
@@ -388,7 +399,7 @@ exports.getFinance = async (req, res) => {
         const activeUsers = await pool.query(`
             SELECT subscription_tier, COUNT(*) as count 
             FROM users 
-            WHERE subscription_status = 'active' AND role = 'coach'
+            WHERE subscription_status = 'active' AND role = 'coach' AND is_comped = false
             GROUP BY subscription_tier
         `);
         
@@ -444,5 +455,39 @@ exports.getFinance = async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+exports.getReferrals = async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT re.id, re.referrer_id as "coachId", u.name as "coachName", u.email as "coachEmail",
+                   re.amount, re.status, re.created_at as "createdAt", t.name as "traineeName"
+            FROM referral_earnings re
+            JOIN users u ON re.referrer_id = u.id
+            LEFT JOIN users t ON re.referred_user_id = t.id
+            ORDER BY re.created_at DESC
+        `);
+        res.json({ earnings: result.rows.map(r => ({ ...r, amount: parseFloat(r.amount) })) });
+    } catch (err) {
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+exports.payReferral = async (req, res) => {
+    try {
+        const { earningId } = req.params;
+        const earningResult = await pool.query('SELECT * FROM referral_earnings WHERE id = $1', [earningId]);
+        if (earningResult.rows.length === 0) return res.status(404).json({ error: 'Not Found' });
+        
+        const earning = earningResult.rows[0];
+        if (earning.status === 'paid') return res.status(400).json({ error: 'Already paid' });
+
+        await pool.query('UPDATE referral_earnings SET status = $1 WHERE id = $2', ['paid', earningId]);
+        await pool.query('INSERT INTO payouts (coach_id, amount, status, created_at) VALUES ($1, $2, $3, NOW())', [earning.referrer_id, earning.amount, 'paid']);
+
+        res.json({ message: 'Marked as paid' });
+    } catch (err) {
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 };
