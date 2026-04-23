@@ -18,7 +18,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (getToken()) {
       const user = getUserInfo()
-      if (user?.role === "admin") {
+      if (user?.role?.toLowerCase() === "admin") {
         router.replace("/admin")
       } else {
         router.replace("/dashboard")
@@ -40,7 +40,7 @@ export default function LoginPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data?.message ?? "Login failed")
       setAuth(data.token, data.user)
-      if (data.user?.role === "admin") {
+      if (data.user?.role?.toLowerCase() === "admin") {
         router.push("/admin")
       } else {
         router.push("/dashboard")

@@ -87,14 +87,14 @@ export default function Dashboard() {
       return
     }
     const userInfo = getUserInfo()
-    if (userInfo?.role === "admin") {
+    if (userInfo?.role?.toLowerCase() === "admin") {
       router.replace("/admin")
       return
     }
   }, [router])
 
   if (typeof window !== "undefined" && !getToken()) return null
-  if (typeof window !== "undefined" && user?.role === "admin") return null
+  if (typeof window !== "undefined" && user?.role?.toLowerCase() === "admin") return null
 
   // Fetch KPI data
   const fetchKPIs = useCallback(async () => {

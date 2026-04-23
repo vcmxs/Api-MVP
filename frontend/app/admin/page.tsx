@@ -20,13 +20,13 @@ export default function AdminDashboard() {
       router.replace("/login")
       return
     }
-    if (user?.role !== "admin") {
+    if (user?.role?.toLowerCase() !== "admin") {
       router.replace("/dashboard")
       return
     }
   }, [router, user?.role])
 
-  if (typeof window !== "undefined" && (!getToken() || user?.role !== "admin")) {
+  if (typeof window !== "undefined" && (!getToken() || user?.role?.toLowerCase() !== "admin")) {
     return null
   }
 
