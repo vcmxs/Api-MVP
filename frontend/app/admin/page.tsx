@@ -93,7 +93,7 @@ export default function AdminDashboard() {
               <AdminFinanceView />
             )}
             {activeTab === "referrals" && (
-              <div className="text-white">Referrals Component (WIP)</div>
+              <AdminReferralsView />
             )}
             {activeTab === "audit" && (
               <AdminAuditView />
