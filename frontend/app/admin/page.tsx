@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { AdminOverview } from "@/components/admin/admin-overview"
+import { AdminUsersView } from "@/components/admin/admin-users-view"
 import { Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getToken, getUserInfo } from "@/lib/api"
@@ -76,7 +77,7 @@ export default function AdminDashboard() {
               <AdminOverview />
             )}
             {activeTab === "users" && (
-              <div className="text-white">User Management Component (WIP)</div>
+              <AdminUsersView />
             )}
             {activeTab === "finance" && (
               <div className="text-white">Financials Component (WIP)</div>
