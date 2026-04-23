@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Dumbbell, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import { API_URL, setAuth, getToken } from "@/lib/api"
+import { API_URL, setAuth, getToken, getUserInfo } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -14,9 +14,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Already logged in → go to dashboard
+  // Already logged in → go to correct dashboard
   useEffect(() => {
-    if (getToken()) router.replace("/dashboard")
+    if (getToken()) {
+      const user = getUserInfo()
+      if (user?.role === "admin") {
+        router.replace("/admin")
+      } else {
+        router.replace("/dashboard")
+      }
+    }
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,7 +40,11 @@ export default function LoginPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data?.message ?? "Login failed")
       setAuth(data.token, data.user)
-      router.push("/dashboard")
+      if (data.user?.role === "admin") {
+        router.push("/admin")
+      } else {
+        router.push("/dashboard")
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed")
     } finally {

@@ -82,10 +82,19 @@ export default function Dashboard() {
 
   // Auth guard
   useEffect(() => {
-    if (!getToken()) router.replace("/login")
+    if (!getToken()) {
+      router.replace("/login")
+      return
+    }
+    const userInfo = getUserInfo()
+    if (userInfo?.role === "admin") {
+      router.replace("/admin")
+      return
+    }
   }, [router])
 
   if (typeof window !== "undefined" && !getToken()) return null
+  if (typeof window !== "undefined" && user?.role === "admin") return null
 
   // Fetch KPI data
   const fetchKPIs = useCallback(async () => {
