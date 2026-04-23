@@ -1,23 +1,23 @@
-const pool = require('./db.js');
+const pool = require('./db');
 
-async function checkSchema() {
+async function checkReferrals() {
   const client = await pool.connect();
   try {
-    const tables = ['referral_earnings', 'coach_payments', 'payments', 'payouts'];
-    
-    for (const table of tables) {
-      const res = await client.query(`
-        SELECT column_name, data_type 
-        FROM information_schema.columns 
-        WHERE table_name = $1
-      `, [table]);
-      console.log(`\n=== Table: ${table} ===`);
-      if (res.rows.length === 0) {
-        console.log("(Table does not exist)");
-      } else {
-        res.rows.forEach(col => console.log(`- ${col.column_name} (${col.data_type})`));
-      }
-    }
+    const res = await client.query(`
+      SELECT re.id, re.referrer_id, re.referred_user_id, re.amount, re.status, re.created_at,
+             u.name as referrer_name, u.email as referrer_email,
+             t.name as referred_name
+      FROM referral_earnings re
+      JOIN users u ON re.referrer_id = u.id
+      LEFT JOIN users t ON re.referred_user_id = t.id
+      ORDER BY re.created_at DESC
+    `);
+    console.log(`\n=== referral_earnings: ${res.rows.length} rows ===`);
+    res.rows.forEach(r => console.log(r));
+
+    const payouts = await client.query(`SELECT * FROM payouts ORDER BY created_at DESC`);
+    console.log(`\n=== payouts: ${payouts.rows.length} rows ===`);
+    payouts.rows.forEach(r => console.log(r));
   } catch (err) {
     console.error(err);
   } finally {
@@ -26,4 +26,4 @@ async function checkSchema() {
   }
 }
 
-checkSchema();
+checkReferrals();
