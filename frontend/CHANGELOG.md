@@ -108,7 +108,7 @@
 - [ ] Build Admin Dashboard at `/admin` route in the Next.js web app
   - [x] Overview stats (total users, coaches, trainees, subscriptions)
   - [x] User management table (view, block/unblock, delete, change plan)
-  - [ ] Financial charts (MRR, revenue by tier, churn)
+  - [x] Financial charts (MRR, revenue by tier, churn)
   - [ ] Referral & commission payout management
   - [ ] Audit logs
 - [x] Install `recharts` for data visualization in Admin and Insights views

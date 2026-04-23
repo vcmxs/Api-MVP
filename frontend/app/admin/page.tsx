@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { AdminOverview } from "@/components/admin/admin-overview"
 import { AdminUsersView } from "@/components/admin/admin-users-view"
+import { AdminFinanceView } from "@/components/admin/admin-finance-view"
 import { Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getToken, getUserInfo } from "@/lib/api"
@@ -80,7 +81,7 @@ export default function AdminDashboard() {
               <AdminUsersView />
             )}
             {activeTab === "finance" && (
-              <div className="text-white">Financials Component (WIP)</div>
+              <AdminFinanceView />
             )}
             {activeTab === "referrals" && (
               <div className="text-white">Referrals Component (WIP)</div>
