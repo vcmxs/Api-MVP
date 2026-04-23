@@ -133,15 +133,15 @@ export function Sidebar({ activeTab, onTabChange, collapsed, onToggleCollapse }:
       <div className={cn("flex h-20 items-center border-b border-white/[0.08]", collapsed ? "justify-center px-2" : "justify-between px-4")}>
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#00ffff]">
-              <Dumbbell className="h-5 w-5 text-black" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden">
+              <img src="/logo192.png" alt="Dupla Logo" className="h-full w-full object-contain" />
             </div>
             <span className="text-xl font-bold text-white">Dupla</span>
           </div>
         )}
         {collapsed && (
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00ffff]">
-            <Dumbbell className="h-5 w-5 text-black" />
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden">
+            <img src="/logo192.png" alt="Dupla Logo" className="h-full w-full object-contain" />
           </div>
         )}
         <button
