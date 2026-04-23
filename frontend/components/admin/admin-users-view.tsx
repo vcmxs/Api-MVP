@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { apiFetch, API_URL } from "@/lib/api"
 import { Loader2, Search, Eye, Lock, Unlock, Trash2, ShieldAlert, ArrowLeft, Crown } from "lucide-react"
 import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 interface ApiUser {
   id: number
