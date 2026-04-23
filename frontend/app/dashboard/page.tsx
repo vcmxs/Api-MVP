@@ -80,8 +80,14 @@ export default function Dashboard() {
   const [bellNotifs, setBellNotifs] = useState<BellNotif[]>([])
   const unreadCount = bellNotifs.filter((n) => !n.is_read).length
 
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // Auth guard
   useEffect(() => {
+    if (!isMounted) return
     if (!getToken()) {
       router.replace("/login")
       return
@@ -91,10 +97,10 @@ export default function Dashboard() {
       router.replace("/admin")
       return
     }
-  }, [router])
+  }, [isMounted, router])
 
-  if (typeof window !== "undefined" && !getToken()) return null
-  if (typeof window !== "undefined" && user?.role?.toLowerCase() === "admin") return null
+  if (!isMounted) return null
+  if (!getToken() || user?.role?.toLowerCase() === "admin") return null
 
   // Fetch KPI data
   const fetchKPIs = useCallback(async () => {

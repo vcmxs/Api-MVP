@@ -16,8 +16,15 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // Client-side auth and role guard
   useEffect(() => {
+    if (!isMounted) return
     if (!getToken()) {
       router.replace("/login")
       return
@@ -26,9 +33,9 @@ export default function AdminDashboard() {
       router.replace("/dashboard")
       return
     }
-  }, [router, user?.role])
+  }, [isMounted, router, user?.role])
 
-  if (typeof window !== "undefined" && (!getToken() || user?.role?.toLowerCase() !== "admin")) {
+  if (!isMounted || !getToken() || user?.role?.toLowerCase() !== "admin") {
     return null
   }
 
