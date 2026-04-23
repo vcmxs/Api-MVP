@@ -13,7 +13,7 @@ import DeleteAccount from './components/DeleteAccount';
 import Login from './components/Login';
 import Register from './components/Register';
 import CoachDashboard from './components/CoachDashboard';
-import AdminDashboard from './components/AdminDashboard';
+
 import TraineeDashboard from './components/TraineeDashboard';
 import SubscriptionBlocked from './components/SubscriptionBlocked';
 
@@ -62,7 +62,10 @@ const DashboardContainer = () => {
 
       <main className="app-main">
         {user.role === 'admin' ? (
-          <AdminDashboard token={token} userId={user.id} userRole={user.role} />
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}>
+            <h2>Admin Dashboard Moved</h2>
+            <p>The Admin Dashboard has been removed from the mobile app. Please log in on the Web Platform to access admin tools.</p>
+          </div>
         ) : user.role === 'coach' ? (
           user.status === 'blocked' || user.subscriptionStatus === 'free' ? (
             <SubscriptionBlocked onLogout={handleLogout} reason={user.status === 'blocked' ? 'blocked' : 'subscription'} />
