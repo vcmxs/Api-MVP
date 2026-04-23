@@ -30,46 +30,33 @@ interface FinanceData {
 
 const COLORS = ["#888888", "#cd7f32", "#c0c0c0", "#ffd700", "#85a9f7"]
 
-// Mock fallback data in case the backend endpoint isn't ready yet
-const fallbackData: FinanceData = {
-  mrr: 12450,
-  arr: 149400,
-  churn_rate: "2.4%",
-  net_profit: 9800,
-  revenue_by_tier: [
-    { tier: "Starter", amount: 1500 },
-    { tier: "Bronze", amount: 3200 },
-    { tier: "Silver", amount: 2800 },
-    { tier: "Gold", amount: 4100 },
-    { tier: "Olympian", amount: 850 },
-  ],
-  historical_revenue: [
-    { month: "Jan", amount: 8400 },
-    { month: "Feb", amount: 9200 },
-    { month: "Mar", amount: 10100 },
-    { month: "Apr", amount: 11500 },
-    { month: "May", amount: 12000 },
-    { month: "Jun", amount: 12450 },
-  ],
+const emptyData: FinanceData = {
+  mrr: 0,
+  arr: 0,
+  churn_rate: "0.0%",
+  net_profit: 0,
+  revenue_by_tier: [],
+  historical_revenue: [],
 }
 
 export function AdminFinanceView() {
   const [data, setData] = useState<FinanceData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isLive, setIsLive] = useState(false)
 
   useEffect(() => {
     const fetchFinanceData = async () => {
       try {
         const res = await apiFetch<{ finance: FinanceData }>("/admin/finance")
-        if (res && res.finance) {
+        if (res?.finance) {
           setData(res.finance)
+          setIsLive(true)
         } else {
-          // If endpoint doesn't exist yet, use fallback for visualization
-          setData(fallbackData)
+          setData(emptyData)
         }
       } catch (err) {
-        console.warn("Failed to fetch real finance data, using fallback visualization", err)
-        setData(fallbackData)
+        console.warn("Failed to fetch finance data from API:", err)
+        setData(emptyData)
       } finally {
         setLoading(false)
       }
@@ -94,6 +81,9 @@ export function AdminFinanceView() {
           <h2 className="text-2xl font-bold text-white">Financials & Growth</h2>
           <p className="text-sm text-[#888888]">Track Monthly Recurring Revenue (MRR) and subscriptions</p>
         </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${isLive ? "bg-[#00ff88]/10 text-[#00ff88]" : "bg-[#ff4444]/10 text-[#ff4444]"}`}>
+          {isLive ? "● Live Data" : "● API Offline"}
+        </span>
       </div>
 
       {/* Top KPIs */}
