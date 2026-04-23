@@ -441,8 +441,24 @@ exports.getFinance = async (req, res) => {
         const recentPayouts = parseFloat(payoutsRes.rows[0].total) || 0;
         const net_profit = mrr - recentPayouts;
 
+        // Recent individual payments this month (with coach name)
+        const recentPaymentsRes = await pool.query(`
+            SELECT p.id, p.coach_id, u.name as coach_name, u.email as coach_email,
+                   p.amount, p.tier, p.status, p.created_at
+            FROM payments p
+            JOIN users u ON p.coach_id = u.id
+            WHERE p.created_at >= DATE_TRUNC('month', NOW())
+            ORDER BY p.created_at DESC
+            LIMIT 50
+        `);
+        const recent_payments = recentPaymentsRes.rows.map(r => ({
+            id: r.id, coachId: r.coach_id, coachName: r.coach_name, coachEmail: r.coach_email,
+            amount: parseFloat(r.amount), tier: r.tier, status: r.status, createdAt: r.created_at
+        }));
+        const month_total = recent_payments.reduce((sum, p) => sum + p.amount, 0);
+
         res.json({
-            finance: { mrr, arr, churn_rate, net_profit, revenue_by_tier, historical_revenue }
+            finance: { mrr, arr, churn_rate, net_profit, revenue_by_tier, historical_revenue, recent_payments, month_total }
         });
     } catch (err) {
         res.status(500).json({ error: 'Internal Server Error', message: err.message });

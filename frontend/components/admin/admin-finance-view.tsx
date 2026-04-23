@@ -19,6 +19,17 @@ import {
   Cell,
 } from "recharts"
 
+interface RecentPayment {
+  id: number
+  coachId: number
+  coachName: string
+  coachEmail: string
+  amount: number
+  tier: string
+  status: string
+  createdAt: string
+}
+
 interface FinanceData {
   mrr: number
   arr: number
@@ -26,6 +37,8 @@ interface FinanceData {
   net_profit: number
   revenue_by_tier: { tier: string; amount: number }[]
   historical_revenue: { month: string; amount: number }[]
+  recent_payments: RecentPayment[]
+  month_total: number
 }
 
 const COLORS = ["#888888", "#cd7f32", "#c0c0c0", "#ffd700", "#85a9f7"]
@@ -37,6 +50,8 @@ const emptyData: FinanceData = {
   net_profit: 0,
   revenue_by_tier: [],
   historical_revenue: [],
+  recent_payments: [],
+  month_total: 0,
 }
 
 export function AdminFinanceView() {
@@ -199,6 +214,65 @@ export function AdminFinanceView() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* This Month's Payment Ledger */}
+      <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+          <div>
+            <h3 className="text-lg font-bold text-white">This Month's Payments</h3>
+            <p className="text-sm text-[#888888]">
+              {data.recent_payments.length} payment{data.recent_payments.length !== 1 ? "s" : ""} recorded this month
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-[#888888] uppercase tracking-wider">Total Collected</p>
+            <p className="text-2xl font-bold text-[#00ff88]">
+              ${data.month_total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="bg-[#0a0a0f]">
+                <th className="px-6 py-3 text-xs font-bold text-[#888888] uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-xs font-bold text-[#888888] uppercase tracking-wider">Coach</th>
+                <th className="px-6 py-3 text-xs font-bold text-[#888888] uppercase tracking-wider">Plan</th>
+                <th className="px-6 py-3 text-xs font-bold text-[#888888] uppercase tracking-wider text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {data.recent_payments.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-[#555555]">
+                    No payments recorded this month yet. Activate a coach subscription to start tracking.
+                  </td>
+                </tr>
+              ) : (
+                data.recent_payments.map((p) => (
+                  <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-6 py-4 text-[#888888] whitespace-nowrap">
+                      {new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-white">{p.coachName}</div>
+                      <div className="text-xs text-[#555555]">{p.coachEmail}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-bold uppercase text-[#aaa]">
+                        {p.tier}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-[#00ff88]">
+                      ${p.amount.toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
