@@ -229,8 +229,8 @@ exports.getStats = async (req, res) => {
         COUNT(*) FILTER (WHERE role = 'coach') as total_coaches,
         COUNT(*) FILTER (WHERE role = 'trainee') as total_trainees,
         COUNT(*) FILTER (WHERE role = 'admin') as total_admins,
-        COUNT(*) FILTER (WHERE subscription_status = 'active') as active_subscriptions,
-        COUNT(*) FILTER (WHERE subscription_status = 'free') as free_users,
+        COUNT(*) FILTER (WHERE subscription_status = 'active' AND role = 'coach') as active_subscriptions,
+        COUNT(*) FILTER (WHERE subscription_status = 'free' OR role != 'coach') as free_users,
         COUNT(*) as total_users
       FROM users
     `);
