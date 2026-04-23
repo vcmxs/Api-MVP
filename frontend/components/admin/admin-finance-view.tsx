@@ -121,33 +121,41 @@ export function AdminFinanceView() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* MRR Growth Chart */}
         <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-6 lg:col-span-2">
-          <h3 className="mb-6 text-lg font-bold text-white">MRR Growth (6 Months)</h3>
+          <h3 className="mb-6 text-lg font-bold text-white">MRR Growth (Payment History)</h3>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.historical_revenue} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="month" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis
-                  stroke="#888888"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(val) => `$${val}`}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#161b22", borderColor: "rgba(255,255,255,0.08)", borderRadius: "12px", color: "#fff" }}
-                  itemStyle={{ color: "#00ff88" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  stroke="#00ff88"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: "#00ff88", strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: "#00ffff" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {data.historical_revenue.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                <p className="text-4xl">📊</p>
+                <p className="font-bold text-white">No payment history yet</p>
+                <p className="text-sm text-[#888888]">Chart will populate as coach subscriptions are activated</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.historical_revenue} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="month" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(val) => `$${val}`}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#161b22", borderColor: "rgba(255,255,255,0.08)", borderRadius: "12px", color: "#fff" }}
+                    itemStyle={{ color: "#00ff88" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="amount"
+                    stroke="#00ff88"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: "#00ff88", strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: "#00ffff" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 

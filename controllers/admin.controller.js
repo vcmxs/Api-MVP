@@ -434,17 +434,8 @@ exports.getFinance = async (req, res) => {
             GROUP BY month, DATE_TRUNC('month', created_at)
             ORDER BY DATE_TRUNC('month', created_at) ASC
         `);
-        let historical_revenue = histRes.rows.map(r => ({ month: r.month, amount: parseFloat(r.amount) }));
-        if (historical_revenue.length === 0) {
-            historical_revenue = [
-                { month: "Nov", amount: mrr * 0.7 },
-                { month: "Dec", amount: mrr * 0.8 },
-                { month: "Jan", amount: mrr * 0.85 },
-                { month: "Feb", amount: mrr * 0.9 },
-                { month: "Mar", amount: mrr * 0.95 },
-                { month: "Apr", amount: mrr }
-            ];
-        }
+        const historical_revenue = histRes.rows.map(r => ({ month: r.month, amount: parseFloat(r.amount) }));
+        // Empty array when no payments logged yet
 
         const payoutsRes = await pool.query(`SELECT SUM(amount) as total FROM payouts WHERE created_at >= NOW() - INTERVAL '30 days'`);
         const recentPayouts = parseFloat(payoutsRes.rows[0].total) || 0;
