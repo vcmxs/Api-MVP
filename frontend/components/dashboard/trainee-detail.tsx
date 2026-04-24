@@ -171,6 +171,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
   const [notes, setNotes] = useState<ApiNote[]>([])
   const [workoutsLoading, setWorkoutsLoading] = useState(false)
   const [notesExpanded, setNotesExpanded] = useState(false)
+  const [showAllTraineeNotes, setShowAllTraineeNotes] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [showSubModal, setShowSubModal] = useState(false)
   const [detailWorkout, setDetailWorkout] = useState<ApiWorkout | null>(null)
@@ -658,13 +659,13 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
             <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-6 mt-6">
               <h2 className="mb-4 text-lg font-bold text-white">Exercise Notes</h2>
               <div className="space-y-4">
-                {traineeNotes.map((group, groupIdx) => (
+                {(showAllTraineeNotes ? traineeNotes : traineeNotes.slice(0, 3)).map((group, groupIdx) => (
                   <div key={groupIdx} className="rounded-xl border border-white/[0.06] bg-[#0a0a0f] overflow-hidden">
                     <div className="bg-[#1c222b] px-4 py-3 border-b border-white/[0.06]">
                       <h3 className="font-bold text-white text-sm">{group.exerciseName}</h3>
                       <p className="text-xs text-[#888888]">{group.workoutName} • {group.workoutDate ? new Date(group.workoutDate.split("T")[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
                     </div>
-                    <div className="p-3 flex flex-col gap-2">
+                    <div className="p-3 flex flex-col gap-2 max-h-[250px] overflow-y-auto custom-scrollbar">
                       {group.noteArray.map((n, idx) => (
                         <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
                           <span className="text-[10px] font-bold" style={{ color: n.userName !== "Coach" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
@@ -674,6 +675,14 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                     </div>
                   </div>
                 ))}
+                {traineeNotes.length > 3 && (
+                  <button 
+                    onClick={() => setShowAllTraineeNotes(!showAllTraineeNotes)}
+                    className="w-full mt-2 text-xs font-bold text-[#888888] hover:text-white py-2.5 text-center border border-white/[0.08] rounded-xl transition-colors bg-[#0a0a0f] hover:bg-[#1c222b]"
+                  >
+                    {showAllTraineeNotes ? "Show Less" : `View All ${traineeNotes.length} Notes`}
+                  </button>
+                )}
               </div>
             </div>
           )}
