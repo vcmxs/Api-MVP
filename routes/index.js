@@ -24,6 +24,7 @@ router.use('/setup', setupRoutes);
 router.use('/setup', setupRoutes);
 router.use('/nutrition', nutritionRoutes);
 router.use('/programs', require('./programs.routes'));
+router.use('/training-plans', require('./training_plans.routes'));
 router.use('/referrals', require('./referral.routes'));
 router.use('/referrals', require('./referral.routes'));
 router.use('/notifications', require('./notification.routes'));

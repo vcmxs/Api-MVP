@@ -147,6 +147,22 @@ const createTables = async () => {
       )
     `);
 
+    // Training Plans Templates table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS training_plans (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        duration_weeks INTEGER DEFAULT 4,
+        is_reusable BOOLEAN DEFAULT TRUE,
+        program_folder_id INTEGER REFERENCES programs(id) ON DELETE SET NULL,
+        schedule JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Foods table
     await client.query(`
       CREATE TABLE IF NOT EXISTS foods (
