@@ -817,7 +817,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
   const canSave = name.trim() && Object.keys(schedule).length > 0
   const scheduledDays = Object.keys(schedule).length
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return
     setSaving(true); setSaveError("")
     try {
