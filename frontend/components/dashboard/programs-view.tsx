@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
 import {
   Plus, ClipboardList, Dumbbell, X,
-  FolderOpen, Folder, Trash2,
+  FolderOpen, Folder, Trash2, Pencil,
   ArrowLeft, Search, ChevronRight, Loader2, AlertCircle, Check,
   CalendarDays, Users, LayoutList,
 } from "lucide-react"
@@ -712,9 +712,9 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
 
 interface AvailableWorkout { id: number; name: string; programId: number; programName: string }
 
-function PlanBuilderSheet({ open, onOpenChange, programFolderId, onSaved }: {
+function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void
-  programFolderId?: number; onSaved: (plan: TrainingPlan) => void
+  programFolderId?: number; editPlan?: TrainingPlan | null; onSaved: (plan: TrainingPlan) => void
 }) {
   const user = getUserInfo()
   const [name, setName] = useState("")
@@ -731,8 +731,15 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, onSaved }: {
 
   useEffect(() => {
     if (!open) { setPickerForDay(null); return }
-    setName(""); setDescription(""); setDurationWeeks(4); setIsReusable(true)
-    setActiveDays(new Set()); setSchedule({}); setSaveError("")
+    if (editPlan) {
+      setName(editPlan.name); setDescription(editPlan.description || "");
+      setDurationWeeks(editPlan.durationWeeks); setIsReusable(editPlan.isReusable);
+      setSchedule(editPlan.schedule); setActiveDays(new Set(Object.keys(editPlan.schedule).map(Number)));
+    } else {
+      setName(""); setDescription(""); setDurationWeeks(4); setIsReusable(true)
+      setActiveDays(new Set()); setSchedule({});
+    }
+    setSaveError("")
     if (!user?.id) return
     setLoadingWk(true)
     apiFetch<{ programs: ApiProgram[] }>(`/programs/users/${user.id}`)
@@ -751,7 +758,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, onSaved }: {
       })
       .catch(() => setAvailable([]))
       .finally(() => setLoadingWk(false))
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, editPlan]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleDay = (day: number) => {
     setActiveDays(prev => {
@@ -779,14 +786,14 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, onSaved }: {
     setSaving(true); setSaveError("")
     try {
       const plan: TrainingPlan = {
-        id: `plan-${Date.now()}`,
+        id: editPlan ? editPlan.id : `plan-${Date.now()}`,
         name: name.trim(),
         description: description.trim() || undefined,
         durationWeeks,
         isReusable,
-        programFolderId,
+        programFolderId: editPlan ? editPlan.programFolderId : programFolderId,
         schedule,
-        createdAt: new Date().toISOString(),
+        createdAt: editPlan ? editPlan.createdAt : new Date().toISOString(),
       }
       upsertPlan(plan)
       onSaved(plan)
@@ -807,7 +814,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, onSaved }: {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/10">
               <CalendarDays className="h-5 w-5 text-[#a78bfa]" />
             </div>
-            <SheetTitle className="text-lg font-bold text-white">New Training Plan</SheetTitle>
+            <SheetTitle className="text-lg font-bold text-white">{editPlan ? "Edit Training Plan" : "New Training Plan"}</SheetTitle>
           </div>
           {/* Sheet renders its own close button */}
         </SheetHeader>
@@ -1184,8 +1191,8 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
 
 // ── Plan Card ─────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, onDelete, onAssign }: {
-  plan: TrainingPlan; onDelete: (id: string) => void; onAssign: (plan: TrainingPlan) => void
+function PlanCard({ plan, onDelete, onAssign, onEdit }: {
+  plan: TrainingPlan; onDelete: (id: string) => void; onAssign: (plan: TrainingPlan) => void; onEdit?: (plan: TrainingPlan) => void
 }) {
   const scheduledDays = Object.keys(plan.schedule).map(Number).sort()
   const totalWorkouts = scheduledDays.length * plan.durationWeeks
@@ -1233,6 +1240,12 @@ function PlanCard({ plan, onDelete, onAssign }: {
           className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#a78bfa]/30 py-2 text-sm font-medium text-[#a78bfa] transition-colors hover:bg-[#a78bfa]/10">
           <Users className="h-4 w-4" /> Assign to Trainee
         </button>
+        {onEdit && (
+          <button onClick={() => onEdit(plan)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]">
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
         <button onClick={() => onDelete(plan.id)}
           className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#ff4444]/30 hover:text-[#ff4444]">
           <Trash2 className="h-4 w-4" />
@@ -1265,6 +1278,7 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
   const [plans, setPlans] = useState<TrainingPlan[]>([])
   const [planBuilderOpen, setPlanBuilderOpen] = useState(false)
   const [assigningPlan, setAssigningPlan] = useState<TrainingPlan | null>(null)
+  const [editingPlan, setEditingPlan] = useState<TrainingPlan | null>(null)
 
   const fetchWorkouts = useCallback(async () => {
     setWLoading(true); setWError("")
@@ -1418,11 +1432,11 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {plans.map(plan => <PlanCard key={plan.id} plan={plan} onDelete={handleDeletePlan} onAssign={p => setAssigningPlan(p)} />)}
+              {plans.map(plan => <PlanCard key={plan.id} plan={plan} onDelete={handleDeletePlan} onAssign={p => setAssigningPlan(p)} onEdit={p => { setEditingPlan(p); setPlanBuilderOpen(true); }} />)}
             </div>
           )}
-          <PlanBuilderSheet open={planBuilderOpen} onOpenChange={setPlanBuilderOpen} programFolderId={program.id}
-            onSaved={() => { setPlanBuilderOpen(false); loadPlans() }} />
+          <PlanBuilderSheet open={planBuilderOpen} onOpenChange={setPlanBuilderOpen} programFolderId={program.id} editPlan={editingPlan}
+            onSaved={() => { setPlanBuilderOpen(false); loadPlans(); setEditingPlan(null); }} />
           {assigningPlan && <AssignPlanModal plan={assigningPlan} open={assigningPlan !== null} onOpenChange={v => { if (!v) setAssigningPlan(null) }} onAssigned={() => setAssigningPlan(null)} />}
         </>
       )}
@@ -1532,6 +1546,7 @@ export function ProgramsView() {
   const [standalonePlans, setStandalonePlans] = useState<TrainingPlan[]>([])
   const [planBuilderOpen, setPlanBuilderOpen] = useState(false)
   const [assigningPlan, setAssigningPlan] = useState<TrainingPlan | null>(null)
+  const [editingStandalonePlan, setEditingStandalonePlan] = useState<TrainingPlan | null>(null)
 
   const loadStandalonePlans = useCallback(() => {
     setStandalonePlans(loadAllPlans().filter(p => !p.programFolderId))
@@ -1617,13 +1632,13 @@ export function ProgramsView() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {standalonePlans.map(plan => <PlanCard key={plan.id} plan={plan} onDelete={handleDeletePlan} onAssign={p => setAssigningPlan(p)} />)}
+            {standalonePlans.map(plan => <PlanCard key={plan.id} plan={plan} onDelete={handleDeletePlan} onAssign={p => setAssigningPlan(p)} onEdit={p => { setEditingStandalonePlan(p); setPlanBuilderOpen(true); }} />)}
           </div>
         )}
       </div>
 
       <NewProgramDialog open={newProgramOpen} onOpenChange={setNewProgramOpen} onSaved={fetchPrograms} />
-      <PlanBuilderSheet open={planBuilderOpen} onOpenChange={setPlanBuilderOpen} onSaved={() => { setPlanBuilderOpen(false); loadStandalonePlans() }} />
+      <PlanBuilderSheet open={planBuilderOpen} onOpenChange={setPlanBuilderOpen} editPlan={editingStandalonePlan} onSaved={() => { setPlanBuilderOpen(false); loadStandalonePlans(); setEditingStandalonePlan(null); }} />
       {assigningPlan && <AssignPlanModal plan={assigningPlan} open={assigningPlan !== null} onOpenChange={v => { if (!v) setAssigningPlan(null) }} onAssigned={() => setAssigningPlan(null)} />}
     </div>
   )
