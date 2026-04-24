@@ -2,13 +2,22 @@
 const pool = require('../config/database');
 const { SUBSCRIPTION_TIERS, isValidTier, getTierInfo } = require('../config/subscriptionTiers');
 
-// Utility: write an audit log entry
-async function logAudit({ adminId, adminName, adminEmail, actionType, actionName, details, targetUserId, ipAddress }) {
+// Utility: write an audit log entry — looks up admin name from DB since JWT only has id/email/role
+async function logAudit({ adminId, actionType, actionName, details, targetUserId, ipAddress }) {
     try {
+        let adminName = 'Admin';
+        let adminEmail = '';
+        if (adminId) {
+            const adminRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [adminId]);
+            if (adminRes.rows.length > 0) {
+                adminName = adminRes.rows[0].name;
+                adminEmail = adminRes.rows[0].email;
+            }
+        }
         await pool.query(
             `INSERT INTO audit_logs (admin_id, admin_name, admin_email, action_type, action_name, details, target_user_id, ip_address)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [adminId || null, adminName || 'Admin', adminEmail || '', actionType, actionName, details || '', targetUserId || null, ipAddress || null]
+            [adminId || null, adminName, adminEmail, actionType, actionName, details || '', targetUserId || null, ipAddress || null]
         );
     } catch (e) {
         console.error('[Audit] Failed to write audit log:', e.message);
