@@ -181,3 +181,27 @@ exports.removeWorkoutFromProgram = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
+
+// Get a single workout template by ID (used by mobile plan assign)
+exports.getWorkoutById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await db.query('SELECT * FROM workout_templates WHERE id = $1', [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Workout not found' });
+        }
+
+        const template = result.rows[0];
+        const exercisesResult = await db.query(
+            'SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY exercise_order ASC',
+            [template.id]
+        );
+        template.exercises = exercisesResult.rows;
+
+        res.json({ success: true, workout: template });
+    } catch (err) {
+        console.error('Error getting workout by id:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};

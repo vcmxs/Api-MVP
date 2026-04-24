@@ -1326,7 +1326,9 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
   }, [program.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadPlans = useCallback(async () => {
-    const all = await loadAllPlans(getUserInfo()?.id || 0);
+    const uid = getUserInfo()?.id
+    if (!uid) return
+    const all = await loadAllPlans(uid);
     setPlans(all.filter(p => p.programFolderId === program.id))
   }, [program.id])
 
@@ -1586,9 +1588,10 @@ export function ProgramsView() {
   const [editingStandalonePlan, setEditingStandalonePlan] = useState<TrainingPlan | null>(null)
 
   const loadStandalonePlans = useCallback(async () => {
-    const all = await loadAllPlans(getUserInfo()?.id || 0);
+    if (!user?.id) return
+    const all = await loadAllPlans(user.id);
     setStandalonePlans(all.filter(p => !p.programFolderId))
-  }, [])
+  }, [user?.id])
 
   const fetchPrograms = useCallback(async () => {
     if (!user?.id) return

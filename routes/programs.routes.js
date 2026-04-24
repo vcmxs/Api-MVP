@@ -8,6 +8,9 @@ router.get('/users/:userId', programsController.getPrograms);
 // Create new program
 router.post('/', programsController.createProgram);
 
+// Get a single workout template by ID (must come before /:id routes)
+router.get('/workouts/:id', programsController.getWorkoutById);
+
 // Get specific program details + workouts
 router.get('/:id/workouts', programsController.getProgramWorkouts);
 
