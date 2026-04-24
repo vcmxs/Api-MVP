@@ -1057,6 +1057,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                   <label className="mb-2 block text-sm font-medium text-white">Start Date</label>
                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-2.5 text-white focus:border-[#a78bfa]/50 focus:outline-none [color-scheme:dark]" />
+                  <p className="mt-1.5 text-xs text-[#555555] leading-snug">Plan starts from the week containing this date. Workouts scheduled on days before it will be skipped for the first week.</p>
                 </div>
                 <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
                   <p className="text-sm font-medium text-white">Plan Details</p>

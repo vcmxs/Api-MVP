@@ -111,7 +111,8 @@ function getDateGroup(date: Date): { label: string; sortKey: number } {
 function groupWorkoutsByDate(workouts: ApiWorkout[]): { label: string; sortKey: number; items: ApiWorkout[] }[] {
   const map = new Map<string, { label: string; sortKey: number; items: ApiWorkout[] }>()
   workouts.forEach((w) => {
-    const date = w.scheduledDate ? new Date(w.scheduledDate) : new Date(0)
+    const dateStr = w.scheduledDate ? w.scheduledDate.split("T")[0] : ""
+    const date = dateStr ? new Date(dateStr + "T12:00:00") : new Date(0)
     const { label, sortKey } = getDateGroup(date)
     if (!map.has(label)) map.set(label, { label, sortKey, items: [] })
     map.get(label)!.items.push(w)
@@ -511,7 +512,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                   <Calendar className="h-4 w-4" />
                   <span>
                     {detailWorkout.scheduledDate
-                      ? new Date(detailWorkout.scheduledDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                      ? new Date(detailWorkout.scheduledDate.split("T")[0] + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
                       : "—"}
                   </span>
                 </div>
