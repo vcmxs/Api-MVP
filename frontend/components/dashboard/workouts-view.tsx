@@ -6,7 +6,8 @@ import {
   Plus, Trash2, Dumbbell, X, UserPlus,
   ArrowLeft, CheckCircle2, Clock, ClipboardList,
   ChevronRight, Users, Search, Loader2, AlertCircle,
-  Calendar, CalendarDays, RefreshCw, Pencil, RotateCcw, Check, Lock
+  Calendar, CalendarDays, RefreshCw, Pencil, RotateCcw, Check, Lock,
+  LayoutList, ChevronLeft
 } from "lucide-react"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
@@ -1107,6 +1108,36 @@ export function WorkoutsView() {
   const [assigningWorkoutId, setAssigningWorkoutId] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "assigned" | "pending">("all")
   const [isExpired, setIsExpired] = useState(false)
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar")
+  const [calendarDate, setCalendarDate] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+
+  const calendarDays = (() => {
+    const monday = new Date(calendarDate)
+    const dow = monday.getDay()
+    monday.setDate(monday.getDate() + (dow === 0 ? -6 : 1 - dow))
+    return Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      return d
+    })
+  })()
+
+  const navigateWeek = (dir: 1 | -1) => {
+    setCalendarDate(prev => {
+      const d = new Date(prev)
+      d.setDate(d.getDate() + dir * 7)
+      return d
+    })
+  }
+
+  const isToday = (d: Date) => {
+    const today = new Date()
+    return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()
+  }
 
   // ── Fetch workouts ────────────────────────────────────────────────────
 
@@ -1218,15 +1249,26 @@ export function WorkoutsView() {
       </div>
 
       {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Status pill tabs */}
-        <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-[#161b22] p-1">
-          {(["all", "completed", "assigned", "pending"] as const).map((s) => (
-            <button key={s} onClick={() => setStatusFilter(s)} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-all", statusFilter === s ? "bg-[#0a0a0f] text-white shadow" : "text-[#555555] hover:text-[#888888]")}>{s}</button>
-          ))}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Status pill tabs */}
+          <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-[#161b22] p-1">
+            {(["all", "completed", "assigned", "pending"] as const).map((s) => (
+              <button key={s} onClick={() => setStatusFilter(s)} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-all", statusFilter === s ? "bg-[#0a0a0f] text-white shadow" : "text-[#555555] hover:text-[#888888]")}>{s}</button>
+            ))}
+          </div>
+
+          <div className="flex items-center rounded-lg border border-white/[0.08] bg-[#161b22] p-1">
+            <button onClick={() => setViewMode("list")} className={cn("rounded-md p-1.5 transition-colors", viewMode === "list" ? "bg-[#1c222b] text-white" : "text-[#555555] hover:text-white")} title="List View">
+              <LayoutList className="h-4 w-4" />
+            </button>
+            <button onClick={() => setViewMode("calendar")} className={cn("rounded-md p-1.5 transition-colors", viewMode === "calendar" ? "bg-[#1c222b] text-white" : "text-[#555555] hover:text-white")} title="Calendar View">
+              <CalendarDays className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button onClick={fetchWorkouts} disabled={loading} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-[#161b22] text-[#888888] hover:text-white disabled:opacity-50">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </button>
@@ -1267,7 +1309,7 @@ export function WorkoutsView() {
             <RefreshCw className="h-4 w-4" /> Retry
           </button>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && viewMode === "list" ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-[#161b22] py-16">
           <Dumbbell className="mb-3 h-10 w-10 text-[#333]" />
           <p className="text-lg font-medium text-[#888888]">{workouts.length === 0 ? "No workouts yet" : `No ${statusFilter === "all" ? "" : statusFilter} workouts`}</p>
@@ -1276,6 +1318,87 @@ export function WorkoutsView() {
               <Plus className="h-4 w-4" /> Create Workout
             </button>
           )}
+        </div>
+      ) : viewMode === "calendar" ? (
+        <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-6 space-y-6">
+          {/* Calendar Header / Navigation */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button onClick={() => navigateWeek(-1)} className="rounded-lg border border-white/[0.08] bg-[#0a0a0f] p-2 text-[#888888] hover:text-white hover:bg-white/[0.02]"><ChevronLeft className="h-4 w-4" /></button>
+              <button onClick={() => navigateWeek(1)} className="rounded-lg border border-white/[0.08] bg-[#0a0a0f] p-2 text-[#888888] hover:text-white hover:bg-white/[0.02]"><ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => setCalendarDate(new Date())} className="ml-2 rounded-lg text-xs font-semibold text-[#888888] hover:text-white px-2 py-1">Today</button>
+            </div>
+            <span className="text-sm font-bold text-white uppercase tracking-wider">
+              {calendarDays[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {calendarDays[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          </div>
+
+          {/* 7-Day Grid */}
+          <div className="grid grid-cols-7 gap-2">
+            {calendarDays.map((d, i) => {
+              const isSelected = d.toDateString() === calendarDate.toDateString()
+              const isDayToday = isToday(d)
+              
+              // Find workouts for this specific day
+              const dayWorkouts = filtered.filter(w => {
+                const dateStr = w.scheduledDate ? w.scheduledDate.toISOString().split("T")[0] : ""
+                if (!dateStr) return false
+                const wd = new Date(dateStr + "T12:00:00")
+                return wd.getDate() === d.getDate() && wd.getMonth() === d.getMonth() && wd.getFullYear() === d.getFullYear()
+              })
+
+              return (
+                <div key={i} className="flex flex-col gap-2">
+                  <button onClick={() => setCalendarDate(d)} className={cn("flex flex-col items-center rounded-xl border py-2 transition-colors",
+                    isSelected ? "border-[#00ffff]/40 bg-[#00ffff]/10" : "border-white/[0.08] bg-[#0a0a0f] hover:border-white/[0.15]",
+                    isDayToday && !isSelected && "border-[#a78bfa]/30"
+                  )}>
+                    <span className={cn("text-[10px] font-bold uppercase", isSelected ? "text-[#00ffff]" : isDayToday ? "text-[#a78bfa]" : "text-[#555555]")}>
+                      {d.toLocaleDateString("en-US", { weekday: "short" })}
+                    </span>
+                    <span className={cn("text-lg font-bold", isSelected ? "text-white" : isDayToday ? "text-[#a78bfa]" : "text-white")}>
+                      {d.getDate()}
+                    </span>
+                    <div className="mt-1 flex h-1.5 w-1.5 gap-0.5">
+                      {dayWorkouts.slice(0, 3).map((_, wi) => <div key={wi} className="h-1.5 w-1.5 rounded-full bg-[#00ffff]"></div>)}
+                    </div>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Selected Day Workouts List */}
+          <div className="mt-4 border-t border-white/[0.08] pt-6">
+            {(() => {
+              const selectedWorkouts = filtered.filter(w => {
+                const dateStr = w.scheduledDate ? w.scheduledDate.toISOString().split("T")[0] : ""
+                if (!dateStr) return false
+                const wd = new Date(dateStr + "T12:00:00")
+                return wd.getDate() === calendarDate.getDate() && wd.getMonth() === calendarDate.getMonth() && wd.getFullYear() === calendarDate.getFullYear()
+              })
+
+              if (selectedWorkouts.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <span className="text-sm font-medium text-white">{calendarDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
+                    <p className="mt-1 text-xs text-[#555555]">No workouts</p>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="space-y-3">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wider text-[#555555]">
+                    {isToday(calendarDate) ? "Today" : calendarDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                  </p>
+                  {selectedWorkouts.map((workout) => (
+                    <WorkoutCard key={workout.id} workout={workout} onClick={() => setDetailWorkout(workout)} onDelete={handleDelete} onAssign={handleAssign} isExpired={isExpired} />
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
