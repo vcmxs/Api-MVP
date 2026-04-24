@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const plansController = require('../controllers/training_plans.controller');
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // Apply auth middleware to all plan routes
-router.use(authMiddleware);
+router.use(authenticateToken);
 
 // Routes
 router.get('/users/:userId', plansController.getPlans);
