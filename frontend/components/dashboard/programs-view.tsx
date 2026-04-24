@@ -665,7 +665,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
               </div>
               <SheetTitle className="text-lg font-bold text-white">New Workout</SheetTitle>
             </div>
-            <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white"><X className="h-4 w-4" /></button>
+            {/* Sheet renders its own close button */}
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
             {saveError && <div className="flex items-center gap-2 rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-4 py-3 text-sm text-[#ff4444]"><AlertCircle className="h-4 w-4 shrink-0" />{saveError}</div>}
@@ -809,7 +809,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, onSaved }: {
             </div>
             <SheetTitle className="text-lg font-bold text-white">New Training Plan</SheetTitle>
           </div>
-          <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white"><X className="h-4 w-4" /></button>
+          {/* Sheet renders its own close button */}
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
