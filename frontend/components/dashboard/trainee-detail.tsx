@@ -651,7 +651,6 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                 </div>
               )}
             </div>
-            </div>
           </div>
 
           {/* Grouped Exercise Notes */}
