@@ -301,6 +301,8 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
   // Merge notes from workouts
   const traineeNotes = (() => {
     const extracted: {
+      workout: ApiWorkout;
+      exercise: ApiExercise;
       workoutId: number;
       workoutName: string;
       workoutDate: string;
@@ -317,6 +319,8 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
             const parsed = JSON.parse(ex.notes)
             if (Array.isArray(parsed) && parsed.length > 0) {
               extracted.push({
+                workout: w,
+                exercise: ex,
                 workoutId: w.id,
                 workoutName: w.name,
                 workoutDate: w.scheduledDate,
@@ -328,6 +332,8 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
           } catch (e) {
             // fallback plain text
             extracted.push({
+              workout: w,
+              exercise: ex,
               workoutId: w.id,
               workoutName: w.name,
               workoutDate: w.scheduledDate,
@@ -659,12 +665,27 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
             <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-6 mt-6">
               <h2 className="mb-4 text-lg font-bold text-white">Exercise Notes</h2>
               <div className="space-y-4">
-                {(showAllTraineeNotes ? traineeNotes : traineeNotes.slice(0, 3)).map((group, groupIdx) => (
+                {(showAllTraineeNotes ? traineeNotes : traineeNotes.slice(0, 3)).map((group, groupIdx) => {
+                  const targetWeight = group.exercise.target_weight ?? group.exercise.targetWeight;
+                  return (
                   <div key={groupIdx} className="rounded-xl border border-white/[0.06] bg-[#0a0a0f] overflow-hidden">
-                    <div className="bg-[#1c222b] px-4 py-3 border-b border-white/[0.06]">
-                      <h3 className="font-bold text-white text-sm">{group.exerciseName}</h3>
-                      <p className="text-xs text-[#888888]">{group.workoutName} • {group.workoutDate ? new Date(group.workoutDate.split("T")[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
-                    </div>
+                    <button 
+                      onClick={() => openDetail(group.workout)}
+                      className="w-full text-left bg-[#1c222b] px-4 py-3 border-b border-white/[0.06] transition-colors hover:bg-[#252d3a] flex flex-col"
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <h3 className="font-bold text-white text-sm">{group.exerciseName}</h3>
+                        <ChevronRight className="h-4 w-4 text-[#555555]" />
+                      </div>
+                      <p className="text-xs text-[#888888] mb-1.5">{group.workoutName} • {group.workoutDate ? new Date(group.workoutDate.split("T")[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
+                      
+                      <p className="text-[10px] font-semibold text-[#00ffff]">
+                        {group.exercise.sets} sets × {group.exercise.reps} reps
+                        {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${group.exercise.weight_unit ?? "kg"}`}
+                        {group.exercise.track_rpe || group.exercise.trackRpe ? " @ RPE" : ""}
+                        {group.exercise.track_rir || group.exercise.trackRir ? " @ RIR" : ""}
+                      </p>
+                    </button>
                     <div className="p-3 flex flex-col gap-2 max-h-[250px] overflow-y-auto custom-scrollbar">
                       {group.noteArray.map((n, idx) => (
                         <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
@@ -674,7 +695,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                       ))}
                     </div>
                   </div>
-                ))}
+                )})}
                 {traineeNotes.length > 3 && (
                   <button 
                     onClick={() => setShowAllTraineeNotes(!showAllTraineeNotes)}
