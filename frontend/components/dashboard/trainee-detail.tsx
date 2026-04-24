@@ -815,8 +815,27 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
 
                         {/* Exercise note */}
                         {ex.notes && (
-                          <div className="mx-3 mb-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
-                            <p className="text-xs text-[#aaa]">{ex.notes}</p>
+                          <div className="mx-3 mb-3 flex flex-col gap-2 rounded-lg border border-white/5 bg-[#161b22] px-3 py-2">
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(ex.notes)
+                                if (Array.isArray(parsed)) {
+                                  return parsed.map((n: any, idx: number) => (
+                                    <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
+                                      <span className="text-[10px] font-bold" style={{ color: n.userName === "Trainee" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
+                                      <span className="mt-1 text-xs text-[#aaa]">{n.text}</span>
+                                    </div>
+                                  ))
+                                }
+                              } catch (e) {}
+                              // Fallback for old plain text
+                              return (
+                                <div className="flex flex-col rounded bg-yellow-500/5 border border-yellow-500/20 p-2">
+                                  <span className="text-[10px] font-bold text-[#ffd700]">Coach</span>
+                                  <span className="mt-1 text-xs text-[#aaa]">{ex.notes}</span>
+                                </div>
+                              )
+                            })()}
                           </div>
                         )}
                       </div>
