@@ -655,7 +655,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
         <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-lg"
           style={{ zIndex: 200 }} onInteractOutside={e => { if (pickerTargetId) e.preventDefault() }}>
           <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
@@ -798,7 +798,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, onSaved }: {
 
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-lg"
         style={{ zIndex: 200 }}
         onInteractOutside={e => { if (pickerForDay !== null) e.preventDefault() }}>
