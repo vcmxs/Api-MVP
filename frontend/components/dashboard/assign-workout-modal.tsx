@@ -796,7 +796,7 @@ export function AssignWorkoutModal({
                 <div className="space-y-2 rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
                   <div className="flex items-center gap-3">
                     <Dumbbell className="h-4 w-4 text-[#00ffff]" />
-                    <span className="text-sm text-white">{selectedWorkout?.name ?? buildName}</span>
+                    <span className="text-sm text-white">{buildName}</span>
                   </div>
                   {selectedTrainee && (
                     <div className="flex items-center gap-3">
