@@ -533,7 +533,30 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   }, [open, workout?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleComplete = async () => {
-    if (!workout) return
+    if (!workout || !rawDetail) return
+
+    // Count incomplete sets across all exercises
+    const exercises = rawDetail.exercises ?? []
+    let totalSets = 0
+    let completedSets = 0
+    exercises.forEach(ex => {
+      const setCount = ex.sets ?? 1
+      totalSets += setCount
+      const logs = ex.logs ?? []
+      completedSets += logs.filter(l => l.completed || l.is_completed).length
+    })
+    const incompleteSets = totalSets - completedSets
+
+    if (incompleteSets > 0) {
+      const confirmed = window.confirm(
+        `⚠️ Incomplete Workout\n\n` +
+        `You have ${incompleteSets} unlogged set${incompleteSets !== 1 ? 's' : ''} out of ${totalSets} total.\n\n` +
+        `If you complete now, those sets will remain unlogged.\n\n` +
+        `Complete anyway?`
+      )
+      if (!confirmed) return
+    }
+
     setCompleting(true)
     try {
       await apiFetch(`/workout-plans/${workout.id}/complete`, {
@@ -568,9 +591,7 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
               <p className="text-xs text-[#555555]">{format(workout.scheduledDate, "EEEE, MMM d yyyy")}</p>
             </div>
           </div>
-          <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
-            <X className="h-4 w-4" />
-          </button>
+          {/* No manual X button here — Sheet renders its own close button */}
         </SheetHeader>
 
         <div className="flex items-center gap-3 border-b border-white/[0.06] px-6 py-3">
