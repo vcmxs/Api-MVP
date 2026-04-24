@@ -57,11 +57,22 @@ const DAY_SHORT: Record<number, string> = {
 }
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 7]
 
+// Web format: { workoutId, workoutName, programId }
+// Mobile format: { type, name, templateId }
 interface DaySlot {
-  workoutId: number
-  workoutName: string
-  programId: number
+  // Web format
+  workoutId?: number
+  workoutName?: string
+  programId?: number
+  // Mobile format
+  templateId?: number
+  name?: string
+  type?: string
 }
+
+// Helpers to normalise slots from either platform
+const getSlotWorkoutId = (slot: DaySlot) => slot.workoutId || slot.templateId
+const getSlotName = (slot: DaySlot) => slot.workoutName || slot.name || "Workout"
 
 interface TrainingPlan {
   id: string
@@ -74,20 +85,45 @@ interface TrainingPlan {
   createdAt: string
 }
 
-const PLANS_KEY = "dupla_training_plans"
-
-function loadAllPlans(): TrainingPlan[] {
-  if (typeof window === "undefined") return []
-  try { return JSON.parse(localStorage.getItem(PLANS_KEY) ?? "[]") } catch { return [] }
+async function loadAllPlans(userId: number | string): Promise<TrainingPlan[]> {
+  if (!userId) return [];
+  try {
+    const res = await apiFetch(`/training-plans/users/${userId}`)
+    return (res.plans || []).map((p: any) => ({
+      ...p,
+      programFolderId: p.program_folder_id,
+      durationWeeks: p.duration_weeks,
+      isReusable: p.is_reusable
+    }))
+  } catch {
+    return []
+  }
 }
-function upsertPlan(plan: TrainingPlan) {
-  const all = loadAllPlans()
-  const i = all.findIndex(p => p.id === plan.id)
-  i >= 0 ? (all[i] = plan) : all.unshift(plan)
-  localStorage.setItem(PLANS_KEY, JSON.stringify(all))
+async function upsertPlan(plan: TrainingPlan, userId: number | string) {
+  if (!userId) return;
+  const payload = {
+    ...plan,
+    user_id: userId,
+    program_folder_id: plan.programFolderId,
+    duration_weeks: plan.durationWeeks,
+    is_reusable: plan.isReusable
+  }
+  try {
+    if (plan.id && !plan.id.toString().startsWith('plan_')) {
+      await apiFetch(`/training-plans/${plan.id}`, { method: "PUT", body: JSON.stringify(payload) })
+    } else {
+      await apiFetch(`/training-plans`, { method: "POST", body: JSON.stringify(payload) })
+    }
+  } catch (err) {
+    console.error("Failed to sync plan to cloud", err)
+  }
 }
-function removePlan(id: string) {
-  localStorage.setItem(PLANS_KEY, JSON.stringify(loadAllPlans().filter(p => p.id !== id)))
+async function removePlan(id: string) {
+  try {
+    await apiFetch(`/training-plans/${id}`, { method: "DELETE" })
+  } catch (err) {
+    console.error("Failed to delete plan from cloud", err)
+  }
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────
@@ -795,7 +831,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
         schedule,
         createdAt: editPlan ? editPlan.createdAt : new Date().toISOString(),
       }
-      upsertPlan(plan)
+      await upsertPlan(plan, getUserInfo()?.id || 0)
       onSaved(plan)
       onOpenChange(false)
     } catch (e: unknown) {
@@ -1011,7 +1047,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
           }),
         })
       }
-      if (!plan.isReusable) removePlan(plan.id)
+      if (!plan.isReusable) await removePlan(plan.id)
       onAssigned(); onOpenChange(false)
     } catch (e) { alert("Failed to assign plan") } finally { setSubmitting(false) }
   }
@@ -1289,8 +1325,9 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
     finally { setWLoading(false) }
   }, [program.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadPlans = useCallback(() => {
-    setPlans(loadAllPlans().filter(p => p.programFolderId === program.id))
+  const loadPlans = useCallback(async () => {
+    const all = await loadAllPlans(getUserInfo()?.id || 0);
+    setPlans(all.filter(p => p.programFolderId === program.id))
   }, [program.id])
 
   useEffect(() => { fetchWorkouts(); loadPlans() }, [fetchWorkouts, loadPlans])
@@ -1303,7 +1340,7 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
     } catch { } finally { setDeletingId(null) }
   }
 
-  const handleDeletePlan = (id: string) => { removePlan(id); loadPlans() }
+  const handleDeletePlan = async (id: string) => { await removePlan(id); loadPlans() }
 
   const toAssignWorkout = (w: ApiProgramWorkout) => ({
     id: w.id, name: w.name, description: w.description,
@@ -1548,8 +1585,9 @@ export function ProgramsView() {
   const [assigningPlan, setAssigningPlan] = useState<TrainingPlan | null>(null)
   const [editingStandalonePlan, setEditingStandalonePlan] = useState<TrainingPlan | null>(null)
 
-  const loadStandalonePlans = useCallback(() => {
-    setStandalonePlans(loadAllPlans().filter(p => !p.programFolderId))
+  const loadStandalonePlans = useCallback(async () => {
+    const all = await loadAllPlans(getUserInfo()?.id || 0);
+    setStandalonePlans(all.filter(p => !p.programFolderId))
   }, [])
 
   const fetchPrograms = useCallback(async () => {
@@ -1567,7 +1605,7 @@ export function ProgramsView() {
   const handleDeleteProgram = async (id: number) => {
     try { await apiFetch(`/programs/${id}`, { method: "DELETE" }); setPrograms(p => p.filter(pr => pr.id !== id)); if (openProgramId === id) setOpenProgramId(null) } catch { }
   }
-  const handleDeletePlan = (id: string) => { removePlan(id); loadStandalonePlans() }
+  const handleDeletePlan = async (id: string) => { await removePlan(id); loadStandalonePlans() }
   const updateWorkoutCount = (id: number, count: number) => setPrograms(p => p.map(pr => pr.id === id ? { ...pr, workout_count: count } : pr))
 
   if (openProgramId !== null) {
