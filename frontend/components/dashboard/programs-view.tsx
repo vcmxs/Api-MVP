@@ -1659,7 +1659,7 @@ export function ProgramsView() {
             <h2 className="text-xl font-bold text-white">Training Plans</h2>
             <p className="mt-0.5 text-sm text-[#555555]">Multi-day schedules that can be assigned to any trainee</p>
           </div>
-          <button onClick={() => setPlanBuilderOpen(true)}
+          <button onClick={() => { setEditingStandalonePlan(null); setPlanBuilderOpen(true); }}
             className="flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2.5 text-sm font-bold text-black transition-colors hover:opacity-90">
             <Plus className="h-4 w-4" /> New Plan
           </button>
@@ -1669,7 +1669,7 @@ export function ProgramsView() {
             <CalendarDays className="mb-3 h-10 w-10 text-[#333]" />
             <p className="text-sm font-medium text-[#888888]">No standalone plans yet</p>
             <p className="mt-1 text-xs text-[#555555]">Plans inside folders also appear in the folder's Plans tab</p>
-            <button onClick={() => setPlanBuilderOpen(true)} className="mt-4 flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2 text-sm font-bold text-black hover:opacity-90"><Plus className="h-4 w-4" /> New Plan</button>
+            <button onClick={() => { setEditingStandalonePlan(null); setPlanBuilderOpen(true); }} className="mt-4 flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2 text-sm font-bold text-black hover:opacity-90"><Plus className="h-4 w-4" /> New Plan</button>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1679,7 +1679,7 @@ export function ProgramsView() {
       </div>
 
       <NewProgramDialog open={newProgramOpen} onOpenChange={setNewProgramOpen} onSaved={fetchPrograms} />
-      <PlanBuilderSheet open={planBuilderOpen} onOpenChange={setPlanBuilderOpen} editPlan={editingStandalonePlan} onSaved={() => { setPlanBuilderOpen(false); loadStandalonePlans(); setEditingStandalonePlan(null); }} />
+      <PlanBuilderSheet open={planBuilderOpen} onOpenChange={(v) => { setPlanBuilderOpen(v); if (!v) setEditingStandalonePlan(null); }} editPlan={editingStandalonePlan} onSaved={() => { setPlanBuilderOpen(false); loadStandalonePlans(); setEditingStandalonePlan(null); }} />
       {assigningPlan && <AssignPlanModal plan={assigningPlan} open={assigningPlan !== null} onOpenChange={v => { if (!v) setAssigningPlan(null) }} onAssigned={() => setAssigningPlan(null)} />}
     </div>
   )
