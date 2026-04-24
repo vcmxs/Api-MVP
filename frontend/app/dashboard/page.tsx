@@ -56,10 +56,6 @@ function timeAgo(dateStr?: string): string {
 
 export default function Dashboard() {
   const { t } = useT()
-  const user = getUserInfo()
-  const userInitials = user?.name
-    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "??"
 
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedTrainee, setSelectedTrainee] = useState<ApiTrainee | null>(null)
@@ -84,6 +80,12 @@ export default function Dashboard() {
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Resolve user ONLY on client — never during SSR
+  const user = isMounted ? getUserInfo() : null
+  const userInitials = user?.name
+    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "??"
 
   // Auth guard
   useEffect(() => {
