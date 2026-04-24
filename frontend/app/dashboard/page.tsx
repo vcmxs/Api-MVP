@@ -101,23 +101,21 @@ export default function Dashboard() {
     }
   }, [isMounted, router])
 
-  if (!isMounted) return null
-  if (!getToken() || user?.role?.toLowerCase() === "admin") return null
-
-  // Fetch KPI data
+  // Fetch KPI data — hooks MUST be declared before any conditional returns
   const fetchKPIs = useCallback(async () => {
-    if (!user?.id) return
+    const u = getUserInfo()
+    if (!u?.id) return
     try {
-      const data = await apiFetch<{ trainees: ApiTrainee[] }>(`/coaches/${user.id}/trainees`)
+      const data = await apiFetch<{ trainees: ApiTrainee[] }>(`/coaches/${u.id}/trainees`)
       setTraineeCount((data.trainees ?? []).length)
     } catch { /* non-critical */ }
     try {
       const rev = await apiFetch<{ revenue: string; revenueGrowth: string; revenueDirection: string }>(
-        `/coaches/${user.id}/monthly-revenue`
+        `/coaches/${u.id}/monthly-revenue`
       )
       setRevenue({ amount: rev.revenue ?? "0", growth: rev.revenueGrowth ?? "0%", direction: rev.revenueDirection ?? "neutral" })
     } catch { /* non-critical */ }
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch bell notifications
   const fetchBellNotifs = useCallback(async () => {
@@ -132,9 +130,10 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
+    if (!isMounted) return
     fetchKPIs()
     fetchBellNotifs()
-  }, [fetchKPIs, fetchBellNotifs])
+  }, [isMounted, fetchKPIs, fetchBellNotifs])
 
   // Close bell on outside click
   useEffect(() => {
@@ -144,6 +143,10 @@ export default function Dashboard() {
     if (bellOpen) document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [bellOpen])
+
+  // ── All hooks above this line — conditional returns are safe now ──
+  if (!isMounted) return null
+  if (!getToken() || user?.role?.toLowerCase() === "admin") return null
 
   const changeTab = (tab: string, opts?: { keep?: boolean }) => {
     setActiveTab(tab)
