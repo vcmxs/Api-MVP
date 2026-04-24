@@ -307,7 +307,6 @@ export function AssignWorkoutModal({
   const [traineeSearch, setTraineeSearch] = useState("")
 
   // Selections
-  const [selectedWorkout, setSelectedWorkout] = useState<ExistingWorkout | null>(null)
   const [selectedTrainee, setSelectedTrainee] = useState<Trainee | null>(null)
   const [scheduledDate, setScheduledDate] = useState<Date>(new Date())
   const [datePickerOpen, setDatePickerOpen] = useState(false)
@@ -357,6 +356,20 @@ export function AssignWorkoutModal({
     } finally { setTraineesLoading(false) }
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadWorkoutIntoBuilder = (workout: ExistingWorkout) => {
+    setBuildName(workout.name)
+    setBuildDesc(workout.description || "")
+    setBuildExercises((workout.exercises ?? []).map((ex, i) => ({
+      id: `ex-${ex.id}-${Date.now()}-${i}`,
+      name: ex.name,
+      sets: ex.sets,
+      reps: ex.reps,
+      weight: ex.targetWeight ?? (ex as any).target_weight ?? 0,
+      notes: ex.notes ?? "",
+      isCardio: !!ex.is_cardio,
+    })))
+  }
+
   useEffect(() => {
     if (!open) return
     // Reset
@@ -366,18 +379,15 @@ export function AssignWorkoutModal({
     setPickerTargetId(null); setLastSessionLogs({})
     setOpenProgramId(null); setProgramWorkouts([])
 
+    setSelectedTrainee(null)
+    setScheduledDate(new Date())
+
     if (preselectedWorkout) {
-      // Skip workout step when a workout is pre-selected (e.g. from programs view)
-      setSelectedWorkout(preselectedWorkout)
-      setSelectedTrainee(null)
-      setScheduledDate(new Date())
-      setStep(preselectedTraineeId ? "date" : "trainee")
+      loadWorkoutIntoBuilder(preselectedWorkout)
+      setStep(preselectedTraineeId ? "build" : "trainee")
     } else {
-      setSelectedWorkout(null)
-      setSelectedTrainee(null)
-      setScheduledDate(new Date())
-      setStep("workout")
-      fetchPrograms()
+      setStep(preselectedTraineeId ? "workout" : "trainee")
+      if (!preselectedTraineeId) fetchPrograms()
     }
     fetchTrainees()
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -460,37 +470,20 @@ export function AssignWorkoutModal({
     if (!selectedTrainee || !user?.id) return
     setSubmitting(true); setSubmitError("")
     try {
-      let exercises: object[]
-      let name: string
-      let description: string
-
-      if (selectedWorkout) {
-        name = selectedWorkout.name
-        description = selectedWorkout.description ?? ""
-        exercises = (selectedWorkout.exercises ?? []).map((ex, i) => ({
-          name: ex.name, sets: ex.sets, reps: ex.reps,
-          targetWeight: ex.targetWeight ?? 0, weightUnit: ex.weightUnit ?? "kg",
-          restTime: 60, notes: ex.notes ?? "", exerciseOrder: i,
-          track_rpe: 0, track_rir: 0, is_cardio: ex.is_cardio ? 1 : 0,
-        }))
-      } else {
-        name = buildName
-        description = buildDesc
-        exercises = buildExercises.filter(ex => ex.name.trim()).map((ex, i) => ({
-          name: ex.name, sets: ex.sets, reps: ex.reps,
-          targetWeight: ex.weight, weightUnit: "kg",
-          restTime: 60, notes: ex.notes, exerciseOrder: i,
-          track_rpe: 0, track_rir: 0, is_cardio: ex.isCardio ? 1 : 0,
-        }))
-      }
+      const exercises = buildExercises.filter(ex => ex.name.trim()).map((ex, i) => ({
+        name: ex.name, sets: ex.sets, reps: ex.reps,
+        targetWeight: ex.weight, weightUnit: "kg",
+        restTime: 60, notes: ex.notes, exerciseOrder: i,
+        track_rpe: 0, track_rir: 0, is_cardio: ex.isCardio ? 1 : 0,
+      }))
 
       await apiFetch("/workout-plans", {
         method: "POST",
         body: JSON.stringify({
           traineeId: selectedTrainee.id,
           coachId: user.id,
-          name,
-          description,
+          name: buildName,
+          description: buildDesc,
           scheduledDate: format(scheduledDate, "yyyy-MM-dd"),
           exercises,
         }),
@@ -504,21 +497,12 @@ export function AssignWorkoutModal({
 
   // ── Step navigation ────────────────────────────────────────────────────
 
-  const stepsForFlow = (): Step[] => {
-    const base: Step[] = selectedWorkout === null && step !== "build"
-      ? ["workout", "trainee", "date"]
-      : step === "build"
-      ? ["workout", "build", "trainee", "date"]
-      : ["workout", "trainee", "date"]
-    return base
-  }
-
   const handleNext = () => {
-    if (step === "workout") {
-      setStep(preselectedTraineeId ? "date" : "trainee")
+    if (step === "trainee") {
+      setStep(preselectedWorkout ? "build" : "workout")
+    } else if (step === "workout") {
+      setStep("build")
     } else if (step === "build") {
-      setStep(preselectedTraineeId ? "date" : "trainee")
-    } else if (step === "trainee") {
       setStep("date")
     } else {
       handleAssign()
@@ -526,23 +510,25 @@ export function AssignWorkoutModal({
   }
 
   const handleBack = () => {
-    if (step === "trainee") {
-      if (preselectedWorkout) onOpenChange(false)
-      else setStep(selectedWorkout ? "workout" : "build")
+    if (step === "workout") {
+      if (preselectedTraineeId) onOpenChange(false)
+      else setStep("trainee")
     } else if (step === "build") {
-      setStep("workout")
-    } else if (step === "date") {
-      if (preselectedTraineeId) {
-        if (preselectedWorkout) onOpenChange(false)
-        else setStep(selectedWorkout ? "workout" : "build")
+      if (preselectedWorkout) {
+        if (preselectedTraineeId) onOpenChange(false)
+        else setStep("trainee")
       } else {
-        setStep("trainee")
+        setStep("workout")
       }
+    } else if (step === "date") {
+      setStep("build")
+    } else if (step === "trainee") {
+      onOpenChange(false)
     }
   }
 
   const canAdvance =
-    step === "workout" ? !!selectedWorkout :
+    step === "workout" ? false :
     step === "build" ? !!buildName.trim() && buildExercises.filter(e => e.name.trim()).length > 0 :
     step === "trainee" ? !!selectedTrainee : true
 
@@ -601,7 +587,7 @@ export function AssignWorkoutModal({
               <div className="space-y-3">
                 {/* Build new */}
                 <button
-                  onClick={() => { setSelectedWorkout(null); setStep("build") }}
+                  onClick={() => { setBuildName(""); setBuildDesc(""); setBuildExercises([]); setStep("build") }}
                   className="flex w-full items-center gap-4 rounded-xl border border-dashed border-[#00ffff]/30 bg-[#00ffff]/5 p-4 text-left transition-all hover:border-[#00ffff]/60 hover:bg-[#00ffff]/10"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00ffff]/20">
@@ -658,11 +644,9 @@ export function AssignWorkoutModal({
                               track_rpe: ex.track_rpe, track_rir: ex.track_rir,
                             }))
                           }
-                          const isSelected = selectedWorkout?.id === w.id
                           return (
-                            <button key={w.id} onClick={() => setSelectedWorkout(asExisting)}
-                              className={cn("flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all",
-                                isSelected ? "border-[#00ffff]/50 bg-[#00ffff]/10" : "border-white/[0.08] bg-[#0a0a0f] hover:border-white/[0.15]")}>
+                            <button key={w.id} onClick={() => { loadWorkoutIntoBuilder(asExisting); setStep("build") }}
+                              className="flex w-full items-center gap-4 rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4 text-left transition-all hover:border-[#00ffff]/50">
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${folderColor}18` }}>
                                 <Dumbbell className="h-5 w-5" style={{ color: folderColor }} />
                               </div>
@@ -671,7 +655,7 @@ export function AssignWorkoutModal({
                                 {w.description && <p className="truncate text-xs text-[#888888]">{w.description}</p>}
                                 {w.exercises && <p className="text-xs text-[#555555]">{w.exercises.length} exercise{w.exercises.length !== 1 ? "s" : ""}</p>}
                               </div>
-                              {isSelected && <Check className="h-5 w-5 shrink-0 text-[#00ffff]" />}
+                              <ChevronRight className="h-5 w-5 shrink-0 text-[#555555]" />
                             </button>
                           )
                         })}
@@ -758,10 +742,10 @@ export function AssignWorkoutModal({
             {/* ── STEP: trainee ── */}
             {step === "trainee" && (
               <div className="space-y-3">
-                {(selectedWorkout || buildName) && (
+                {buildName && (
                   <div className="flex items-center gap-3 rounded-xl border border-[#00ffff]/20 bg-[#00ffff]/5 px-4 py-3">
                     <Dumbbell className="h-4 w-4 shrink-0 text-[#00ffff]" />
-                    <span className="truncate text-sm font-medium text-[#00ffff]">{selectedWorkout?.name ?? buildName}</span>
+                    <span className="truncate text-sm font-medium text-[#00ffff]">{buildName}</span>
                   </div>
                 )}
                 <div className="relative">
@@ -847,25 +831,14 @@ export function AssignWorkoutModal({
 
           {/* Footer */}
           <div className="flex gap-3 border-t border-white/[0.08] px-6 py-4">
-            {step !== "workout" && !(preselectedWorkout && step === "trainee" && !preselectedTraineeId) && (
-              <button onClick={handleBack} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-3 font-medium text-white hover:bg-[#161b22]">
-                Back
-              </button>
-            )}
-            {step !== "build" && (
+            <button onClick={handleBack} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-3 font-medium text-white hover:bg-[#161b22]">
+              {step === "trainee" || (step === "workout" && preselectedTraineeId) ? "Cancel" : "Back"}
+            </button>
+            {step !== "workout" && (
               <button onClick={handleNext} disabled={!canAdvance || submitting}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#00ffff] py-3 font-bold text-black hover:bg-[#00e5e5] disabled:cursor-not-allowed disabled:opacity-50">
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {step === "date" ? "Assign Workout" : "Next"}
-              </button>
-            )}
-            {step === "build" && (
-              <button
-                onClick={() => setStep(preselectedTraineeId ? "date" : "trainee")}
-                disabled={!canAdvance}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#00ffff] py-3 font-bold text-black hover:bg-[#00e5e5] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
               </button>
             )}
           </div>
