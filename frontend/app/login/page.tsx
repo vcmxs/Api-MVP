@@ -13,9 +13,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Already logged in → go to correct dashboard
   useEffect(() => {
+    if (!isMounted) return
     if (getToken()) {
       const user = getUserInfo()
       if (user?.role?.toLowerCase() === "admin") {
@@ -24,7 +30,7 @@ export default function LoginPage() {
         router.replace("/dashboard")
       }
     }
-  }, [router])
+  }, [isMounted, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,7 +41,7 @@ export default function LoginPage() {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: identifier, password }), // Backend uses 'email' field for both email or username
+        body: JSON.stringify({ email: identifier, password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.message ?? "Login failed")
