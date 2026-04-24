@@ -502,9 +502,9 @@ function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh
             try {
               const parsed = JSON.parse(exercise.notes)
               if (Array.isArray(parsed)) {
-                return parsed.map((n: any, idx: number) => (
+                                return parsed.map((n: any, idx: number) => (
                   <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
-                    <span className="text-[10px] font-bold" style={{ color: n.userName === "Trainee" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
+                    <span className="text-[10px] font-bold" style={{ color: n.userName !== "Coach" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
                     <span className="mt-1 text-xs text-[#aaa]">{n.text}</span>
                   </div>
                 ))

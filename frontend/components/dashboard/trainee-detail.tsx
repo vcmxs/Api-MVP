@@ -297,6 +297,53 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
     return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()
   }
 
+  // Merge notes from workouts
+  const traineeNotes = (() => {
+    const extracted: {
+      workoutId: number;
+      workoutName: string;
+      workoutDate: string;
+      exerciseId: number;
+      exerciseName: string;
+      noteArray: any[];
+    }[] = []
+
+    workouts.forEach(w => {
+      if (!w.exercises) return
+      w.exercises.forEach(ex => {
+        if (ex.notes) {
+          try {
+            const parsed = JSON.parse(ex.notes)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              extracted.push({
+                workoutId: w.id,
+                workoutName: w.name,
+                workoutDate: w.scheduledDate,
+                exerciseId: ex.id,
+                exerciseName: ex.name,
+                noteArray: parsed
+              })
+            }
+          } catch (e) {
+            // fallback plain text
+            extracted.push({
+              workoutId: w.id,
+              workoutName: w.name,
+              workoutDate: w.scheduledDate,
+              exerciseId: ex.id,
+              exerciseName: ex.name,
+              noteArray: [{ userName: "Coach", text: ex.notes, createdAt: new Date().toISOString() }]
+            })
+          }
+        }
+      })
+    })
+    
+    // Sort by workout date descending
+    extracted.sort((a, b) => new Date(b.workoutDate || 0).getTime() - new Date(a.workoutDate || 0).getTime())
+    return extracted
+  })();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -604,7 +651,33 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                 </div>
               )}
             </div>
+            </div>
           </div>
+
+          {/* Grouped Exercise Notes */}
+          {traineeNotes.length > 0 && (
+            <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-6 mt-6">
+              <h2 className="mb-4 text-lg font-bold text-white">Exercise Notes</h2>
+              <div className="space-y-4">
+                {traineeNotes.map((group, groupIdx) => (
+                  <div key={groupIdx} className="rounded-xl border border-white/[0.06] bg-[#0a0a0f] overflow-hidden">
+                    <div className="bg-[#1c222b] px-4 py-3 border-b border-white/[0.06]">
+                      <h3 className="font-bold text-white text-sm">{group.exerciseName}</h3>
+                      <p className="text-xs text-[#888888]">{group.workoutName} • {group.workoutDate ? new Date(group.workoutDate.split("T")[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
+                    </div>
+                    <div className="p-3 flex flex-col gap-2">
+                      {group.noteArray.map((n, idx) => (
+                        <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
+                          <span className="text-[10px] font-bold" style={{ color: n.userName !== "Coach" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
+                          <span className="mt-1 text-xs text-[#aaa]">{n.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -822,7 +895,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                 if (Array.isArray(parsed)) {
                                   return parsed.map((n: any, idx: number) => (
                                     <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
-                                      <span className="text-[10px] font-bold" style={{ color: n.userName === "Trainee" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
+                                      <span className="text-[10px] font-bold" style={{ color: n.userName !== "Coach" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
                                       <span className="mt-1 text-xs text-[#aaa]">{n.text}</span>
                                     </div>
                                   ))
