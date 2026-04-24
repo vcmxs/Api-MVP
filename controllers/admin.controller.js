@@ -2,6 +2,19 @@
 const pool = require('../config/database');
 const { SUBSCRIPTION_TIERS, isValidTier, getTierInfo } = require('../config/subscriptionTiers');
 
+// Utility: write an audit log entry
+async function logAudit({ adminId, adminName, adminEmail, actionType, actionName, details, targetUserId, ipAddress }) {
+    try {
+        await pool.query(
+            `INSERT INTO audit_logs (admin_id, admin_name, admin_email, action_type, action_name, details, target_user_id, ip_address)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [adminId || null, adminName || 'Admin', adminEmail || '', actionType, actionName, details || '', targetUserId || null, ipAddress || null]
+        );
+    } catch (e) {
+        console.error('[Audit] Failed to write audit log:', e.message);
+    }
+}
+
 /**
  * Get all users (Admin only)
  */
@@ -63,7 +76,16 @@ exports.updateUserRole = async (req, res) => {
             return res.status(404).json({ error: 'Not Found', message: 'User not found' });
         }
 
-        res.json({ user: result.rows[0] });
+        const updatedUser = result.rows[0];
+        await logAudit({
+            adminId: req.user?.id, adminName: req.user?.name, adminEmail: req.user?.email,
+            actionType: 'user_management',
+            actionName: isComped ? 'Comped Subscription' : 'Subscription Updated',
+            details: `${isComped ? '[COMPED] ' : ''}Set ${updatedUser.name} (ID ${updatedUser.id}) to ${tier || updatedUser.subscription_tier} / ${status || updatedUser.subscription_status}`,
+            targetUserId: updatedUser.id,
+            ipAddress: req.ip
+        });
+        res.json({ user: updatedUser });
     } catch (err) {
         console.error('Update user role error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
@@ -493,8 +515,44 @@ exports.payReferral = async (req, res) => {
         await pool.query('UPDATE referral_earnings SET status = $1 WHERE id = $2', ['paid', earningId]);
         await pool.query('INSERT INTO payouts (coach_id, amount, status, created_at) VALUES ($1, $2, $3, NOW())', [earning.referrer_id, earning.amount, 'paid']);
 
+        await logAudit({
+            adminId: req.user?.id, adminName: req.user?.name, adminEmail: req.user?.email,
+            actionType: 'financial',
+            actionName: 'Referral Payout',
+            details: `Marked referral earning ID ${earningId} (${earning.amount}) as PAID for coach ID ${earning.referrer_id}`,
+            targetUserId: earning.referrer_id,
+            ipAddress: req.ip
+        });
         res.json({ message: 'Marked as paid' });
     } catch (err) {
         res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+exports.getAuditLogs = async (req, res) => {
+    try {
+        const { type, search } = req.query;
+        let query = `
+            SELECT al.id, al.admin_name as "adminName", al.admin_email as "adminEmail",
+                   al.action_type as "actionType", al.action_name as "actionName",
+                   al.details, al.ip_address as "ipAddress", al.created_at as "createdAt",
+                   al.target_user_id as "targetUserId"
+            FROM audit_logs al
+            WHERE 1=1
+        `;
+        const params = [];
+        if (type && type !== 'all') {
+            params.push(type);
+            query += ` AND al.action_type = $${params.length}`;
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            query += ` AND (al.admin_name ILIKE $${params.length} OR al.action_name ILIKE $${params.length} OR al.details ILIKE $${params.length})`;
+        }
+        query += ' ORDER BY al.created_at DESC LIMIT 200';
+        const result = await pool.query(query, params);
+        res.json({ logs: result.rows });
+    } catch (err) {
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 };

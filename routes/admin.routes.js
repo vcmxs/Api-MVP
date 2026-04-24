@@ -17,6 +17,7 @@ router.get('/stats', requireAdmin, adminController.getStats);
 router.get('/finance', requireAdmin, adminController.getFinance);
 router.get('/referrals', requireAdmin, adminController.getReferrals);
 router.patch('/referrals/:earningId/pay', requireAdmin, adminController.payReferral);
+router.get('/audit-logs', requireAdmin, adminController.getAuditLogs);
 
 module.exports = router;
 

@@ -25,22 +25,11 @@ export function AdminAuditView() {
 
   const fetchLogs = async () => {
     try {
-      // Endpoint for fetching audit logs (may not exist yet, will fallback)
       const res = await apiFetch<{ logs: AuditLog[] }>("/admin/audit-logs")
-      if (res && res.logs) {
-        setLogs(res.logs)
-      } else {
-        throw new Error("No data returned")
-      }
+      setLogs(res?.logs ?? [])
     } catch (err) {
-      console.warn("Using mock data for audit logs as endpoint isn't ready.")
-      setLogs([
-        { id: 104, adminName: "Super Admin", adminEmail: "admin@gymtrainer.com", actionType: "financial", actionName: "Payout Issued", details: "Marked $45.00 commission as PAID for Coach Mike (ID 101)", ipAddress: "192.168.1.1", createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
-        { id: 103, adminName: "Super Admin", adminEmail: "admin@gymtrainer.com", actionType: "security", actionName: "User Blocked", details: "Blocked access for John Doe (ID 45) due to TOS violation", ipAddress: "192.168.1.1", createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString() },
-        { id: 102, adminName: "Super Admin", adminEmail: "admin@gymtrainer.com", actionType: "user_management", actionName: "Subscription Override", details: "Upgraded Coach Sarah (ID 105) from Starter to Olympian", ipAddress: "192.168.1.1", createdAt: new Date(Date.now() - 1000 * 3600 * 3).toISOString() },
-        { id: 101, adminName: "System", adminEmail: "system@dupla.com", actionType: "system", actionName: "Database Migration", details: "Applied migration 005_add_payments_ledger successfully", ipAddress: "127.0.0.1", createdAt: new Date(Date.now() - 1000 * 3600 * 24).toISOString() },
-        { id: 100, adminName: "Super Admin", adminEmail: "admin@gymtrainer.com", actionType: "security", actionName: "Admin Login", details: "Successful login via Web Panel", ipAddress: "192.168.1.1", createdAt: new Date(Date.now() - 1000 * 3600 * 25).toISOString() },
-      ])
+      console.warn("Failed to fetch audit logs:", err)
+      setLogs([])
     } finally {
       setLoading(false)
     }
