@@ -934,251 +934,250 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
 }) {
   const user = getUserInfo()
   const [trainees, setTrainees] = useState<AssignTrainee[]>([])
-  const [traineesLoading, setTraineesLoading] = useState(false)
   const [traineeSearch, setTraineeSearch] = useState("")
   const [selectedTrainee, setSelectedTrainee] = useState<AssignTrainee | null>(null)
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0])
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState("")
   const [workoutCache, setWorkoutCache] = useState<Map<number, ApiProgramWorkout>>(new Map())
-  const [cacheLoading, setCacheLoading] = useState(false)
-  // Per-workout exercise overrides (editable before assigning)
+  
+  // Local schedule for drag-and-drop
+  const [localSchedule, setLocalSchedule] = useState<Partial<Record<number, DaySlot>>>({})
+  const [draggedDay, setDraggedDay] = useState<number | null>(null)
+  
+  // Per-workout exercise overrides
   const [editedExercises, setEditedExercises] = useState<Map<number, ProgramExercise[]>>(new Map())
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!open || !user?.id) return
-    setSelectedTrainee(null); setTraineeSearch(""); setSubmitError("")
-    setStartDate(new Date().toISOString().split("T")[0])
-    setEditedExercises(new Map()); setExpandedWorkoutId(null)
-    setTraineesLoading(true)
+    if (!open) return
+    setSelectedTrainee(null); setTraineeSearch(""); setStartDate(new Date().toISOString().split("T")[0])
+    setLocalSchedule({ ...plan.schedule }); setEditedExercises(new Map()); setExpandedWorkoutId(null)
+    if (!user?.id) return
     apiFetch<AssignTrainee[] | { trainees: AssignTrainee[] }>(`/coaches/${user.id}/trainees`)
       .then(d => setTrainees(Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])))
-      .catch(() => setTrainees([]))
-      .finally(() => setTraineesLoading(false))
-    // Pre-fetch all workouts referenced in this plan
+      .catch(() => {})
+      
     const uniqueProgramIds = [...new Set(Object.values(plan.schedule).map(s => s!.programId))]
-    if (uniqueProgramIds.length === 0) return
-    setCacheLoading(true)
-    Promise.all(uniqueProgramIds.map(pid =>
-      apiFetch<{ workouts: ApiProgramWorkout[] }>(`/programs/${pid}/workouts`).then(d => d.workouts ?? []).catch(() => [] as ApiProgramWorkout[])
-    )).then(results => {
-      const map = new Map<number, ApiProgramWorkout>()
-      for (const workouts of results) for (const w of workouts) map.set(w.id, w)
-      setWorkoutCache(map)
-    }).finally(() => setCacheLoading(false))
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (uniqueProgramIds.length > 0) {
+      Promise.all(uniqueProgramIds.map(pid =>
+        apiFetch<{ workouts: ApiProgramWorkout[] }>(`/programs/${pid}/workouts`).then(d => d.workouts ?? []).catch(() => [])
+      )).then(results => {
+        const map = new Map<number, ApiProgramWorkout>()
+        for (const workouts of results) for (const w of workouts) map.set(w.id, w)
+        setWorkoutCache(map)
+      })
+    }
+  }, [open, plan]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dates = useMemo(() =>
-    getPlanDates(new Date(startDate + "T12:00:00"), plan.durationWeeks, plan.schedule),
-    [startDate, plan.durationWeeks, plan.schedule]
-  )
-
-  const filteredTrainees = trainees.filter(t =>
-    t.name.toLowerCase().includes(traineeSearch.toLowerCase()) ||
-    t.email.toLowerCase().includes(traineeSearch.toLowerCase())
-  )
+  const handleDrop = (targetDay: number) => {
+    if (draggedDay === null || draggedDay === targetDay) return
+    setLocalSchedule(prev => {
+      const next = { ...prev }
+      const moving = next[draggedDay]
+      const existing = next[targetDay]
+      if (existing) { next[draggedDay] = existing; next[targetDay] = moving }
+      else { next[targetDay] = moving; delete next[draggedDay] }
+      return next
+    })
+    setDraggedDay(null)
+  }
 
   const handleAssign = async () => {
     if (!selectedTrainee || !user?.id) return
-    setSubmitting(true); setSubmitError("")
+    setSubmitting(true)
     try {
+      const dates = getPlanDates(new Date(startDate + "T12:00:00"), plan.durationWeeks, localSchedule)
       for (const { date, slot } of dates) {
         const workout = workoutCache.get(slot.workoutId)
         const exSource = editedExercises.get(slot.workoutId) ?? workout?.exercises ?? []
-        const exercises = exSource.map((ex, i) => ({
-          name: ex.name, sets: ex.sets, reps: ex.reps,
-          targetWeight: ex.targetWeight ?? ex.target_weight ?? 0,
-          weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg",
-          restTime: 60, notes: ex.notes ?? "", exerciseOrder: i,
-          track_rpe: 0, track_rir: 0,
-          is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
-        }))
         await apiFetch("/workout-plans", {
           method: "POST",
           body: JSON.stringify({
             traineeId: selectedTrainee.id, coachId: user.id,
-            name: slot.workoutName,
-            description: workout?.description ?? "",
+            name: slot.workoutName, description: workout?.description ?? "",
             scheduledDate: date.toISOString().split("T")[0],
-            exercises,
+            exercises: exSource.map((ex, i) => ({
+              name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: ex.targetWeight ?? ex.target_weight ?? 0,
+              weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: 60, notes: ex.notes ?? "", exerciseOrder: i,
+              track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
+            })),
           }),
         })
       }
       if (!plan.isReusable) removePlan(plan.id)
       onAssigned(); onOpenChange(false)
-    } catch (e: unknown) {
-      setSubmitError(e instanceof Error ? e.message : "Failed to assign plan")
-    } finally { setSubmitting(false) }
+    } catch (e) { alert("Failed to assign plan") } finally { setSubmitting(false) }
   }
 
-  // Group preview dates by week
-  const weekGroups = useMemo(() => {
-    const groups: { label: string; entries: typeof dates }[] = []
-    dates.forEach(entry => {
-      const monday = getMondayOf(entry.date)
-      const label = `Week starting ${fmtDate(monday)}`
-      let g = groups.find(g => g.label === label)
-      if (!g) { g = { label, entries: [] }; groups.push(g) }
-      g.entries.push(entry)
-    })
-    return groups
-  }, [dates])
+  const filteredTrainees = trainees.filter(t => t.name.toLowerCase().includes(traineeSearch.toLowerCase()))
 
   return (
-    <div className={cn("fixed inset-0 z-[210] flex items-center justify-center p-4", !open && "pointer-events-none opacity-0 hidden")}>
-      <div className="absolute inset-0 bg-black/60" onClick={() => onOpenChange(false)} />
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/[0.12] bg-[#161b22] shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/10">
-              <CalendarDays className="h-5 w-5 text-[#a78bfa]" />
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+        <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-5xl"
+          style={{ zIndex: 200 }} onInteractOutside={e => { if (expandedWorkoutId) e.preventDefault() }}>
+          <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/10">
+                <CalendarDays className="h-5 w-5 text-[#a78bfa]" />
+              </div>
+              <div>
+                <SheetTitle className="text-lg font-bold text-white">Assign & Customize Plan</SheetTitle>
+                <p className="text-xs text-[#555555]">Personalize the template for this specific assignment</p>
+              </div>
             </div>
-            <div>
-              <p className="text-base font-bold text-white">Assign Plan</p>
-              <p className="text-xs text-[#555555]">{plan.name}</p>
-            </div>
-          </div>
-          <button onClick={() => onOpenChange(false)} className="text-[#555555] hover:text-white"><X className="h-5 w-5" /></button>
-        </div>
+          </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto">
-          {/* Trainee picker */}
-          <div className="border-b border-white/[0.06] px-6 py-4">
-            <p className="mb-3 text-sm font-medium text-[#888888]">Select Trainee</p>
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" />
-              <input value={traineeSearch} onChange={e => setTraineeSearch(e.target.value)} placeholder="Search trainees…"
-                className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left Column: Settings */}
+            <div className="w-80 shrink-0 border-r border-white/[0.08] flex flex-col bg-[#161b22]">
+              <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-white">Select Trainee</label>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" />
+                    <input value={traineeSearch} onChange={e => setTraineeSearch(e.target.value)} placeholder="Search trainees…"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] py-2.5 pl-9 pr-4 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
+                  </div>
+                  <div className="max-h-48 space-y-2 overflow-y-auto">
+                    {filteredTrainees.map(t => (
+                      <button key={t.id} onClick={() => setSelectedTrainee(t)}
+                        className={cn("flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-all",
+                          selectedTrainee?.id === t.id ? "border-[#a78bfa]/40 bg-[#a78bfa]/10" : "border-white/[0.06] bg-[#0a0a0f] hover:border-white/[0.12]")}>
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#a78bfa]/30 to-[#00ffff]/20 text-[10px] font-bold text-[#a78bfa]">
+                          {t.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="truncate text-sm font-medium text-white">{t.name}</span>
+                        {selectedTrainee?.id === t.id && <Check className="ml-auto h-4 w-4 text-[#a78bfa]" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-white">Start Date</label>
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-2.5 text-white focus:border-[#a78bfa]/50 focus:outline-none [color-scheme:dark]" />
+                </div>
+                <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
+                  <p className="text-sm font-medium text-white">Plan Details</p>
+                  <p className="mt-1 text-xs text-[#888888]">Name: {plan.name}</p>
+                  <p className="text-xs text-[#888888]">Duration: {plan.durationWeeks} Weeks</p>
+                </div>
+              </div>
+              <div className="border-t border-white/[0.08] p-5">
+                <button onClick={handleAssign} disabled={!selectedTrainee || submitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90 disabled:opacity-40">
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {submitting ? "Assigning…" : "Confirm Assignment"}
+                </button>
+              </div>
             </div>
-            <div className="max-h-40 space-y-1.5 overflow-y-auto">
-              {traineesLoading ? <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-[#555555]" /></div>
-                : filteredTrainees.length === 0 ? <p className="py-3 text-center text-sm text-[#555555]">No trainees found</p>
-                : filteredTrainees.map(t => (
-                  <button key={t.id} onClick={() => setSelectedTrainee(t)}
-                    className={cn("flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-left transition-all",
-                      selectedTrainee?.id === t.id ? "border-[#a78bfa]/40 bg-[#a78bfa]/10" : "border-white/[0.06] bg-[#0a0a0f] hover:border-white/[0.12]")}>
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#a78bfa]/30 to-[#00ffff]/20 text-xs font-bold text-[#a78bfa]">
-                      {t.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">{t.name}</p>
-                      <p className="truncate text-xs text-[#555555]">{t.email}</p>
-                    </div>
-                    {selectedTrainee?.id === t.id && <Check className="h-4 w-4 shrink-0 text-[#a78bfa]" />}
-                  </button>
-                ))}
-            </div>
-          </div>
 
-          {/* Start date */}
-          <div className="border-b border-white/[0.06] px-6 py-4">
-            <label className="mb-2 block text-sm font-medium text-[#888888]">Start Date</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-              className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-2.5 text-white focus:border-[#a78bfa]/50 focus:outline-none [color-scheme:dark]" />
-            <p className="mt-1.5 text-xs text-[#555555]">Plan starts from the week containing this date. Days before it are skipped.</p>
-          </div>
-
-          {/* Schedule preview */}
-          <div className="px-6 py-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-medium text-[#888888]">Schedule Preview</p>
-              <span className="text-xs text-[#555555]">{dates.length} workout{dates.length !== 1 ? "s" : ""} total</span>
-            </div>
-            {cacheLoading ? <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-              : dates.length === 0 ? <p className="text-sm text-[#555555]">No workouts to schedule.</p>
-              : <div className="space-y-3 max-h-48 overflow-y-auto">
-                  {weekGroups.map(g => (
-                    <div key={g.label}>
-                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#555555]">{g.label}</p>
-                      <div className="space-y-1">
-                        {g.entries.map(({ date, slot }, i) => (
-                          <div key={i} className="flex items-center justify-between rounded-lg bg-[#0a0a0f] px-3 py-2">
-                            <span className="text-xs text-[#888888]">{fmtDate(date)}</span>
-                            <span className="text-xs font-medium text-white">{slot.workoutName}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>}
-          </div>
-
-          {/* Customize workouts */}
-          {!cacheLoading && workoutCache.size > 0 && (() => {
-            const uniqueWorkoutIds = [...new Set(Object.values(plan.schedule).map(s => s!.workoutId))]
-            return (
-              <div className="border-t border-white/[0.06] px-6 py-4">
-                <p className="mb-3 text-sm font-medium text-[#888888]">Customize Exercises</p>
-                <div className="space-y-2">
-                  {uniqueWorkoutIds.map(wid => {
-                    const workout = workoutCache.get(wid)
-                    if (!workout) return null
-                    const isOpen = expandedWorkoutId === wid
-                    const exList = editedExercises.get(wid) ?? workout.exercises ?? []
+            {/* Right Column: Weekly Timeline */}
+            <div className="flex-1 flex flex-col bg-[#0a0a0f] overflow-hidden">
+              <div className="p-6">
+                <h3 className="text-lg font-bold text-white mb-1">Weekly Timeline Template</h3>
+                <p className="text-sm text-[#888888] mb-6">Drag workouts between days, or click a card to tweak its exercises specifically for {selectedTrainee?.name || "this assignment"}.</p>
+                
+                <div className="grid grid-cols-7 gap-3">
+                  {DAY_ORDER.map(day => {
+                    const slot = localSchedule[day]
+                    const isDraggedOver = draggedDay !== null && draggedDay !== day
                     return (
-                      <div key={wid} className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] overflow-hidden">
-                        <button onClick={() => setExpandedWorkoutId(isOpen ? null : wid)}
-                          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02]">
-                          <div className="flex items-center gap-2">
-                            <Dumbbell className="h-3.5 w-3.5 text-[#a78bfa]" />
-                            <span className="text-sm font-medium text-white">{workout.name}</span>
-                            {editedExercises.has(wid) && (
-                              <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#a78bfa]/20 text-[#a78bfa]">Edited</span>
-                            )}
-                          </div>
-                          <ChevronRight className={cn("h-4 w-4 text-[#555555] transition-transform", isOpen && "rotate-90")} />
-                        </button>
-                        {isOpen && (
-                          <div className="border-t border-white/[0.06] px-4 pb-3 pt-2 space-y-2">
-                            {exList.map((ex, i) => (
-                              <div key={i} className="rounded-lg border border-white/[0.06] bg-[#161b22] p-3">
-                                <p className="mb-2 text-xs font-semibold text-white">{ex.name}</p>
-                                <div className="grid grid-cols-3 gap-2">
-                                  {[
-                                    { label: "Sets", field: "sets" as const, value: ex.sets },
-                                    { label: "Reps", field: "reps" as const, value: ex.reps },
-                                    { label: "Weight (kg)", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
-                                  ].map(({ label, field, value }) => (
-                                    <div key={field}>
-                                      <label className="mb-0.5 block text-[9px] text-[#555555]">{label}</label>
-                                      <input type="number" defaultValue={value as number} min={0}
-                                        onChange={e => {
-                                          const updated = exList.map((x, xi) => xi === i ? { ...x, [field]: parseFloat(e.target.value) || 0 } : x)
-                                          setEditedExercises(m => { const n = new Map(m); n.set(wid, updated); return n })
-                                        }}
-                                        className="w-full rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-xs text-white focus:border-[#a78bfa]/40 focus:outline-none" />
-                                    </div>
-                                  ))}
+                      <div key={day} className="flex flex-col gap-2"
+                        onDragOver={e => { e.preventDefault() }}
+                        onDrop={() => handleDrop(day)}>
+                        <div className="rounded-t-lg bg-[#161b22] py-2 text-center border-b border-[#a78bfa]/20">
+                          <span className="text-xs font-bold text-[#a78bfa]">{DAY_SHORT[day]}</span>
+                        </div>
+                        <div className={cn("min-h-[120px] rounded-xl border border-white/[0.08] p-2 transition-colors",
+                          !slot ? "bg-[#161b22]/50 border-dashed" : "bg-[#161b22]",
+                          isDraggedOver && "border-[#a78bfa]/50 bg-[#a78bfa]/5")}>
+                          
+                          {slot ? (
+                            <div draggable onDragStart={() => setDraggedDay(day)} onDragEnd={() => setDraggedDay(null)}
+                              onClick={() => setExpandedWorkoutId(slot.workoutId)}
+                              className="group relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#1c2128] p-3 shadow-md hover:border-[#a78bfa]/40 hover:bg-[#22272e] transition-all">
+                              <div className="mb-2 flex items-center justify-between">
+                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#a78bfa]/10">
+                                  <Dumbbell className="h-3 w-3 text-[#a78bfa]" />
                                 </div>
+                                {editedExercises.has(slot.workoutId) && (
+                                  <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">Edited</span>
+                                )}
                               </div>
-                            ))}
-                          </div>
-                        )}
+                              <p className="text-sm font-bold text-white leading-tight">{slot.workoutName}</p>
+                              <p className="mt-1 text-[10px] text-[#888888]">Click to edit</p>
+                            </div>
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-center opacity-50">
+                              <span className="text-[10px] text-[#555555]">Rest Day</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
                 </div>
               </div>
-            )
-          })()}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-white/[0.08] px-6 py-4">
-          {submitError && <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-3 py-2 text-xs text-[#ff4444]"><AlertCircle className="h-3.5 w-3.5 shrink-0" />{submitError}</div>}
-          <div className="flex gap-3">
-            <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-3 font-medium text-white hover:bg-[#161b22]">Cancel</button>
-            <button onClick={handleAssign} disabled={!selectedTrainee || dates.length === 0 || submitting || cacheLoading}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Assigning…" : `Assign ${dates.length > 0 ? `(${dates.length} workouts)` : ""}`}
-            </button>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Editor Panel for Selected Workout */}
+      {expandedWorkoutId && (() => {
+        const workout = workoutCache.get(expandedWorkoutId)
+        if (!workout) return null
+        const exList = editedExercises.get(expandedWorkoutId) ?? workout.exercises ?? []
+        return (
+          <Sheet open={true} onOpenChange={() => setExpandedWorkoutId(null)} modal={false}>
+            <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}>
+              <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0a0a0f]">
+                <div>
+                  <h3 className="text-base font-bold text-white">Customize: {workout.name}</h3>
+                  <p className="text-xs text-[#a78bfa]">Changes apply only to this assignment</p>
+                </div>
+                <button onClick={() => setExpandedWorkoutId(null)} className="text-[#888888] hover:text-white"><X className="h-5 w-5" /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                {exList.map((ex, i) => (
+                  <div key={i} className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-bold text-white">{ex.name}</p>
+                      <button onClick={() => {
+                        const updated = exList.filter((_, xi) => xi !== i)
+                        setEditedExercises(m => { const n = new Map(m); n.set(expandedWorkoutId, updated); return n })
+                      }} className="text-[#555555] hover:text-[#ff4444]"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: "Sets", field: "sets" as const, value: ex.sets },
+                        { label: "Reps", field: "reps" as const, value: ex.reps },
+                        { label: "Weight (kg)", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
+                      ].map(({ label, field, value }) => (
+                        <div key={field}>
+                          <label className="mb-1 block text-[10px] uppercase text-[#555555]">{label}</label>
+                          <input type="number" defaultValue={value as number} min={0}
+                            onChange={e => {
+                              const updated = exList.map((x, xi) => xi === i ? { ...x, [field]: parseFloat(e.target.value) || 0 } : x)
+                              setEditedExercises(m => { const n = new Map(m); n.set(expandedWorkoutId, updated); return n })
+                            }}
+                            className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-white/[0.08] p-5 bg-[#0a0a0f]">
+                <button onClick={() => setExpandedWorkoutId(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">Done Editing</button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        )
+      })()}
+    </>
   )
 }
 
