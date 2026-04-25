@@ -429,6 +429,8 @@ const es: TranslationKeys = {
     photoLabel: "Foto de Perfil",
     photoOptional: "(Opcional)",
     nameLabel: "Nombre Completo",
+    usernameLabel: "Usuario",
+    usernamePlaceholder: "tunombre",
     emailLabel: "Correo",
     sexLabel: "Sexo",
     sexSelect: "Seleccionar...",
@@ -459,9 +461,9 @@ const es: TranslationKeys = {
 
   // ── Login Page ────────────────────────────────────────────────────────────
   loginPage: {
-    emailLabel: "Correo",
+    emailLabel: "Email o Usuario",
     passwordLabel: "Contraseña",
-    rememberMe: "Recordar mi correo",
+    rememberMe: "Recordarme",
     signIn: "Iniciar Sesión",
     signingIn: "Iniciando sesión...",
     noAccount: "¿No tienes cuenta?",

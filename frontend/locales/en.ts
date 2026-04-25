@@ -427,6 +427,8 @@ const en = {
     photoLabel: "Profile Photo",
     photoOptional: "(Optional)",
     nameLabel: "Full Name",
+    usernameLabel: "Username",
+    usernamePlaceholder: "yourhandle",
     emailLabel: "Email",
     sexLabel: "Sex",
     sexSelect: "Select...",
@@ -457,9 +459,9 @@ const en = {
 
   // ── Login Page ────────────────────────────────────────────────────────────
   loginPage: {
-    emailLabel: "Email",
+    emailLabel: "Email or Username",
     passwordLabel: "Password",
-    rememberMe: "Remember my email",
+    rememberMe: "Remember me",
     signIn: "Sign In",
     signingIn: "Signing in...",
     noAccount: "Don't have an account?",

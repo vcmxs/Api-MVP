@@ -21,9 +21,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     setIsMounted(true)
-    const savedEmail = localStorage.getItem("rememberedEmail")
-    if (savedEmail) {
-      setIdentifier(savedEmail)
+    const savedIdentifier = localStorage.getItem("rememberedIdentifier") || localStorage.getItem("rememberedEmail")
+    if (savedIdentifier) {
+      setIdentifier(savedIdentifier)
       setRememberMe(true)
     }
   }, [])
@@ -59,8 +59,9 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data?.message ?? t("loginPage.error"))
       
       if (rememberMe) {
-        localStorage.setItem("rememberedEmail", identifier)
+        localStorage.setItem("rememberedIdentifier", identifier)
       } else {
+        localStorage.removeItem("rememberedIdentifier")
         localStorage.removeItem("rememberedEmail")
       }
 
@@ -177,15 +178,15 @@ export default function LoginPage() {
             <div>
               <label style={labelStyle}>{t("loginPage.emailLabel")}</label>
               <input
-                type="email"
+                type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
-                placeholder="you@example.com"
+                placeholder={t("loginPage.emailLabel")}
                 style={inputStyle}
                 onFocus={onFocus}
                 onBlur={onBlur}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
             <div>

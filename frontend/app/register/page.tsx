@@ -12,7 +12,7 @@ export default function RegisterPage() {
   const router = useRouter();
 
   const [formData, setFormData] = useState({
-    name: '', email: '', password: '', confirmPassword: '',
+    name: '', username: '', email: '', password: '', confirmPassword: '',
     role: 'trainee', sex: '', age: '', phone: '', gym: '', notes: '', referralCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -224,6 +224,23 @@ export default function RegisterPage() {
             <div>
               <label style={labelStyle}>{t('registerPage.emailLabel')}</label>
               <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="you@example.com" required style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+            </div>
+            <div>
+              <label style={labelStyle}>{t('registerPage.usernameLabel')}</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#555555', fontSize: '15px' }}>@</span>
+                <input 
+                  type="text" 
+                  name="username" 
+                  value={formData.username} 
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })} 
+                  placeholder={t('registerPage.usernamePlaceholder')} 
+                  required 
+                  style={{ ...inputStyle, paddingLeft: '32px' }} 
+                  onFocus={onFocus} 
+                  onBlur={onBlur} 
+                />
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
