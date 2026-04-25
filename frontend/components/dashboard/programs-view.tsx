@@ -37,6 +37,8 @@ interface ProgramExercise {
   track_rir?: boolean | number
   exerciseOrder?: number
   isCardio?: boolean
+  weightIncrement?: number
+  weight_increment?: number
 }
 
 interface ApiProgramWorkout {
@@ -989,9 +991,6 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
 interface AssignTrainee { id: number; name: string; email: string }
 
-const getTemplateId = (slot: any) => slot?.workoutId || slot?.templateId;
-const getSlotName = (slot: any) => slot?.workoutName || slot?.name || 'Workout';
-
 function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   plan: TrainingPlan; open: boolean; onOpenChange: (v: boolean) => void; onAssigned: () => void
 }) {
@@ -1020,12 +1019,12 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
       .then(d => setTrainees(Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])))
       .catch(() => {})
       
-    const uniqueWorkoutIds = [...new Set(Object.values(plan.schedule).filter(Boolean).map(s => getTemplateId(s)).filter(id => !!id))]
+    const uniqueWorkoutIds = [...new Set(Object.values(plan.schedule).filter(Boolean).map(s => getSlotWorkoutId(s!)).filter(id => !!id))]
     if (uniqueWorkoutIds.length > 0) {
       // In this system, workouts are often fetched via their program/folder. 
       // If we don't have a programId, we try to fetch the individual workout details.
       Promise.all(uniqueWorkoutIds.map(id =>
-        apiFetch<ApiProgramWorkout>(`/programs/workouts/${id}`).then(w => [w]).catch(() => [])
+        apiFetch<{ workout: ApiProgramWorkout }>(`/programs/workouts/${id}`).then(d => [d.workout]).catch(() => [])
       )).then(results => {
         const map = new Map<number, ApiProgramWorkout>()
         for (const workouts of results) for (const w of workouts) if (w && w.id) map.set(w.id, w)
@@ -1217,9 +1216,10 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
       {expandedDay !== null && (() => {
         const slot = localSchedule[expandedDay]
         if (!slot) return null
-        const tid = getTemplateId(slot)
+        const tid = getSlotWorkoutId(slot)
         const workout = tid ? workoutCache.get(tid) : undefined
-        const exList = editedExercises.get(expandedDay) || workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
+        const rawExList = editedExercises.get(expandedDay) || workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
+        const exList = (rawExList as (ProgramExercise & { weightIncrement?: number })[])
         console.log("[AssignPlanModal] Day:", expandedDay, "Slot:", slot, "ExList:", exList)
         return (
           <Sheet open={true} onOpenChange={() => setExpandedDay(null)} modal={false}>
