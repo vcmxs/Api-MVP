@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Dumbbell } from "lucide-react"
 import Link from "next/link"
 
 export default function ForgotPasswordPage() {
@@ -28,7 +27,7 @@ export default function ForgotPasswordPage() {
       <div className="relative w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00ffff]">
-            <Dumbbell className="h-7 w-7 text-black" />
+            <img src="/icon.png" alt="Dupla" className="h-8 w-8 object-contain" />
           </div>
           <div className="text-center">
             <h1 className="text-3xl font-bold text-white">Forgot Password?</h1>

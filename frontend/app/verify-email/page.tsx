@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Dumbbell, Mail } from "lucide-react"
+import { Mail } from "lucide-react"
 import Link from "next/link"
 
 export default function VerifyEmailPage() {
@@ -58,7 +58,7 @@ export default function VerifyEmailPage() {
       <div className="relative w-full max-w-md text-center">
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00ffff]">
-            <Dumbbell className="h-7 w-7 text-black" />
+            <img src="/icon.png" alt="Dupla" className="h-8 w-8 object-contain" />
           </div>
           <h1 className="text-3xl font-bold text-white">Verify Email</h1>
         </div>
