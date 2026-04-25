@@ -1203,6 +1203,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         if (!slot) return null
         const workout = slot.workoutId ? workoutCache.get(slot.workoutId) : undefined
         const exList = editedExercises.get(expandedDay) || workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
+        console.log("[AssignPlanModal] Day:", expandedDay, "Slot:", slot, "ExList:", exList)
         return (
           <Sheet open={true} onOpenChange={() => setExpandedDay(null)} modal={false}>
             <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}>
