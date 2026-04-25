@@ -1059,7 +1059,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
           method: "POST",
           body: JSON.stringify({
             traineeId: selectedTrainee.id, coachId: user.id,
-            name: slot.workoutName, description: workout?.description ?? "",
+            name: getSlotName(slot), description: workout?.description ?? "",
             scheduledDate: date.toISOString().split("T")[0],
             exercises: exSource.map((ex: any, i) => {
               const baseWeight = ex.targetWeight ?? ex.target_weight ?? 0;
@@ -1178,7 +1178,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                                   <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">Edited</span>
                                 )}
                               </div>
-                              <p className="text-sm font-bold text-white leading-tight">{slot.workoutName}</p>
+                              <p className="text-sm font-bold text-white leading-tight">{getSlotName(slot)}</p>
                               <p className="mt-1 text-[10px] text-[#888888]">Click to edit</p>
                             </div>
                           ) : (
@@ -1208,7 +1208,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}>
               <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0a0a0f]">
                 <div>
-                  <h3 className="text-base font-bold text-white">Customize: {slot.workoutName}</h3>
+                  <h3 className="text-base font-bold text-white">Customize: {getSlotName(slot)}</h3>
                   <p className="text-xs text-[#a78bfa]">Changes apply to all weeks in this assignment</p>
                 </div>
                 <button onClick={() => setExpandedDay(null)} className="text-[#888888] hover:text-white"><X className="h-5 w-5" /></button>
