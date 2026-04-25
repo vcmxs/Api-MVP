@@ -1017,7 +1017,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
       .then(d => setTrainees(Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])))
       .catch(() => {})
       
-    const uniqueProgramIds = [...new Set(Object.values(plan.schedule).map(s => s!.programId))]
+    const uniqueProgramIds = [...new Set(Object.values(plan.schedule).map(s => s!.programId).filter(id => !!id))]
     if (uniqueProgramIds.length > 0) {
       Promise.all(uniqueProgramIds.map(pid =>
         apiFetch<{ workouts: ApiProgramWorkout[] }>(`/programs/${pid}/workouts`).then(d => d.workouts ?? []).catch(() => [])
