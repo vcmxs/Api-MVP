@@ -1202,7 +1202,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         const slot = localSchedule[expandedDay]
         if (!slot) return null
         const workout = slot.workoutId ? workoutCache.get(slot.workoutId) : undefined
-        const exList = editedExercises.get(expandedDay) ?? workout?.exercises ?? slot.exercises ?? []
+        const exList = editedExercises.get(expandedDay) || workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
         return (
           <Sheet open={true} onOpenChange={() => setExpandedDay(null)} modal={false}>
             <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}>
@@ -1214,7 +1214,13 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 <button onClick={() => setExpandedDay(null)} className="text-[#888888] hover:text-white"><X className="h-5 w-5" /></button>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {exList.map((ex, i) => (
+                {exList.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-10 opacity-50">
+                        <Dumbbell className="h-8 w-8 mb-2 text-[#555]" />
+                        <p className="text-sm text-[#888]">No exercises found in this template</p>
+                    </div>
+                )}
+                {exList.map((ex: any, i: number) => (
                   <div key={i} className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <p className="text-sm font-bold text-white">{ex.name}</p>
