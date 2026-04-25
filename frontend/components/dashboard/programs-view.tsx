@@ -68,6 +68,7 @@ interface DaySlot {
   templateId?: number
   name?: string
   type?: string
+  exercises?: any[]
 }
 
 // Helpers to normalise slots from either platform
@@ -88,7 +89,7 @@ interface TrainingPlan {
 async function loadAllPlans(userId: number | string): Promise<TrainingPlan[]> {
   if (!userId) return [];
   try {
-    const res = await apiFetch(`/training-plans/users/${userId}`)
+    const res = await apiFetch<{ plans: any[] }>(`/training-plans/users/${userId}`)
     return (res.plans || []).map((p: any) => {
       let schedule = p.schedule
       if (typeof schedule === 'string') { try { schedule = JSON.parse(schedule) } catch { schedule = {} } }
@@ -147,19 +148,30 @@ function getPlanDates(
   startDate: Date,
   durationWeeks: number,
   schedule: Partial<Record<number, DaySlot>>,
-): { date: Date; slot: DaySlot }[] {
-  const results: { date: Date; slot: DaySlot }[] = []
-  const monday = getMondayOf(startDate)
-  const start = new Date(startDate); start.setHours(0, 0, 0, 0)
+): { date: Date; slot: DaySlot; weekIndex: number; dayKey: number }[] {
+  const results: { date: Date; slot: DaySlot; weekIndex: number; dayKey: number }[] = []
+  
+  const jsStartDate = new Date(startDate);
+  jsStartDate.setHours(0, 0, 0, 0);
+
+  const dow = jsStartDate.getDay();
+  let daysToMonday;
+  if (dow === 1) daysToMonday = 0;
+  else if (dow === 0) daysToMonday = 1;
+  else daysToMonday = 8 - dow;
+  
+  const weekStart = new Date(jsStartDate);
+  weekStart.setDate(jsStartDate.getDate() + daysToMonday);
+
   const dayNums = Object.keys(schedule).map(Number).sort()
   for (let w = 0; w < durationWeeks; w++) {
     for (const dn of dayNums) {
       const slot = schedule[dn]; if (!slot) continue
       const jsDay = toJsDay(dn)
-      const offset = jsDay === 0 ? 6 : jsDay - 1        // Mon=0 … Sun=6
-      const d = new Date(monday)
-      d.setDate(monday.getDate() + w * 7 + offset)
-      if (d >= start) results.push({ date: d, slot })
+      const offset = jsDay === 0 ? 6 : jsDay - 1
+      const d = new Date(weekStart)
+      d.setDate(weekStart.getDate() + w * 7 + offset)
+      results.push({ date: d, slot, weekIndex: w, dayKey: dn })
     }
   }
   return results
@@ -992,14 +1004,14 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   const [localSchedule, setLocalSchedule] = useState<Partial<Record<number, DaySlot>>>({})
   const [draggedDay, setDraggedDay] = useState<number | null>(null)
   
-  // Per-workout exercise overrides
-  const [editedExercises, setEditedExercises] = useState<Map<number, ProgramExercise[]>>(new Map())
-  const [expandedWorkoutId, setExpandedWorkoutId] = useState<number | null>(null)
+  // Per-workout exercise overrides by Day Number (1-7)
+  const [editedExercises, setEditedExercises] = useState<Map<number, (ProgramExercise & { weightIncrement?: number })[]>>(new Map())
+  const [expandedDay, setExpandedDay] = useState<number | null>(null)
 
   useEffect(() => {
     if (!open) return
     setSelectedTrainee(null); setTraineeSearch(""); setStartDate(new Date().toISOString().split("T")[0])
-    setLocalSchedule({ ...plan.schedule }); setEditedExercises(new Map()); setExpandedWorkoutId(null)
+    setLocalSchedule({ ...plan.schedule }); setEditedExercises(new Map()); setExpandedDay(null)
     if (!user?.id) return
     apiFetch<AssignTrainee[] | { trainees: AssignTrainee[] }>(`/coaches/${user.id}/trainees`)
       .then(d => setTrainees(Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])))
@@ -1035,20 +1047,31 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     setSubmitting(true)
     try {
       const dates = getPlanDates(new Date(startDate + "T12:00:00"), plan.durationWeeks, localSchedule)
-      for (const { date, slot } of dates) {
-        const workout = workoutCache.get(slot.workoutId)
-        const exSource = editedExercises.get(slot.workoutId) ?? workout?.exercises ?? []
+      for (const { date, slot, weekIndex, dayKey } of dates) {
+        const workout = slot.workoutId ? workoutCache.get(slot.workoutId) : undefined
+        
+        let exSource = editedExercises.get(dayKey)
+        if (!exSource) {
+            exSource = workout?.exercises ?? slot.exercises ?? []
+        }
+
         await apiFetch("/workout-plans", {
           method: "POST",
           body: JSON.stringify({
             traineeId: selectedTrainee.id, coachId: user.id,
             name: slot.workoutName, description: workout?.description ?? "",
             scheduledDate: date.toISOString().split("T")[0],
-            exercises: exSource.map((ex, i) => ({
-              name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: ex.targetWeight ?? ex.target_weight ?? 0,
-              weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: 60, notes: ex.notes ?? "", exerciseOrder: i,
-              track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
-            })),
+            exercises: exSource.map((ex: any, i) => {
+              const baseWeight = ex.targetWeight ?? ex.target_weight ?? 0;
+              const increment = ex.weightIncrement ?? 0;
+              const targetWeight = baseWeight + (increment * weekIndex);
+
+              return {
+                name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: targetWeight,
+                weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: 60, notes: ex.notes ?? "", exerciseOrder: i,
+                track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
+              };
+            }),
           }),
         })
       }
@@ -1063,7 +1086,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     <>
       <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
         <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-5xl"
-          style={{ zIndex: 200 }} onInteractOutside={e => { if (expandedWorkoutId) e.preventDefault() }}>
+          style={{ zIndex: 200 }} onInteractOutside={e => { if (expandedDay) e.preventDefault() }}>
           <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/10">
@@ -1145,13 +1168,13 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                           
                           {slot ? (
                             <div draggable onDragStart={() => setDraggedDay(day)} onDragEnd={() => setDraggedDay(null)}
-                              onClick={() => setExpandedWorkoutId(slot.workoutId)}
+                              onClick={() => setExpandedDay(day)}
                               className="group relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#1c2128] p-3 shadow-md hover:border-[#a78bfa]/40 hover:bg-[#22272e] transition-all">
                               <div className="mb-2 flex items-center justify-between">
                                 <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#a78bfa]/10">
                                   <Dumbbell className="h-3 w-3 text-[#a78bfa]" />
                                 </div>
-                                {editedExercises.has(slot.workoutId) && (
+                                {editedExercises.has(day) && (
                                   <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">Edited</span>
                                 )}
                               </div>
@@ -1174,20 +1197,21 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         </SheetContent>
       </Sheet>
 
-      {/* Editor Panel for Selected Workout */}
-      {expandedWorkoutId && (() => {
-        const workout = workoutCache.get(expandedWorkoutId)
-        if (!workout) return null
-        const exList = editedExercises.get(expandedWorkoutId) ?? workout.exercises ?? []
+      {/* Editor Panel for Selected Workout by Day */}
+      {expandedDay !== null && (() => {
+        const slot = localSchedule[expandedDay]
+        if (!slot) return null
+        const workout = slot.workoutId ? workoutCache.get(slot.workoutId) : undefined
+        const exList = editedExercises.get(expandedDay) ?? workout?.exercises ?? slot.exercises ?? []
         return (
-          <Sheet open={true} onOpenChange={() => setExpandedWorkoutId(null)} modal={false}>
+          <Sheet open={true} onOpenChange={() => setExpandedDay(null)} modal={false}>
             <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}>
               <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0a0a0f]">
                 <div>
-                  <h3 className="text-base font-bold text-white">Customize: {workout.name}</h3>
-                  <p className="text-xs text-[#a78bfa]">Changes apply only to this assignment</p>
+                  <h3 className="text-base font-bold text-white">Customize: {slot.workoutName}</h3>
+                  <p className="text-xs text-[#a78bfa]">Changes apply to all weeks in this assignment</p>
                 </div>
-                <button onClick={() => setExpandedWorkoutId(null)} className="text-[#888888] hover:text-white"><X className="h-5 w-5" /></button>
+                <button onClick={() => setExpandedDay(null)} className="text-[#888888] hover:text-white"><X className="h-5 w-5" /></button>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
                 {exList.map((ex, i) => (
@@ -1196,21 +1220,22 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                       <p className="text-sm font-bold text-white">{ex.name}</p>
                       <button onClick={() => {
                         const updated = exList.filter((_, xi) => xi !== i)
-                        setEditedExercises(m => { const n = new Map(m); n.set(expandedWorkoutId, updated); return n })
+                        setEditedExercises(m => { const n = new Map(m); n.set(expandedDay, updated); return n })
                       }} className="text-[#555555] hover:text-[#ff4444]"><Trash2 className="h-4 w-4" /></button>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-3">
                       {[
                         { label: "Sets", field: "sets" as const, value: ex.sets },
                         { label: "Reps", field: "reps" as const, value: ex.reps },
-                        { label: "Weight (kg)", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
+                        { label: "Weight", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
+                        { label: "+ / Wk", field: "weightIncrement" as const, value: (ex as any).weightIncrement ?? 0 },
                       ].map(({ label, field, value }) => (
                         <div key={field}>
                           <label className="mb-1 block text-[10px] uppercase text-[#555555]">{label}</label>
                           <input type="number" defaultValue={value as number} min={0}
                             onChange={e => {
                               const updated = exList.map((x, xi) => xi === i ? { ...x, [field]: parseFloat(e.target.value) || 0 } : x)
-                              setEditedExercises(m => { const n = new Map(m); n.set(expandedWorkoutId, updated); return n })
+                              setEditedExercises(m => { const n = new Map(m); n.set(expandedDay, updated); return n })
                             }}
                             className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
                         </div>
@@ -1220,7 +1245,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 ))}
               </div>
               <div className="border-t border-white/[0.08] p-5 bg-[#0a0a0f]">
-                <button onClick={() => setExpandedWorkoutId(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">Done Editing</button>
+                <button onClick={() => setExpandedDay(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">Done Editing</button>
               </div>
             </SheetContent>
           </Sheet>
