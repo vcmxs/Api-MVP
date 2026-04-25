@@ -1063,11 +1063,13 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     try {
       const dates = getPlanDates(new Date(startDate + "T12:00:00"), plan.durationWeeks, localSchedule)
       for (const { date, slot, weekIndex, dayKey } of dates) {
-        const workout = slot.workoutId ? workoutCache.get(slot.workoutId) : undefined
+        const tid = getSlotWorkoutId(slot)
+        const workout = tid ? workoutCache.get(tid) : undefined
         
         let exSource = editedExercises.get(dayKey)
         if (!exSource) {
-            exSource = workout?.exercises ?? slot.exercises ?? []
+            const rawExList = workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
+            exSource = (rawExList as (ProgramExercise & { weightIncrement?: number })[])
         }
 
         await apiFetch("/workout-plans", {
@@ -1076,7 +1078,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             traineeId: selectedTrainee.id, coachId: user.id,
             name: getSlotName(slot), description: workout?.description ?? "",
             scheduledDate: date.toISOString().split("T")[0],
-            exercises: exSource.map((ex: any, i) => {
+            exercises: exSource.map((ex, i) => {
               const baseWeight = ex.targetWeight ?? ex.target_weight ?? 0;
               const increment = ex.weightIncrement ?? 0;
               const targetWeight = baseWeight + (increment * weekIndex);
