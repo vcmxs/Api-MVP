@@ -89,12 +89,17 @@ async function loadAllPlans(userId: number | string): Promise<TrainingPlan[]> {
   if (!userId) return [];
   try {
     const res = await apiFetch(`/training-plans/users/${userId}`)
-    return (res.plans || []).map((p: any) => ({
-      ...p,
-      programFolderId: p.program_folder_id,
-      durationWeeks: p.duration_weeks,
-      isReusable: p.is_reusable
-    }))
+    return (res.plans || []).map((p: any) => {
+      let schedule = p.schedule
+      if (typeof schedule === 'string') { try { schedule = JSON.parse(schedule) } catch { schedule = {} } }
+      return {
+        ...p,
+        schedule: schedule || {},
+        programFolderId: p.program_folder_id,
+        durationWeeks: p.duration_weeks,
+        isReusable: p.is_reusable
+      }
+    })
   } catch {
     return []
   }

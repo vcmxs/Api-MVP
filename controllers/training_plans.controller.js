@@ -23,7 +23,7 @@ exports.createPlan = async (req, res) => {
             (id, user_id, program_folder_id, name, description, duration_weeks, is_reusable, schedule) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
             RETURNING *`,
-            [id, user_id, program_folder_id || null, name, description, duration_weeks, is_reusable, JSON.stringify(schedule)]
+            [id, user_id, program_folder_id || null, name, description, duration_weeks, is_reusable, schedule]
         );
         
         res.status(201).json({ plan: result.rows[0] });
@@ -42,7 +42,7 @@ exports.updatePlan = async (req, res) => {
             `UPDATE training_plans 
              SET name = $1, description = $2, duration_weeks = $3, is_reusable = $4, program_folder_id = $5, schedule = $6, updated_at = CURRENT_TIMESTAMP
              WHERE id = $7 RETURNING *`,
-            [name, description, duration_weeks, is_reusable, program_folder_id || null, JSON.stringify(schedule), id]
+            [name, description, duration_weeks, is_reusable, program_folder_id || null, schedule, id]
         );
 
         if (result.rows.length === 0) {
