@@ -1022,7 +1022,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
       // In this system, workouts are often fetched via their program/folder. 
       // If we don't have a programId, we try to fetch the individual workout details.
       Promise.all(uniqueWorkoutIds.map(id =>
-        apiFetch<ApiProgramWorkout>(`/workouts/${id}`).then(w => [w]).catch(() => [])
+        apiFetch<ApiProgramWorkout>(`/programs/workouts/${id}`).then(w => [w]).catch(() => [])
       )).then(results => {
         const map = new Map<number, ApiProgramWorkout>()
         for (const workouts of results) for (const w of workouts) if (w && w.id) map.set(w.id, w)
