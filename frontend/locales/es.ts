@@ -469,6 +469,41 @@ const es: TranslationKeys = {
     welcomeBack: "Bienvenido de nuevo",
     error: "Error al iniciar sesión. Verifica tus credenciales."
   },
+
+  // ── Forgot Password Page ──────────────────────────────────────────────────
+  forgotPasswordPage: {
+    title: "¿Olvidaste tu contraseña?",
+    subtitle: "Te enviaremos un PIN de restablecimiento",
+    emailLabel: "Correo Electrónico",
+    placeholder: "tucorreo@ejemplo.com",
+    submit: "Enviar PIN",
+    sending: "Enviando...",
+    backToLogin: "← Volver al Inicio",
+    pinSent: "¡PIN Enviado!",
+    pinSentDesc: "Revisa tu correo para ver el PIN de 6 dígitos. Expira en 15 minutos.",
+    enterPinBtn: "Ingresar PIN",
+    errorEmail: "Por favor ingresa tu correo electrónico."
+  },
+
+  // ── Reset Password Page ───────────────────────────────────────────────────
+  resetPasswordPage: {
+    title: "Restablecer Contraseña",
+    subtitle: "Ingresa tu PIN y nueva contraseña",
+    pinLabel: "PIN de 6 dígitos de tu correo",
+    newPasswordLabel: "Nueva Contraseña",
+    confirmPasswordLabel: "Confirmar Nueva Contraseña",
+    passwordPlaceholder: "Mín. 6 caracteres",
+    confirmPlaceholder: "Repite tu nueva contraseña",
+    submit: "Restablecer",
+    resetting: "Restableciendo...",
+    success: "¡Contraseña Restablecida!",
+    successDesc: "Tu contraseña ha sido actualizada con éxito.",
+    backToLogin: "Volver al Inicio",
+    errorPinComplete: "Por favor ingresa el PIN completo de 6 dígitos.",
+    errorPasswordRequired: "Por favor ingresa una nueva contraseña.",
+    errorPasswordMismatch: "Las contraseñas no coinciden.",
+    errorPasswordShort: "La contraseña debe tener al menos 6 caracteres."
+  },
 }
 
 export default es

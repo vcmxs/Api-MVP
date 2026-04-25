@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { setAuth, API_URL } from '@/lib/api';
 
@@ -14,6 +15,8 @@ export default function RegisterPage() {
     name: '', email: '', password: '', confirmPassword: '',
     role: 'trainee', sex: '', age: '', phone: '', gym: '', notes: '', referralCode: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -81,12 +84,12 @@ export default function RegisterPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '11px 14px',
+    padding: '12px 16px',
     background: 'rgba(255,255,255,0.04)',
     border: '1px solid rgba(255,255,255,0.10)',
     borderRadius: '10px',
     color: '#EDF2F7',
-    fontSize: '14px',
+    fontSize: '15px',
     outline: 'none',
     transition: 'border-color 0.2s ease, background 0.2s ease',
     fontFamily: "'Inter', -apple-system, sans-serif",
@@ -94,10 +97,10 @@ export default function RegisterPage() {
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
-    fontSize: '11px',
+    fontSize: '12px',
     fontWeight: '600',
     color: '#8892A4',
-    marginBottom: '5px',
+    marginBottom: '6px',
     letterSpacing: '0.5px',
     textTransform: 'uppercase'
   };
@@ -124,33 +127,33 @@ export default function RegisterPage() {
     }}>
       <div style={{
         position: 'fixed',
-        top: '20%',
+        top: '30%',
         left: '50%',
         transform: 'translate(-50%,-50%)',
         width: '600px',
         height: '600px',
-        background: 'radial-gradient(circle, rgba(0,196,255,0.06) 0%, transparent 65%)',
+        background: 'radial-gradient(circle, rgba(0,196,255,0.07) 0%, transparent 65%)',
         pointerEvents: 'none',
         borderRadius: '50%'
       }} />
 
       <div style={{ width: '100%', maxWidth: '480px', position: 'relative', zIndex: 1 }}>
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
           <div style={{
-            width: '52px',
-            height: '52px',
-            margin: '0 auto 14px',
+            width: '56px',
+            height: '56px',
+            margin: '0 auto 16px',
             background: 'linear-gradient(135deg, #00C4FF, #8B5CF6)',
-            borderRadius: '14px',
+            borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 8px 24px rgba(0,196,255,0.22)'
           }}>
-            <img src="/icon.png" alt="Dupla" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+            <img src="/icon.png" alt="Dupla" style={{ width: '34px', height: '34px', objectFit: 'contain' }} />
           </div>
-          <h2 style={{ color: '#EDF2F7', fontSize: '20px', fontWeight: '900', letterSpacing: '3px', margin: '0 0 4px' }}>DUPLA</h2>
-          <p style={{ color: '#8892A4', fontSize: '13px', margin: 0, fontWeight: '500' }}>{t('registerPage.subtitle')}</p>
+          <h2 style={{ color: '#EDF2F7', fontSize: '22px', fontWeight: '900', letterSpacing: '3px', margin: '0 0 6px' }}>DUPLA</h2>
+          <p style={{ color: '#8892A4', fontSize: '14px', margin: 0, fontWeight: '500' }}>{t('registerPage.subtitle')}</p>
         </div>
 
         {/* Role selector — first */}
@@ -253,11 +256,81 @@ export default function RegisterPage() {
             </div>
             <div>
               <label style={labelStyle}>{t('registerPage.passwordLabel')} <span style={{ color: '#4A5568', textTransform: 'none', letterSpacing: 0, fontSize: '11px' }}>{t('registerPage.passwordHint')}</span></label>
-              <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" required style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  required
+                  style={{ ...inputStyle, paddingRight: '44px' }}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#8892A4',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px',
+                    transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#EDF2F7')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#8892A4')}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div>
               <label style={labelStyle}>{t('registerPage.confirmLabel')}</label>
-              <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="••••••••" required style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  required
+                  style={{ ...inputStyle, paddingRight: '44px' }}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#8892A4',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px',
+                    transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#EDF2F7')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#8892A4')}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             {formData.role === 'coach' && (

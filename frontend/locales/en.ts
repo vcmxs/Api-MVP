@@ -467,6 +467,41 @@ const en = {
     welcomeBack: "Welcome back",
     error: "Login failed. Please check your credentials."
   },
+
+  // ── Forgot Password Page ──────────────────────────────────────────────────
+  forgotPasswordPage: {
+    title: "Forgot Password?",
+    subtitle: "We'll send you a reset PIN",
+    emailLabel: "Email Address",
+    placeholder: "you@example.com",
+    submit: "Send Reset PIN",
+    sending: "Sending...",
+    backToLogin: "← Back to Login",
+    pinSent: "PIN Sent!",
+    pinSentDesc: "Check your email for the 6-digit reset PIN. It expires in 15 minutes.",
+    enterPinBtn: "Enter Reset PIN",
+    errorEmail: "Please enter your email address."
+  },
+
+  // ── Reset Password Page ───────────────────────────────────────────────────
+  resetPasswordPage: {
+    title: "Reset Password",
+    subtitle: "Enter your PIN and new password",
+    pinLabel: "6-digit PIN from your email",
+    newPasswordLabel: "New Password",
+    confirmPasswordLabel: "Confirm New Password",
+    passwordPlaceholder: "Min. 6 characters",
+    confirmPlaceholder: "Repeat your new password",
+    submit: "Reset Password",
+    resetting: "Resetting...",
+    success: "Password Reset!",
+    successDesc: "Your password has been updated successfully.",
+    backToLogin: "Back to Login",
+    errorPinComplete: "Please enter the complete 6-digit PIN.",
+    errorPasswordRequired: "Please enter a new password.",
+    errorPasswordMismatch: "Passwords do not match.",
+    errorPasswordShort: "Password must be at least 6 characters."
+  },
 }
 
 export type TranslationKeys = typeof en

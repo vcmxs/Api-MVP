@@ -1,14 +1,21 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { Eye, EyeOff } from "lucide-react"
+import { useT } from "@/lib/i18n"
+import { API_URL } from "@/lib/api"
 
 export default function ResetPasswordPage() {
+  const { t } = useT()
+  const router = useRouter()
+  
   const [pins, setPins] = useState(["", "", "", "", "", ""])
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
@@ -40,60 +47,189 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const pin = pins.join("")
-    if (pin.length < 6) { setError("Please enter the complete 6-digit PIN."); return }
-    if (!newPassword) { setError("Please enter a new password."); return }
-    if (newPassword !== confirmPassword) { setError("Passwords do not match."); return }
-    if (newPassword.length < 6) { setError("Password must be at least 6 characters."); return }
+    if (pin.length < 6) { setError(t("resetPasswordPage.errorPinComplete")); return }
+    if (!newPassword) { setError(t("resetPasswordPage.errorPasswordRequired")); return }
+    if (newPassword !== confirmPassword) { setError(t("resetPasswordPage.errorPasswordMismatch")); return }
+    if (newPassword.length < 6) { setError(t("resetPasswordPage.errorPasswordShort")); return }
+    
     setError("")
     setLoading(true)
-    // TODO: call POST /auth/reset-password
-    setTimeout(() => { setLoading(false); setSuccess(true) }, 1500)
+    try {
+      const res = await fetch(`${API_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, newPassword }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.message || "Failed to reset password")
+      }
+      setSuccess(true)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "12px 16px",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    borderRadius: "10px",
+    color: "#EDF2F7",
+    fontSize: "15px",
+    outline: "none",
+    transition: "border-color 0.2s ease, background 0.2s ease",
+    fontFamily: "'Inter', -apple-system, sans-serif",
+  }
+
+  const onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = "#00C4FF"
+    e.currentTarget.style.background = "rgba(0,196,255,0.04)"
+  }
+
+  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)"
+    e.currentTarget.style.background = "rgba(255,255,255,0.04)"
+  }
+
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#8892A4",
+    marginBottom: "6px",
+    letterSpacing: "0.5px",
+    textTransform: "uppercase",
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f] px-4">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-[#00ffff] opacity-[0.03] blur-3xl" />
-      </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#07090F",
+        padding: "20px 20px 60px",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          position: "fixed",
+          top: "30%",
+          left: "50%",
+          transform: "translate(-50%,-50%)",
+          width: "600px",
+          height: "600px",
+          background: "radial-gradient(circle, rgba(0,196,255,0.07) 0%, transparent 65%)",
+          pointerEvents: "none",
+          borderRadius: "50%",
+        }}
+      />
 
-      <div className="relative w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00ffff]">
-            <img src="/icon.png" alt="Dupla" className="h-8 w-8 object-contain" />
+      <div style={{ width: "100%", maxWidth: "420px", position: "relative", zIndex: 1 }}>
+        <div style={{ textAlign: "center", marginBottom: "36px" }}>
+          <div
+            style={{
+              width: "56px",
+              height: "56px",
+              margin: "0 auto 16px",
+              background: "linear-gradient(135deg, #00C4FF, #8B5CF6)",
+              borderRadius: "16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 8px 24px rgba(0,196,255,0.22)",
+            }}
+          >
+            <img src="/icon.png" alt="Dupla" style={{ width: "34px", height: "34px", objectFit: "contain" }} />
           </div>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-white">Reset Password</h1>
-            <p className="mt-1 text-[#888888]">Enter your PIN and new password</p>
-          </div>
+          <h2 style={{ color: "#EDF2F7", fontSize: "22px", fontWeight: "900", letterSpacing: "3px", margin: "0 0 6px" }}>
+            {t("resetPasswordPage.title")}
+          </h2>
+          <p style={{ color: "#8892A4", fontSize: "14px", margin: 0, fontWeight: "500" }}>
+            {t("resetPasswordPage.subtitle")}
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-8" style={{ boxShadow: "0 0 60px rgba(0,255,255,0.04)" }}>
+        <div
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "20px",
+            padding: "32px",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+          }}
+        >
           {success ? (
-            <div className="text-center space-y-4">
-              <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-full" style={{ backgroundColor: "rgba(0,255,136,0.15)" }}>
-                <span className="text-2xl text-[#00ff88]">✓</span>
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  margin: "0 auto",
+                  borderRadius: "50%",
+                  background: "rgba(0,196,255,0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "24px",
+                }}
+              >
+                ✅
               </div>
-              <p className="font-medium text-white">Password Reset!</p>
-              <p className="text-sm text-[#888888]">Your password has been updated successfully.</p>
+              <p style={{ fontWeight: "700", color: "#EDF2F7", fontSize: "18px", margin: 0 }}>
+                {t("resetPasswordPage.success")}
+              </p>
+              <p style={{ color: "#8892A4", fontSize: "14px", lineHeight: "1.5", margin: 0 }}>
+                {t("resetPasswordPage.successDesc")}
+              </p>
               <Link
                 href="/login"
-                className="block w-full rounded-xl bg-[#00ffff] py-3 text-center font-bold text-black transition-colors hover:bg-[#00e5e5]"
+                style={{
+                  background: "linear-gradient(135deg, #00C4FF 0%, #8B5CF6 100%)",
+                  color: "#fff",
+                  fontWeight: "700",
+                  padding: "13px",
+                  borderRadius: "10px",
+                  textDecoration: "none",
+                  fontSize: "15px",
+                  marginTop: "8px",
+                  boxShadow: "0 4px 16px rgba(0,196,255,0.25)",
+                }}
               >
-                Back to Login
+                {t("resetPasswordPage.backToLogin")}
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
               {error && (
-                <div className="rounded-xl border border-[#ff4444]/30 bg-[#ff4444]/10 px-4 py-3 text-sm text-[#ff4444]">
+                <div
+                  style={{
+                    background: "rgba(239,68,68,0.08)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    color: "#F87171",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    fontSize: "13px",
+                    lineHeight: "1.5",
+                  }}
+                >
                   {error}
                 </div>
               )}
 
-              {/* PIN inputs */}
               <div>
-                <label className="block text-sm font-medium text-[#888888] mb-3 text-center">6-digit PIN from your email</label>
-                <div className="flex justify-center gap-3" onPaste={handlePaste}>
+                <label style={{ ...labelStyle, textAlign: "center", marginBottom: "12px" }}>
+                  {t("resetPasswordPage.pinLabel")}
+                </label>
+                <div style={{ display: "flex", justifyContent: "center", gap: "10px" }} onPaste={handlePaste}>
                   {pins.map((pin, index) => (
                     <input
                       key={index}
@@ -104,11 +240,19 @@ export default function ResetPasswordPage() {
                       value={pin}
                       onChange={(e) => handleChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
-                      className="h-14 w-12 rounded-xl border text-center text-xl font-bold text-white transition-all focus:outline-none"
                       style={{
-                        backgroundColor: "#0a0a0f",
-                        borderColor: pin ? "#00ffff" : "rgba(255,255,255,0.08)",
-                        boxShadow: pin ? "0 0 12px rgba(0,255,255,0.15)" : "none",
+                        width: "48px",
+                        height: "56px",
+                        background: "rgba(255,255,255,0.04)",
+                        border: `1px solid ${pin ? "#00C4FF" : "rgba(255,255,255,0.10)"}`,
+                        borderRadius: "12px",
+                        color: "#EDF2F7",
+                        fontSize: "20px",
+                        fontWeight: "700",
+                        textAlign: "center",
+                        outline: "none",
+                        transition: "all 0.2s ease",
+                        boxShadow: pin ? "0 0 12px rgba(0,196,255,0.15)" : "none",
                       }}
                     />
                   ))}
@@ -116,47 +260,126 @@ export default function ResetPasswordPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#888888] mb-1.5">New Password</label>
-                <div className="relative">
+                <label style={labelStyle}>{t("resetPasswordPage.newPasswordLabel")}</label>
+                <div style={{ position: "relative" }}>
                   <input
                     type={showPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min. 6 characters"
-                    className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-3 pr-12 text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none transition-colors"
+                    required
+                    placeholder={t("resetPasswordPage.passwordPlaceholder")}
+                    style={{ ...inputStyle, paddingRight: "44px" }}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                    autoComplete="new-password"
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555555] hover:text-white">
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "#8892A4",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "4px",
+                      transition: "color 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#EDF2F7")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#8892A4")}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#888888] mb-1.5">Confirm New Password</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat your new password"
-                  className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none transition-colors"
-                />
+                <label style={labelStyle}>{t("resetPasswordPage.confirmPasswordLabel")}</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    placeholder={t("resetPasswordPage.confirmPlaceholder")}
+                    style={{ ...inputStyle, paddingRight: "44px" }}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "#8892A4",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "4px",
+                      transition: "color 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#EDF2F7")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#8892A4")}
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-xl bg-[#00ffff] py-3 font-bold text-black transition-all hover:bg-[#00e5e5] disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ boxShadow: "0 0 20px rgba(0,255,255,0.2)" }}
+                style={{
+                  background: "linear-gradient(135deg, #00C4FF 0%, #8B5CF6 100%)",
+                  color: "#fff",
+                  fontWeight: "700",
+                  padding: "13px",
+                  borderRadius: "10px",
+                  border: "none",
+                  fontSize: "15px",
+                  cursor: loading ? "wait" : "pointer",
+                  marginTop: "6px",
+                  transition: "opacity 0.2s, transform 0.2s",
+                  letterSpacing: "0.5px",
+                  boxShadow: "0 4px 16px rgba(0,196,255,0.25)",
+                  opacity: loading ? 0.7 : 1,
+                  fontFamily: "'Inter', -apple-system, sans-serif",
+                }}
               >
-                {loading ? "Resetting..." : "Reset Password"}
+                {loading ? t("resetPasswordPage.resetting") : t("resetPasswordPage.submit")}
               </button>
             </form>
           )}
         </div>
 
-        <div className="mt-6 text-center">
-          <Link href="/login" className="text-sm text-[#888888] hover:text-white transition-colors">
-            ← Back to Login
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
+          <Link
+            href="/login"
+            style={{
+              textDecoration: "none",
+              color: "#8892A4",
+              fontWeight: "500",
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "color 0.2s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#EDF2F7")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#8892A4")}
+          >
+            {t("resetPasswordPage.backToLogin")}
           </Link>
         </div>
       </div>
