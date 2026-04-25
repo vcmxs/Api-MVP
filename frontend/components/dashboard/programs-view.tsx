@@ -1017,6 +1017,19 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
       .then(d => setTrainees(Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])))
       .catch(() => {})
       
+    const uniqueWorkoutIds = [...new Set(Object.values(plan.schedule).map(s => s!.workoutId || s!.templateId).filter(id => !!id))]
+    if (uniqueWorkoutIds.length > 0) {
+      // In this system, workouts are often fetched via their program/folder. 
+      // If we don't have a programId, we try to fetch the individual workout details.
+      Promise.all(uniqueWorkoutIds.map(id =>
+        apiFetch<ApiProgramWorkout>(`/workouts/${id}`).then(w => [w]).catch(() => [])
+      )).then(results => {
+        const map = new Map<number, ApiProgramWorkout>()
+        for (const workouts of results) for (const w of workouts) if (w && w.id) map.set(w.id, w)
+        setWorkoutCache(prev => new Map([...prev, ...map]))
+      })
+    }
+
     const uniqueProgramIds = [...new Set(Object.values(plan.schedule).map(s => s!.programId).filter(id => !!id))]
     if (uniqueProgramIds.length > 0) {
       Promise.all(uniqueProgramIds.map(pid =>
@@ -1024,7 +1037,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
       )).then(results => {
         const map = new Map<number, ApiProgramWorkout>()
         for (const workouts of results) for (const w of workouts) map.set(w.id, w)
-        setWorkoutCache(map)
+        setWorkoutCache(prev => new Map([...prev, ...map]))
       })
     }
   }, [open, plan]) // eslint-disable-line react-hooks/exhaustive-deps
