@@ -1009,6 +1009,56 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   // Per-workout exercise overrides by Day Number (1-7)
   const [editedExercises, setEditedExercises] = useState<Map<number, (ProgramExercise & { weightIncrement?: number })[]>>(new Map())
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
+  const [lastLogsMap, setLastLogsMap] = useState<Record<string, Record<number, string>>>({})
+
+  // Fetch history for the currently expanded workout's exercises
+  useEffect(() => {
+    if (expandedDay === null || !selectedTrainee) {
+      setLastLogsMap({})
+      return
+    }
+
+    const slot = localSchedule[expandedDay]
+    if (!slot) return
+
+    const tid = getSlotWorkoutId(slot)
+    const workout = tid ? workoutCache.get(tid) : undefined
+    const exList = editedExercises.get(expandedDay) || workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
+
+    const map: Record<string, Record<number, string>> = {}
+    let pending = exList.length
+    if (pending === 0) { setLastLogsMap({}); return }
+
+    for (const ex of exList) {
+      if (!ex.name) { pending--; if (pending === 0) setLastLogsMap({ ...map }); continue }
+      apiFetch<{ progression?: any[] }>(
+        `/workout-plans/users/${selectedTrainee.id}/progression?exercise=${encodeURIComponent(ex.name)}`
+      ).then(d => {
+        const rawLogs = d.progression ?? []
+        if (rawLogs.length === 0) return
+        const byDate: Record<string, any[]> = {}
+        for (const l of rawLogs) {
+          const date = (l.date || l.completed_at || "").split("T")[0] || "unknown"
+          ;(byDate[date] ??= []).push(l)
+        }
+        const latestDate = Object.keys(byDate).sort((a, b) => b.localeCompare(a))[0]
+        if (latestDate) {
+          const setMap: Record<number, string> = {}
+          for (const l of byDate[latestDate]) {
+            const setNum = l.setNumber ?? l.set_number
+            const w = l.weight ?? l.weightUsed ?? l.weight_used
+            const r = l.reps ?? l.repsCompleted ?? l.reps_completed
+            const unit = l.weightUnit ?? l.weight_unit ?? "kg"
+            if (setNum != null && w != null && r != null) setMap[setNum] = `${w}${unit}×${r}`
+          }
+          map[ex.name] = setMap
+        }
+      }).catch(() => {}).finally(() => {
+        pending--
+        if (pending === 0) setLastLogsMap({ ...map })
+      })
+    }
+  }, [expandedDay, selectedTrainee?.id, localSchedule, workoutCache, editedExercises]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return
@@ -1243,7 +1293,17 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 {exList.map((ex: any, i: number) => (
                   <div key={i} className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-bold text-white">{ex.name}</p>
+                      <div>
+                        <p className="text-sm font-bold text-white">{ex.name}</p>
+                        {lastLogsMap[ex.name] && Object.keys(lastLogsMap[ex.name]).length > 0 && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">Last</span>
+                            {Object.entries(lastLogsMap[ex.name]).sort((a, b) => Number(a[0]) - Number(b[0])).map(([setNum, val]) => (
+                              <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#a78bfa]" style={{ backgroundColor: "rgba(167,139,250,0.1)" }}>{val}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <button onClick={() => {
                         const updated = exList.filter((_, xi) => xi !== i)
                         setEditedExercises(m => { const n = new Map(m); n.set(expandedDay, updated); return n })
