@@ -9,7 +9,7 @@ import {
   CalendarDays, Users, LayoutList,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { cn } from "@/lib/utils"
+import { cn, getLocalISOString } from "@/lib/utils"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 
@@ -1077,7 +1077,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
           body: JSON.stringify({
             traineeId: selectedTrainee.id, coachId: user.id,
             name: getSlotName(slot), description: workout?.description ?? "",
-            scheduledDate: date.toISOString().split("T")[0],
+            scheduledDate: getLocalISOString(date),
             exercises: exSource.map((ex, i) => {
               const baseWeight = ex.targetWeight ?? ex.target_weight ?? 0;
               const increment = ex.weightIncrement ?? 0;

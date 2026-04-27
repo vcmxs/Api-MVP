@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { DollarSign, Clock, AlertTriangle, Filter, X, Download, Loader2, ChevronDown, Bell, CalendarDays, CreditCard } from "lucide-react"
 import { apiFetch, getUserInfo } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, getLocalISOString } from "@/lib/utils"
 
 interface Payment {
   id?: number
@@ -54,7 +54,7 @@ interface ManageModalProps {
 
 function ManageSubscriptionModal({ trainee, coachId, onClose, onUpdated }: ManageModalProps) {
   const [duration, setDuration] = useState("1month")
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0])
+  const [startDate, setStartDate] = useState(getLocalISOString())
   const [amount, setAmount] = useState("")
   const [history, setHistory] = useState<Payment[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)

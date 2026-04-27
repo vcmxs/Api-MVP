@@ -13,7 +13,7 @@ import { AssignWorkoutModal } from "./assign-workout-modal"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { cn } from "@/lib/utils"
+import { cn, getLocalISOString } from "@/lib/utils"
 import { format, parseISO } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
 
@@ -274,7 +274,7 @@ function useLastSessionHistory(exerciseName: string, workoutDate?: string) {
         ;(logsByDate[date] ??= []).push(l)
       }
       const sorted = Object.keys(logsByDate).sort((a, b) => b.localeCompare(a))
-      const cutoff = workoutDate ?? new Date().toISOString().split("T")[0]
+      const cutoff = workoutDate ?? getLocalISOString()
       const targetDate = sorted.find(d => d < cutoff)
       if (!targetDate) return
       const map: Record<number, string> = {}
@@ -642,7 +642,7 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                   exercise={ex}
                   index={idx}
                   workoutId={workout.id}
-                  workoutDate={workout.scheduledDate instanceof Date ? workout.scheduledDate.toISOString().split("T")[0] : String(workout.scheduledDate).split("T")[0]}
+                  workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
                   onRefresh={() => fetchDetail(workout.id, true)}
                 />
               ))}

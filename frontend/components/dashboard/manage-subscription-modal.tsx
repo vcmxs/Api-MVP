@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { X, Loader2, Bell, CalendarDays, CreditCard } from "lucide-react"
 import { apiFetch, getUserInfo } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, getLocalISOString } from "@/lib/utils"
 
 export interface SubscriptionTrainee {
   id: number
@@ -38,7 +38,7 @@ export function ManageSubscriptionModal({ trainee, onClose, onUpdated }: Props) 
   const coachId = user?.id
 
   const [duration, setDuration] = useState("1month")
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0])
+  const [startDate, setStartDate] = useState(getLocalISOString())
   const [amount, setAmount] = useState("")
   const [history, setHistory] = useState<Payment[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)

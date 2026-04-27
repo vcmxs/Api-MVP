@@ -12,7 +12,7 @@ import { AssignWorkoutModal } from "./assign-workout-modal"
 import { ManageSubscriptionModal } from "./manage-subscription-modal"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
-import { cn } from "@/lib/utils"
+import { cn, getLocalISOString } from "@/lib/utils"
 import type { ApiTrainee } from "./trainees-view"
 
 // ── API types ─────────────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
     if (!detailWorkout?.exercises?.length) { setLastLogsMap({}); return }
     const workoutDate = detailWorkout.scheduledDate
       ? detailWorkout.scheduledDate.split("T")[0]
-      : new Date().toISOString().split("T")[0]
+      : getLocalISOString()
     const map: Record<string, Record<number, string>> = {}
     let pending = detailWorkout.exercises.length
     for (const ex of detailWorkout.exercises) {

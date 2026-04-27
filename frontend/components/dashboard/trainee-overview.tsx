@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
+import { cn, getLocalISOString } from "@/lib/utils"
 import { 
   Dumbbell, 
   Flame, 
@@ -44,7 +45,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return
-    const dateStr = new Date().toISOString().split("T")[0]
+    const dateStr = getLocalISOString()
 
     try {
       // Fetch workouts
@@ -92,7 +93,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
     streak: calculateStreak(workouts)
   }
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = getLocalISOString()
   const todaysWorkout = workouts.find(w => w.scheduledDate?.startsWith(todayStr) && w.status !== 'completed') || 
                         workouts.filter(w => new Date(w.scheduledDate) >= new Date() && w.status !== 'completed')
                                 .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())[0]
