@@ -301,6 +301,11 @@ const en = {
     exercise: "exercise",
     deleteConfirm: "Delete this workout?",
     assignTo: "Assign to Trainee",
+    setColumn: "Set",
+    lastColumn: "Last",
+    weightColumn: "Weight",
+    repsColumn: "Reps",
+    target: "Target:"
   },
 
   // ── Programs ──────────────────────────────────────────────────────────────

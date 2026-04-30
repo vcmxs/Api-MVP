@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { cn, getLocalISOString } from "@/lib/utils"
 import { format, parseISO } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 
 // ── API types ─────────────────────────────────────────────────────────────
 
@@ -436,6 +437,7 @@ function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh
   const targetWeight = exercise.target_weight ?? exercise.targetWeight
   const isCardio = !!(exercise.is_cardio || exercise.isCardio)
   const lastHistory = useLastSessionHistory(exercise.name, workoutDate)
+  const { t } = useT()
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
@@ -447,7 +449,7 @@ function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-white truncate">{exercise.name}</p>
           <p className="text-xs text-[#555555]">
-            Target: {exercise.sets} sets × {exercise.reps} reps
+            {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
             {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${exercise.weight_unit ?? "kg"}`}
           </p>
         </div>
@@ -458,11 +460,11 @@ function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh
 
       {/* Column headers */}
       {!isCardio && (
-        <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#555555]">
-          <span className="w-6 shrink-0">Set</span>
-          <span className="w-16 shrink-0 text-center">Last</span>
-          <span className="w-20 shrink-0 text-center">Weight</span>
-          <span className="w-14 shrink-0 text-center">Reps</span>
+        <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#888888]">
+          <span className="w-6 shrink-0">{t.workouts?.setColumn || "Set"}</span>
+          <span className="w-16 shrink-0 text-center">{t.workouts?.lastColumn || "Last"}</span>
+          <span className="w-20 shrink-0 text-center">{t.workouts?.weightColumn || "Weight"}</span>
+          <span className="w-14 shrink-0 text-center">{t.workouts?.repsColumn || "Reps"}</span>
         </div>
       )}
 

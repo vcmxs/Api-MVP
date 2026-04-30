@@ -150,7 +150,8 @@ export function Sidebar({ activeTab, onTabChange, collapsed, onToggleCollapse }:
           onClick={onToggleCollapse}
           className={cn(
             "flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161b22] text-[#888888] transition-colors hover:text-white",
-            collapsed && "absolute -right-3.5 top-8 z-50 border border-white/[0.08] bg-[#161b22]"
+            collapsed && "absolute -right-3.5 top-8 z-50 border border-white/[0.08] bg-[#161b22]",
+            "max-lg:hidden"
           )}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

@@ -680,7 +680,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                       <p className="text-xs text-[#888888] mb-1.5">{group.workoutName} • {group.workoutDate ? new Date(group.workoutDate.split("T")[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
                       
                       <p className="text-[10px] font-semibold text-[#00ffff]">
-                        {group.exercise.sets} sets × {group.exercise.reps} reps
+                        {group.exercise.sets} {t.traineeDetail?.sets || "sets"} × {group.exercise.reps} {t.traineeDetail?.reps || "reps"}
                         {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${group.exercise.weight_unit ?? "kg"}`}
                         {group.exercise.track_rpe || group.exercise.trackRpe ? " @ RPE" : ""}
                         {group.exercise.track_rir || group.exercise.trackRir ? " @ RIR" : ""}
@@ -812,7 +812,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-white truncate">{ex.name}</p>
                             <p className="text-xs text-[#555555]">
-                              Target: {ex.sets} sets × {ex.reps} reps
+                              {t.workouts?.target || "Target:"} {ex.sets} {t.traineeDetail?.sets || "sets"} × {ex.reps} {t.traineeDetail?.reps || "reps"}
                               {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${ex.weight_unit ?? "kg"}`}
                             </p>
                           </div>
@@ -827,8 +827,8 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                         {hasLogs ? (
                           <div className="p-3">
                             {/* Table header */}
-                            <div className={`grid text-[10px] font-bold uppercase tracking-wider text-[#555555] mb-2 px-1 ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}>
-                              <span>Set</span>
+                            <div className={`grid text-[10px] font-bold uppercase tracking-wider text-[#888888] mb-2 px-1 ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}>
+                              <span>{t.workouts?.setColumn || "Set"}</span>
                               {isCardio ? (
                                 <>
                                   <span className="text-center">Time</span>
@@ -837,9 +837,9 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                 </>
                               ) : (
                                 <>
-                                  <span className="text-center">Last</span>
-                                  <span className="text-center">Weight</span>
-                                  <span className="text-center">Reps</span>
+                                  <span className="text-center">{t.workouts?.lastColumn || "Last"}</span>
+                                  <span className="text-center">{t.workouts?.weightColumn || "Weight"}</span>
+                                  <span className="text-center">{t.workouts?.repsColumn || "Reps"}</span>
                                   {showRpe && <span className="text-center">RPE</span>}
                                   {showRir && <span className="text-center">RIR</span>}
                                   {!showRpe && !showRir && <span className="text-center">Status</span>}

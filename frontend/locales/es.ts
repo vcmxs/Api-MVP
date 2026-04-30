@@ -303,6 +303,11 @@ const es: TranslationKeys = {
     exercise: "ejercicio",
     deleteConfirm: "¿Eliminar esta rutina?",
     assignTo: "Asignar a Alumno",
+    setColumn: "Serie",
+    lastColumn: "Anterior",
+    weightColumn: "Peso",
+    repsColumn: "Reps",
+    target: "Objetivo:"
   },
 
   // ── Programs ──────────────────────────────────────────────────────────────
