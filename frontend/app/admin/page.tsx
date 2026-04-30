@@ -22,6 +22,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setIsMounted(true)
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setSidebarCollapsed(true)
+    }
   }, [])
 
   // Client-side auth and role guard
@@ -58,6 +61,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
+      {/* Mobile Sidebar Overlay */}
+      {!sidebarCollapsed && (
+        <div 
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          onClick={() => setSidebarCollapsed(true)}
+        />
+      )}
       <AdminSidebar
         activeTab={activeTab}
         onTabChange={changeTab}

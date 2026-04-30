@@ -1010,16 +1010,18 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   const [editedExercises, setEditedExercises] = useState<Map<number, (ProgramExercise & { weightIncrement?: number })[]>>(new Map())
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
   const [lastLogsMap, setLastLogsMap] = useState<Record<string, Record<number, string>>>({})
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   // Fetch history for the currently expanded workout's exercises
   useEffect(() => {
     if (expandedDay === null || !selectedTrainee) {
-      setLastLogsMap({})
+      setLastLogsMap({}); setHistoryLoading(false)
       return
     }
 
+    setHistoryLoading(true)
     const slot = localSchedule[expandedDay]
-    if (!slot) return
+    if (!slot) { setHistoryLoading(false); return }
 
     const tid = getSlotWorkoutId(slot)
     const workout = tid ? workoutCache.get(tid) : undefined
@@ -1027,7 +1029,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
 
     const map: Record<string, Record<number, string>> = {}
     let pending = exList.length
-    if (pending === 0) { setLastLogsMap({}); return }
+    if (pending === 0) { setLastLogsMap({}); setHistoryLoading(false); return }
 
     for (const ex of exList) {
       if (!ex.name) { pending--; if (pending === 0) setLastLogsMap({ ...map }); continue }
@@ -1055,7 +1057,10 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         }
       }).catch(() => {}).finally(() => {
         pending--
-        if (pending === 0) setLastLogsMap({ ...map })
+        if (pending === 0) {
+          setLastLogsMap({ ...map })
+          setHistoryLoading(false)
+        }
       })
     }
   }, [expandedDay, selectedTrainee?.id, localSchedule, workoutCache, editedExercises]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1295,12 +1300,18 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                     <div className="mb-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm font-bold text-white">{ex.name}</p>
-                        {lastLogsMap[ex.name] && Object.keys(lastLogsMap[ex.name]).length > 0 && (
+                        {selectedTrainee && (
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
                             <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">Last</span>
-                            {Object.entries(lastLogsMap[ex.name]).sort((a, b) => Number(a[0]) - Number(b[0])).map(([setNum, val]) => (
-                              <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#a78bfa]" style={{ backgroundColor: "rgba(167,139,250,0.1)" }}>{val}</span>
-                            ))}
+                            {historyLoading ? (
+                              <span className="text-[9px] italic text-[#555]">Cargando...</span>
+                            ) : lastLogsMap[ex.name] && Object.keys(lastLogsMap[ex.name]).length > 0 ? (
+                              Object.entries(lastLogsMap[ex.name]).sort((a, b) => Number(a[0]) - Number(b[0])).map(([setNum, val]) => (
+                                <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#a78bfa]" style={{ backgroundColor: "rgba(167,139,250,0.1)" }}>{val}</span>
+                              ))
+                            ) : (
+                              <span className="text-[9px] font-medium text-[#555]">Ninguno</span>
+                            )}
                           </div>
                         )}
                       </div>

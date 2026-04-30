@@ -72,10 +72,12 @@ export function AdminSidebar({ activeTab, onTabChange, collapsed, onToggleCollap
     { id: "audit", icon: <Activity className="h-5 w-5" />, label: "Audit Logs" },
   ]
 
-  const width = collapsed ? "w-16" : "w-64"
+  const layoutClasses = collapsed
+    ? "w-64 -translate-x-full lg:w-16 lg:translate-x-0"
+    : "w-64 translate-x-0"
 
   return (
-    <aside className={cn("fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/[0.08] bg-[#0a0a0f] transition-all duration-300", width, collapsed ? "" : "max-lg:shadow-2xl")}>
+    <aside className={cn("fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/[0.08] bg-[#0a0a0f] transition-all duration-300", layoutClasses, collapsed ? "" : "max-lg:shadow-2xl")}>
       <div className={cn("flex h-20 items-center border-b border-white/[0.08]", collapsed ? "justify-center px-2" : "justify-between px-4")}>
         {!collapsed && (
           <div className="flex items-center gap-3">
@@ -109,7 +111,12 @@ export function AdminSidebar({ activeTab, onTabChange, collapsed, onToggleCollap
             label={item.label}
             active={activeTab === item.id}
             collapsed={collapsed}
-            onClick={() => onTabChange(item.id)}
+            onClick={() => {
+              onTabChange(item.id)
+              if (typeof window !== "undefined" && window.innerWidth < 1024 && !collapsed) {
+                onToggleCollapse()
+              }
+            }}
           />
         ))}
       </nav>

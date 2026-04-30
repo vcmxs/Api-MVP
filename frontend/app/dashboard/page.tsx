@@ -79,6 +79,9 @@ export default function Dashboard() {
   const [isMounted, setIsMounted] = useState(false)
   useEffect(() => {
     setIsMounted(true)
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setSidebarCollapsed(true)
+    }
   }, [])
 
   // Resolve user ONLY on client — never during SSR
@@ -167,6 +170,13 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
+      {/* Mobile Sidebar Overlay */}
+      {!sidebarCollapsed && (
+        <div 
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          onClick={() => setSidebarCollapsed(true)}
+        />
+      )}
       <Sidebar
         activeTab={activeTab}
         onTabChange={changeTab}
