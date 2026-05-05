@@ -642,12 +642,12 @@ exports.getTraineeNotes = async (req, res) => {
     const { userId } = req.params;
     try {
         const result = await pool.query(
-            `SELECT el.notes, el.created_at, e.name AS exercise_name, wp.name AS workout_name, wp.scheduled_date
+            `SELECT el.notes, el.completed_at AS created_at, e.name AS exercise_name, wp.name AS workout_name, wp.scheduled_date
              FROM exercise_logs el
              JOIN exercises e ON el.exercise_id = e.id
              JOIN workout_plans wp ON e.workout_plan_id = wp.id
-             WHERE wp.user_id = $1 AND el.notes IS NOT NULL AND TRIM(el.notes) <> ''
-             ORDER BY el.created_at DESC
+             WHERE wp.trainee_id = $1 AND el.notes IS NOT NULL AND TRIM(el.notes) <> ''
+             ORDER BY el.completed_at DESC
              LIMIT 100`,
             [userId]
         );
