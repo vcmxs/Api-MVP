@@ -187,13 +187,13 @@ export function InsightsView() {
 
     // ── 3. Coach personal stats ─────────────────────────────────────────
     try {
-      const plansData = await apiFetch<{ workoutPlans: { id: number; status: string; updated_at?: string; createdAt?: string }[] }>(
+      const plansData = await apiFetch<{ workoutPlans: { id: number; status: string; completedAt?: string; updated_at?: string; createdAt?: string }[] }>(
         `/trainees/${user.id}/workout-plans`
       )
       const plans = plansData.workoutPlans ?? []
       const completedThisWeek = plans.filter(p => {
         if ((p.status ?? "").toLowerCase() !== "completed") return false
-        const d = new Date(p.updated_at || p.createdAt || "")
+        const d = new Date(p.completedAt || p.updated_at || p.createdAt || "")
         return d >= start && d <= end
       })
       setCoachWorkouts(completedThisWeek.length)
@@ -226,12 +226,12 @@ export function InsightsView() {
     const traineeStatsList: ActiveClient[] = []
     await Promise.allSettled(
       trainees.slice(0, 25).map(t =>
-        apiFetch<{ workoutPlans: { status: string; updated_at?: string; createdAt?: string }[] }>(
+        apiFetch<{ workoutPlans: { status: string; completedAt?: string; updated_at?: string; createdAt?: string }[] }>(
           `/trainees/${t.id}/workout-plans`
         ).then(d => {
           const count = (d.workoutPlans ?? []).filter(p => {
             if ((p.status ?? "").toLowerCase() !== "completed") return false
-            const pd = new Date(p.updated_at || p.createdAt || "")
+            const pd = new Date(p.completedAt || p.updated_at || p.createdAt || "")
             return pd >= start && pd <= end
           }).length
           clientCompletedCount += count
