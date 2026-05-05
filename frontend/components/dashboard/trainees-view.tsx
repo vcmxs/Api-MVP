@@ -23,6 +23,8 @@ export interface ApiTrainee {
   subscriptionStatus?: string
   subscriptionExpiry?: string
   status?: string
+  coach_subscription_status?: string
+  coach_subscription_end_date?: string
 }
 
 function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () => void }) {
@@ -31,11 +33,15 @@ function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () =>
   
   // Calculate if subscription is expired
   let isExpired = false
-  if (trainee.subscriptionExpiry) {
+  const expiry = trainee.subscriptionExpiry ?? trainee.coach_subscription_end_date
+  if (expiry) {
     // Treat as expired if the expiry date has passed
-    const diff = new Date(trainee.subscriptionExpiry).getTime() - new Date().getTime()
+    const diff = new Date(expiry).getTime() - new Date().getTime()
     isExpired = Math.ceil(diff / (1000 * 60 * 60 * 24)) < 0
   }
+  
+  const subStatus = trainee.coach_subscription_status ?? trainee.subscriptionStatus ?? trainee.status
+  const isInactive = subStatus === "inactive" || subStatus === "cancelled" || subStatus === "free"
 
   return (
     <button
@@ -56,12 +62,12 @@ function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () =>
       <div className="flex flex-col items-end gap-1.5">
         <div
           className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${
-            isBlocked || isExpired
+            isBlocked || isExpired || isInactive
               ? "bg-[#ff4444]/15 text-[#ff4444]"
               : "bg-[#00ff88]/15 text-[#00ff88]"
           }`}
         >
-          {isBlocked ? t.trainees.blocked : isExpired ? "Expired" : t.trainees.active}
+          {isBlocked ? t.trainees.blocked : isExpired ? "Expired" : isInactive ? "Inactive" : t.trainees.active}
         </div>
         {trainee.subscriptionTier && (
           <span className="text-xs text-[#555555] uppercase tracking-wider">

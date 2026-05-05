@@ -91,6 +91,11 @@ interface ApiProfile {
   subscriptionTier?: string
   subscriptionStatus?: string
   subscriptionExpiry?: string
+  subscription_status?: string
+  subscription_tier?: string
+  subscription_end_date?: string
+  coach_subscription_status?: string
+  coach_subscription_end_date?: string
   status?: string
 }
 
@@ -266,9 +271,9 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
     height: profile?.height,
     weight: profile?.weight,
     notes: profile?.notes,
-    subscriptionTier: profile?.subscriptionTier ?? trainee.subscriptionTier,
-    subscriptionStatus: profile?.subscriptionStatus ?? trainee.subscriptionStatus ?? trainee.status,
-    subscriptionExpiry: profile?.subscriptionExpiry ?? trainee.subscriptionExpiry,
+    subscriptionTier: profile?.subscription_tier ?? profile?.subscriptionTier ?? trainee.subscriptionTier,
+    subscriptionStatus: profile?.coach_subscription_status ?? profile?.subscription_status ?? profile?.subscriptionStatus ?? trainee.coach_subscription_status ?? trainee.subscriptionStatus ?? trainee.status,
+    subscriptionExpiry: profile?.coach_subscription_end_date ?? profile?.subscription_end_date ?? profile?.subscriptionExpiry ?? trainee.coach_subscription_end_date ?? trainee.subscriptionExpiry,
   }
 
   const tier = display.subscriptionTier?.toUpperCase() ?? ""

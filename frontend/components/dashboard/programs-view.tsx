@@ -743,7 +743,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
               {exercises.length === 0
                 ? <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.10] py-8 text-sm text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> Add your first exercise</button>
                 : <div className="space-y-3">
-                    {exercises.map((e, i) => <BuilderRow key={e.id} ex={e} index={i} onChange={updateEx} onRemove={removeEx} onPick={id => setPickerTargetId(id)} userId={user?.id} />)}
+                    {exercises.map((e, i) => <BuilderRow key={e.id} ex={e} index={i} onChange={updateEx} onRemove={removeEx} onPick={id => setPickerTargetId(id)} />)}
                     <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> Add Exercise</button>
                   </div>}
             </div>
