@@ -156,14 +156,7 @@ function getPlanDates(
   const jsStartDate = new Date(startDate);
   jsStartDate.setHours(0, 0, 0, 0);
 
-  const dow = jsStartDate.getDay();
-  let daysToMonday;
-  if (dow === 1) daysToMonday = 0;
-  else if (dow === 0) daysToMonday = 1;
-  else daysToMonday = 8 - dow;
-  
-  const weekStart = new Date(jsStartDate);
-  weekStart.setDate(jsStartDate.getDate() + daysToMonday);
+  const weekStart = getMondayOf(jsStartDate);
 
   const dayNums = Object.keys(schedule).map(Number).sort()
   for (let w = 0; w < durationWeeks; w++) {
@@ -173,6 +166,9 @@ function getPlanDates(
       const offset = jsDay === 0 ? 6 : jsDay - 1
       const d = new Date(weekStart)
       d.setDate(weekStart.getDate() + w * 7 + offset)
+      
+      if (d < jsStartDate) continue;
+      
       results.push({ date: d, slot, weekIndex: w, dayKey: dn })
     }
   }
