@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, X, Search, Info } from "lucide-react"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { useT } from "@/lib/i18n"
 
 // ── Types ─────────────────────────────────────────────────────────────────
 

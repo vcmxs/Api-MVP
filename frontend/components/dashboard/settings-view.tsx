@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { User, Bell, Shield, Globe, Trash2, Save, Eye, EyeOff, Loader2 } from "lucide-react"
 import { apiFetch, getUserInfo, clearAuth } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { useT, useLanguage } from "@/lib/i18n"
 import { useRouter } from "next/navigation"
 
 // ── Sub-components ────────────────────────────────────────────────────────
@@ -79,7 +79,8 @@ const tierColors: Record<string, string> = {
 
 export function SettingsView() {
   const router = useRouter()
-  const { t, lang, setLang } = useT()
+  const { t } = useT()
+  const { language: lang, setLanguage: setLang } = useLanguage()
   const user = getUserInfo()
 
   const [loading, setLoading] = useState(true)
