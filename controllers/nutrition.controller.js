@@ -3,7 +3,7 @@ const seedNutrition = require('../seed_nutrition');
 
 // Helper to calculate nutrition based on quantity
 const calculateNutrition = (food, quantity) => {
-    const ratio = quantity; // quantity is already the number of servings
+    const ratio = quantity / food.serving_size;
     return {
         calories: Number((food.calories * ratio).toFixed(2)),
         carbs: Number((food.carbs * ratio).toFixed(2)),
@@ -213,11 +213,7 @@ const NutritionController = {
 
             // Get meals for that day
             const mealsRes = await pool.query(
-                `SELECT ml.*, f.name as food_name, f.serving_unit, 
-                        (f.calories * ml.serving_quantity) as calories, 
-                        (f.proteins * ml.serving_quantity) as proteins, 
-                        (f.carbs * ml.serving_quantity) as carbs, 
-                        (f.fats * ml.serving_quantity) as fats 
+                `SELECT ml.*, f.name as food_name, f.serving_unit, f.calories, f.proteins, f.carbs, f.fats 
                  FROM meal_logs ml 
                  LEFT JOIN foods f ON ml.food_id = f.id 
                  WHERE ml.user_id = $1 AND ml.logged_date = $2 
