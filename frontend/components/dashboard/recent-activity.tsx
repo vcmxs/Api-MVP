@@ -46,10 +46,11 @@ export function RecentActivity({ onViewAll }: RecentActivityProps) {
   useEffect(() => {
     apiFetch<{ notifications: RawNotification[] }>("/notifications")
       .then((data) => {
-        const sorted = (data.notifications ?? []).sort(
+        const unread = (data.notifications ?? []).filter(n => !n.is_read)
+        const sorted = unread.sort(
           (a, b) => new Date(b.createdAt ?? b.created_at ?? 0).getTime() - new Date(a.createdAt ?? a.created_at ?? 0).getTime()
         )
-        setActivities(sorted.slice(0, 5).map(notifToActivity))
+        setActivities(sorted.slice(0, 3).map(notifToActivity))
       })
       .catch(() => setActivities([]))
       .finally(() => setLoading(false))

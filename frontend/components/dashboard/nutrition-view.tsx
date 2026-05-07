@@ -85,13 +85,14 @@ const ACTIVITY_LEVELS = [
 
 // ── Add Food Modal ─────────────────────────────────────────────────────────
 
-function AddFoodModal({ date, onClose, onAdded }: { date: string; onClose: () => void; onAdded: () => void }) {
+function AddFoodModal({ date, initialMealType = "breakfast", onClose, onAdded }: { date: string; initialMealType?: string; onClose: () => void; onAdded: () => void }) {
+  const { t } = useT()
   const [search, setSearch] = useState("")
   const [foods, setFoods] = useState<Food[]>([])
   const [searching, setSearching] = useState(false)
   const [selected, setSelected] = useState<Food | null>(null)
   const [qty, setQty] = useState("1")
-  const [mealType, setMealType] = useState("breakfast")
+  const [mealType, setMealType] = useState(initialMealType)
   const [logging, setLogging] = useState(false)
   const [error, setError] = useState("")
 
@@ -143,7 +144,7 @@ function AddFoodModal({ date, onClose, onAdded }: { date: string; onClose: () =>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-[#00ffff]/30 bg-[#161b22]">
         <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4">
-          <h3 className="text-lg font-bold text-white">Log Food</h3>
+          <h3 className="text-lg font-bold text-white">{t.nutrition.addFood}</h3>
           <button onClick={onClose} className="text-[#555555] hover:text-white"><X className="h-5 w-5" /></button>
         </div>
 
@@ -247,7 +248,7 @@ function AddFoodModal({ date, onClose, onAdded }: { date: string; onClose: () =>
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#00ffff] py-3 text-sm font-bold text-black disabled:opacity-60"
               >
                 {logging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Log Food
+                {t.nutrition.logFood}
               </button>
             </>
           )}
@@ -260,12 +261,13 @@ function AddFoodModal({ date, onClose, onAdded }: { date: string; onClose: () =>
 // ── Daily Tab ─────────────────────────────────────────────────────────────
 
 function DailyTab({ targetUserId, readonly }: { targetUserId?: number; readonly?: boolean }) {
+  const { t } = useT()
   const today = toLocalISO(new Date())
   const [date, setDate] = useState(today)
   const [summary, setSummary] = useState<DailySummary | null>(null)
   const [meals, setMeals] = useState<MealLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddFood, setShowAddFood] = useState(false)
+  const [showAddFood, setShowAddFood] = useState<string | false>(false)
   const [deleting, setDeleting] = useState<number | null>(null)
 
   const load = useCallback(async () => {
@@ -279,12 +281,6 @@ function DailyTab({ targetUserId, readonly }: { targetUserId?: number; readonly?
         total_calories: 0, total_proteins: 0, total_carbs: 0, total_fats: 0, 
         calorie_goal: 2000, protein_goal: 150, carb_goal: 250, fat_goal: 70 
       } as DailySummary
-      
-      // Dynamically calculate the totals from the meal list to ensure perfect sync
-      newSummary.total_calories = fetchedMeals.reduce((sum, m) => sum + (Number(m.calories) || 0), 0)
-      newSummary.total_proteins = fetchedMeals.reduce((sum, m) => sum + (Number(m.proteins) || 0), 0)
-      newSummary.total_carbs = fetchedMeals.reduce((sum, m) => sum + (Number(m.carbs) || 0), 0)
-      newSummary.total_fats = fetchedMeals.reduce((sum, m) => sum + (Number(m.fats) || 0), 0)
 
       setSummary(newSummary)
       setMeals(fetchedMeals)
@@ -374,10 +370,17 @@ function DailyTab({ targetUserId, readonly }: { targetUserId?: number; readonly?
             return (
               <div key={type} className="rounded-2xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05]">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#888888] capitalize">{type}</p>
-                  <p className="text-xs text-[#555555]">
-                    {Math.round(group.reduce((s, m) => s + m.calories, 0))} kcal
-                  </p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#888888] capitalize">{(t.nutrition as any)[type] || type}</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs text-[#555555]">
+                      {Math.round(group.reduce((s, m) => s + m.calories, 0))} kcal
+                    </p>
+                    {!readonly && (
+                      <button onClick={() => setShowAddFood(type)} className="text-[#00ffff] hover:opacity-80">
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {group.length === 0 ? (
                   <p className="px-4 py-3 text-xs italic text-[#444444]">Nothing logged yet.</p>
@@ -406,17 +409,17 @@ function DailyTab({ targetUserId, readonly }: { targetUserId?: number; readonly?
 
           {!readonly && (
             <button
-              onClick={() => setShowAddFood(true)}
+              onClick={() => setShowAddFood("breakfast")}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#00ffff]/20 bg-[#00ffff]/5 py-3 text-sm font-bold text-[#00ffff] transition-colors hover:bg-[#00ffff]/10"
             >
-              <Plus className="h-4 w-4" /> Log Food
+              <Plus className="h-4 w-4" /> {t.nutrition.logFood}
             </button>
           )}
         </>
       )}
 
       {showAddFood && (
-        <AddFoodModal date={date} onClose={() => setShowAddFood(false)} onAdded={load} />
+        <AddFoodModal date={date} initialMealType={typeof showAddFood === "string" ? showAddFood : "breakfast"} onClose={() => setShowAddFood(false)} onAdded={load} />
       )}
     </div>
   )

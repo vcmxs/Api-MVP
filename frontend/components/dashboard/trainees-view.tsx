@@ -33,7 +33,7 @@ function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () =>
   
   // Calculate if subscription is expired
   let isExpired = false
-  const expiry = trainee.subscriptionExpiry ?? trainee.coach_subscription_end_date
+  const expiry = trainee.coach_subscription_end_date ?? trainee.subscriptionExpiry
   if (expiry) {
     // Treat as expired if the expiry date has passed
     const diff = new Date(expiry).getTime() - new Date().getTime()

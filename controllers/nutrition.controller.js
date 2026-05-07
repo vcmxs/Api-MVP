@@ -213,7 +213,11 @@ const NutritionController = {
 
             // Get meals for that day
             const mealsRes = await pool.query(
-                `SELECT ml.*, f.name as food_name, f.serving_unit, f.calories, f.proteins, f.carbs, f.fats 
+                `SELECT ml.*, f.name as food_name, f.serving_unit, 
+                        (f.calories * (ml.serving_quantity / f.serving_size)) as calories, 
+                        (f.proteins * (ml.serving_quantity / f.serving_size)) as proteins, 
+                        (f.carbs * (ml.serving_quantity / f.serving_size)) as carbs, 
+                        (f.fats * (ml.serving_quantity / f.serving_size)) as fats 
                  FROM meal_logs ml 
                  LEFT JOIN foods f ON ml.food_id = f.id 
                  WHERE ml.user_id = $1 AND ml.logged_date = $2 
