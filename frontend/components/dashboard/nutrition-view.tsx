@@ -374,7 +374,7 @@ function DailyTab({ targetUserId, readonly }: { targetUserId?: number; readonly?
                   <p className="text-xs font-bold uppercase tracking-wider text-[#888888] capitalize">{(t.nutrition as any)[type] || type}</p>
                   <div className="flex items-center gap-3">
                     <p className="text-xs text-[#555555]">
-                      {Math.round(group.reduce((s, m) => s + m.calories, 0))} kcal
+                      {Math.round(group.reduce((s, m) => s + Number(m.calories || 0), 0))} kcal
                     </p>
                     {!readonly && (
                       <button onClick={() => setShowAddFood(type)} className="text-[#00ffff] hover:opacity-80">
@@ -390,7 +390,7 @@ function DailyTab({ targetUserId, readonly }: { targetUserId?: number; readonly?
                     <div key={m.id} className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3 last:border-b-0">
                       <div>
                         <p className="text-sm font-bold text-white">{m.food_name}</p>
-                        <p className="text-xs text-[#555555]">{m.serving_quantity} serving · {Math.round(m.calories)} kcal · P:{Math.round(m.proteins)}g C:{Math.round(m.carbs)}g F:{Math.round(m.fats)}g</p>
+                        <p className="text-xs text-[#555555]">{m.serving_quantity} serving · {Math.round(Number(m.calories || 0))} kcal · P:{Math.round(Number(m.proteins || 0))}g C:{Math.round(Number(m.carbs || 0))}g F:{Math.round(Number(m.fats || 0))}g</p>
                       </div>
                       {!readonly && (
                         <button
