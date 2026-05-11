@@ -107,31 +107,36 @@ async function loadAllPlans(userId: number | string): Promise<TrainingPlan[]> {
     return []
   }
 }
-async function upsertPlan(plan: TrainingPlan, userId: number | string) {
-  if (!userId) return;
-  // Send a clean payload with only the fields the API expects
-  const payload = {
+async function upsertPlan(plan: TrainingPlan, userId: number | string): Promise<TrainingPlan> {
+  if (!userId) return plan;
+  // Shared fields for both create and update
+  const base = {
     name: plan.name,
     description: plan.description ?? "",
     user_id: userId,
     program_folder_id: plan.programFolderId ?? null,
     duration_weeks: plan.durationWeeks,
     is_reusable: plan.isReusable ? 1 : 0,
-    // The backend expects schedule as a JSON string
     schedule: typeof plan.schedule === "string" ? plan.schedule : JSON.stringify(plan.schedule),
-    created_at: plan.createdAt,
   }
   try {
-    if (plan.id && !plan.id.toString().startsWith('plan-')) {
-      await apiFetch(`/training-plans/${plan.id}`, { method: "PUT", body: JSON.stringify(payload) })
+    const isNew = !plan.id || plan.id.toString().startsWith('plan-')
+    if (!isNew) {
+      // Update: pass id via URL, not body
+      const res = await apiFetch<{ plan: { id: number } }>(`/training-plans/${plan.id}`, { method: "PUT", body: JSON.stringify(base) })
+      return plan
     } else {
-      await apiFetch(`/training-plans`, { method: "POST", body: JSON.stringify(payload) })
+      // Create: do NOT send id — let the DB generate it
+      const res = await apiFetch<{ plan: { id: number } }>(`/training-plans`, { method: "POST", body: JSON.stringify(base) })
+      // Return updated plan with the real DB id
+      return { ...plan, id: String(res?.plan?.id ?? plan.id) }
     }
   } catch (err) {
     console.error("Failed to sync plan to cloud", err)
     throw err   // re-throw so handleSave can show the error to the user
   }
 }
+
 
 async function removePlan(id: string) {
   try {
@@ -853,13 +858,14 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
         schedule,
         createdAt: editPlan ? editPlan.createdAt : new Date().toISOString(),
       }
-      await upsertPlan(plan, getUserInfo()?.id || 0)
-      onSaved(plan)
+      const saved = await upsertPlan(plan, getUserInfo()?.id || 0)
+      onSaved(saved)
       onOpenChange(false)
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : "Failed to save plan")
     } finally { setSaving(false) }
   }
+
 
   return (
     <>

@@ -16,14 +16,14 @@ exports.getPlans = async (req, res) => {
 
 exports.createPlan = async (req, res) => {
     try {
-        const { id, user_id, program_folder_id, name, description, duration_weeks, is_reusable, schedule } = req.body;
+        const { user_id, program_folder_id, name, description, duration_weeks, is_reusable, schedule } = req.body;
         
         const result = await pool.query(
             `INSERT INTO training_plans 
-            (id, user_id, program_folder_id, name, description, duration_weeks, is_reusable, schedule) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+            (user_id, program_folder_id, name, description, duration_weeks, is_reusable, schedule) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) 
             RETURNING *`,
-            [id, user_id, program_folder_id || null, name, description, duration_weeks, is_reusable, schedule]
+            [user_id, program_folder_id || null, name, description, duration_weeks, is_reusable, schedule]
         );
         
         res.status(201).json({ plan: result.rows[0] });
