@@ -109,8 +109,10 @@ async function loadAllPlans(userId: number | string): Promise<TrainingPlan[]> {
 }
 async function upsertPlan(plan: TrainingPlan, userId: number | string): Promise<TrainingPlan> {
   if (!userId) return plan;
-  // Shared fields for both create and update
-  const base = {
+  // id is always a VARCHAR PRIMARY KEY — must be provided
+  const isNew = !plan.id || plan.id.toString().startsWith('plan-')
+  const payload = {
+    id: plan.id,  // always send — the DB column is VARCHAR(255) PRIMARY KEY
     name: plan.name,
     description: plan.description ?? "",
     user_id: userId,
@@ -120,20 +122,15 @@ async function upsertPlan(plan: TrainingPlan, userId: number | string): Promise<
     schedule: typeof plan.schedule === "string" ? plan.schedule : JSON.stringify(plan.schedule),
   }
   try {
-    const isNew = !plan.id || plan.id.toString().startsWith('plan-')
     if (!isNew) {
-      // Update: pass id via URL, not body
-      const res = await apiFetch<{ plan: { id: number } }>(`/training-plans/${plan.id}`, { method: "PUT", body: JSON.stringify(base) })
-      return plan
+      await apiFetch(`/training-plans/${plan.id}`, { method: "PUT", body: JSON.stringify(payload) })
     } else {
-      // Create: do NOT send id — let the DB generate it
-      const res = await apiFetch<{ plan: { id: number } }>(`/training-plans`, { method: "POST", body: JSON.stringify(base) })
-      // Return updated plan with the real DB id
-      return { ...plan, id: String(res?.plan?.id ?? plan.id) }
+      await apiFetch(`/training-plans`, { method: "POST", body: JSON.stringify(payload) })
     }
+    return plan
   } catch (err) {
     console.error("Failed to sync plan to cloud", err)
-    throw err   // re-throw so handleSave can show the error to the user
+    throw err
   }
 }
 
