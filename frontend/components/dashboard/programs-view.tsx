@@ -109,23 +109,30 @@ async function loadAllPlans(userId: number | string): Promise<TrainingPlan[]> {
 }
 async function upsertPlan(plan: TrainingPlan, userId: number | string) {
   if (!userId) return;
+  // Send a clean payload with only the fields the API expects
   const payload = {
-    ...plan,
+    name: plan.name,
+    description: plan.description ?? "",
     user_id: userId,
-    program_folder_id: plan.programFolderId,
+    program_folder_id: plan.programFolderId ?? null,
     duration_weeks: plan.durationWeeks,
-    is_reusable: plan.isReusable
+    is_reusable: plan.isReusable ? 1 : 0,
+    // The backend expects schedule as a JSON string
+    schedule: typeof plan.schedule === "string" ? plan.schedule : JSON.stringify(plan.schedule),
+    created_at: plan.createdAt,
   }
   try {
-    if (plan.id && !plan.id.toString().startsWith('plan_')) {
+    if (plan.id && !plan.id.toString().startsWith('plan-')) {
       await apiFetch(`/training-plans/${plan.id}`, { method: "PUT", body: JSON.stringify(payload) })
     } else {
       await apiFetch(`/training-plans`, { method: "POST", body: JSON.stringify(payload) })
     }
   } catch (err) {
     console.error("Failed to sync plan to cloud", err)
+    throw err   // re-throw so handleSave can show the error to the user
   }
 }
+
 async function removePlan(id: string) {
   try {
     await apiFetch(`/training-plans/${id}`, { method: "DELETE" })
