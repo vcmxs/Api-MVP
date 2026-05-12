@@ -107,10 +107,10 @@ async function loadAllPlans(userId: number | string): Promise<TrainingPlan[]> {
     return []
   }
 }
-async function upsertPlan(plan: TrainingPlan, userId: number | string): Promise<TrainingPlan> {
+async function upsertPlan(plan: TrainingPlan, userId: number | string, isEdit?: boolean): Promise<TrainingPlan> {
   if (!userId) return plan;
   // id is always a VARCHAR PRIMARY KEY — must be provided
-  const isNew = !plan.id || plan.id.toString().startsWith('plan-')
+  const isNew = !isEdit
   const payload = {
     id: plan.id,  // always send — the DB column is VARCHAR(255) PRIMARY KEY
     name: plan.name,
@@ -855,7 +855,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
         schedule,
         createdAt: editPlan ? editPlan.createdAt : new Date().toISOString(),
       }
-      const saved = await upsertPlan(plan, getUserInfo()?.id || 0)
+      const saved = await upsertPlan(plan, getUserInfo()?.id || 0, !!editPlan)
       onSaved(saved)
       onOpenChange(false)
     } catch (e: unknown) {
@@ -1077,8 +1077,15 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     setLocalSchedule({ ...plan.schedule }); setEditedExercises(new Map()); setExpandedDay(null)
     if (!user?.id) return
     apiFetch<AssignTrainee[] | { trainees: AssignTrainee[] }>(`/coaches/${user.id}/trainees`)
-      .then(d => setTrainees(Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])))
-      .catch(() => {})
+      .then(d => {
+        const fetched = Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])
+        const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
+        setTrainees([meAsTrainee, ...fetched.filter(t => t.id !== user.id)])
+      })
+      .catch(() => {
+        const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
+        setTrainees([meAsTrainee])
+      })
       
     const uniqueWorkoutIds = [...new Set(Object.values(plan.schedule).filter(Boolean).map(s => getSlotWorkoutId(s!)).filter(id => !!id))]
     if (uniqueWorkoutIds.length > 0) {

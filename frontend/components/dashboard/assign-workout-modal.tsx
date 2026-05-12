@@ -350,8 +350,12 @@ export function AssignWorkoutModal({
     setTraineesLoading(true)
     try {
       const data = await apiFetch<Trainee[] | { trainees: Trainee[] }>(`/coaches/${user.id}/trainees`)
-      setTrainees(Array.isArray(data) ? data : ((data as { trainees: Trainee[] }).trainees ?? []))
+      const fetched = Array.isArray(data) ? data : ((data as { trainees: Trainee[] }).trainees ?? [])
+      const meAsTrainee: Trainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
+      setTrainees([meAsTrainee, ...fetched.filter(t => t.id !== user.id)])
     } catch (e) {
+      const meAsTrainee: Trainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
+      setTrainees([meAsTrainee])
       setLoadError(e instanceof Error ? e.message : "Failed to load trainees")
     } finally { setTraineesLoading(false) }
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
