@@ -136,6 +136,30 @@ const es: TranslationKeys = {
     yesterday: "Ayer",
   },
 
+  // ── Trainee Overview (trainee dashboard) ─────────────────────────────────
+  traineeOverview: {
+    subscriptionExpiringBanner: "Tu suscripción vence en {days} días. Renuévala para no perder el acceso.",
+    subscriptionExpiredBanner: "Tu suscripción ha VENCIDO. Contacta a tu entrenador para renovarla.",
+    subscriptionExpiredAlert: "Tu suscripción ha vencido. Contacta a tu entrenador para reanudar tu entrenamiento.",
+    statusLabel: "ESTADO",
+    expiresInLabel: "VENCE EN",
+    expiredLabel: "VENCIDA",
+    daysUnit: "Días",
+    notAvailable: "N/D",
+    upNext: "Lo Siguiente",
+    viewAll: "Ver Todo",
+    noWorkouts: "No hay rutinas programadas próximamente.",
+    todaySession: "Sesión de Hoy",
+    locked: "BLOQUEADO",
+    start: "INICIAR",
+    nutrition: "Nutrición",
+    details: "Detalles",
+    bodyStats: "Stats Corporales",
+    currentWeight: "Peso Actual",
+    workoutsCompleted: "Rutinas",
+    dayStreak: "Racha de Días",
+  },
+
   // ── Messages ───────────────────────────────────────────────────────────────
   messages: {
     noMessages: "Sin mensajes aún",

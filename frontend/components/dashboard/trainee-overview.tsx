@@ -109,7 +109,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
   }
 
   const handleLockedPress = () => {
-    alert((t as any).dashboard?.contactCoach || 'Your subscription has expired. Please contact your coach to resume your training.')
+    alert(t.traineeOverview.subscriptionExpiredAlert)
   }
 
   return (
@@ -119,14 +119,16 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
       {expiryDays !== null && expiryDays <= 5 && expiryDays > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-5 py-3 text-yellow-500">
           <AlertTriangle className="h-5 w-5 shrink-0" />
-          <p className="text-sm font-medium">Your subscription expires in {expiryDays} days. Please renew to avoid losing access.</p>
+          <p className="text-sm font-medium">
+            {t.traineeOverview.subscriptionExpiringBanner.replace('{days}', String(expiryDays))}
+          </p>
         </div>
       )}
 
       {isExpired && (
         <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-3 text-red-500">
           <Lock className="h-5 w-5 shrink-0" />
-          <p className="text-sm font-medium">Your subscription has EXPIRED. Please contact your coach to renew.</p>
+          <p className="text-sm font-medium">{t.traineeOverview.subscriptionExpiredBanner}</p>
         </div>
       )}
 
@@ -142,9 +144,9 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#666]">{isExpired ? 'STATUS' : 'EXPIRES IN'}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#666]">{isExpired ? t.traineeOverview.statusLabel : t.traineeOverview.expiresInLabel}</p>
           <p className={`text-lg font-bold ${isExpired ? 'text-red-500' : 'text-[#00ffff]'}`}>
-             {expiryDays !== null ? (isExpired ? 'EXPIRED' : `${expiryDays} Days`) : 'N/A'}
+             {expiryDays !== null ? (isExpired ? t.traineeOverview.expiredLabel : `${expiryDays} ${t.traineeOverview.daysUnit}`) : t.traineeOverview.notAvailable}
           </p>
         </div>
       </div>
@@ -157,7 +159,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
           </div>
           <div>
             <p className="text-2xl font-bold text-white leading-none mb-1">{stats.workoutsCompleted}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#888888]">Workouts</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#888888]">{t.traineeOverview.workoutsCompleted}</p>
           </div>
         </div>
         <div className="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-[#161b22] p-5">
@@ -166,7 +168,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
           </div>
           <div>
             <p className="text-2xl font-bold text-white leading-none mb-1">{stats.streak}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#888888]">Day Streak</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#888888]">{t.traineeOverview.dayStreak}</p>
           </div>
         </div>
       </div>
@@ -174,8 +176,8 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
       {/* Featured Workout */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Up Next</h2>
-          <button onClick={() => onChangeTab('workouts')} className="text-xs font-semibold text-[#00ffff] hover:text-[#00ffff]/80">View All</button>
+          <h2 className="text-lg font-bold text-white">{t.traineeOverview.upNext}</h2>
+          <button onClick={() => onChangeTab('workouts')} className="text-xs font-semibold text-[#00ffff] hover:text-[#00ffff]/80">{t.traineeOverview.viewAll}</button>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#161b22]">
           {/* Background gradient */}
@@ -191,7 +193,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
                 <div>
                   <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-white/[0.1] bg-white/[0.05] px-3 py-1.5">
                     <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00ffff]" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-white">Today's Session</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white">{t.traineeOverview.todaySession}</span>
                   </div>
                   <h3 className="mb-1 text-2xl font-bold text-white">{todaysWorkout.name}</h3>
                   <p className="mb-4 text-sm text-[#888888]">{todaysWorkout.focus || 'Strength & Hypertrophy'}</p>
@@ -214,7 +216,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
                     isExpired ? 'bg-red-500 text-white' : 'bg-[#00ffff] text-black shadow-[0_0_20px_rgba(0,255,255,0.3)]'
                   }`}
                 >
-                  <span>{isExpired ? 'LOCKED' : 'START'}</span>
+                  <span>{isExpired ? t.traineeOverview.locked : t.traineeOverview.start}</span>
                   {isExpired ? <Lock className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
               </div>
@@ -234,8 +236,8 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
         {/* Nutrition Card */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Nutrition</h2>
-            <button onClick={() => onChangeTab('nutrition')} className="text-xs font-semibold text-[#00ffff] hover:text-[#00ffff]/80">Details</button>
+            <h2 className="text-lg font-bold text-white">{t.traineeOverview.nutrition}</h2>
+            <button onClick={() => onChangeTab('nutrition')} className="text-xs font-semibold text-[#00ffff] hover:text-[#00ffff]/80">{t.traineeOverview.details}</button>
           </div>
           <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-5">
             <div className="flex items-center gap-6">
@@ -260,12 +262,12 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
         {/* Body Stats Card */}
         <div className="cursor-pointer transition-transform hover:scale-[1.02]" onClick={() => onChangeTab('progression')}>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Body Stats</h2>
+            <h2 className="text-lg font-bold text-white">{t.traineeOverview.bodyStats}</h2>
           </div>
           <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-5 h-[130px] flex flex-col justify-between relative overflow-hidden">
              <div className="flex items-start justify-between relative z-10">
                <div>
-                 <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#888888]">Current Weight</p>
+                 <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#888888]">{t.traineeOverview.currentWeight}</p>
                  <div className="flex items-baseline gap-1">
                    <span className="text-3xl font-bold text-white">{currentWeight}</span>
                    <span className="text-sm font-semibold text-[#666]">kg</span>

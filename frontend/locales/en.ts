@@ -134,6 +134,30 @@ const en = {
     yesterday: "Yesterday",
   },
 
+  // ── Trainee Overview (trainee dashboard) ───────────────────────────────────
+  traineeOverview: {
+    subscriptionExpiringBanner: "Your subscription expires in {days} days. Please renew to avoid losing access.",
+    subscriptionExpiredBanner: "Your subscription has EXPIRED. Please contact your coach to renew.",
+    subscriptionExpiredAlert: "Your subscription has expired. Please contact your coach to resume your training.",
+    statusLabel: "STATUS",
+    expiresInLabel: "EXPIRES IN",
+    expiredLabel: "EXPIRED",
+    daysUnit: "Days",
+    notAvailable: "N/A",
+    upNext: "Up Next",
+    viewAll: "View All",
+    noWorkouts: "No upcoming workouts scheduled.",
+    todaySession: "Today's Session",
+    locked: "LOCKED",
+    start: "START",
+    nutrition: "Nutrition",
+    details: "Details",
+    bodyStats: "Body Stats",
+    currentWeight: "Current Weight",
+    workoutsCompleted: "Workouts",
+    dayStreak: "Day Streak",
+  },
+
   // ── Messages ───────────────────────────────────────────────────────────────
   messages: {
     noMessages: "No messages yet",
