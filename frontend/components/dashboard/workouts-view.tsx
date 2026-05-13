@@ -436,9 +436,15 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, onR
 
   return (
     <div className="space-y-1.5 rounded-lg bg-black/10 p-2">
-      <div className="flex items-center gap-2 mb-1 px-1">
-         <Dumbbell className="h-3 w-3 text-[#00ffff]" />
-         <p className="text-xs font-semibold text-white">{exercise.name}</p>
+      <div className="flex flex-col gap-1 mb-2 px-1">
+        <div className="flex items-center gap-2">
+           <Dumbbell className="h-3 w-3 text-[#00ffff]" />
+           <p className="text-xs font-semibold text-white">{exercise.name}</p>
+        </div>
+        <p className="text-[10px] text-[#888888] ml-5">
+           {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
+           {(exercise.target_weight ?? exercise.targetWeight) != null && (exercise.target_weight ?? exercise.targetWeight) > 0 && ` @ ${exercise.target_weight ?? exercise.targetWeight}${exercise.weight_unit ?? "kg"}`}
+        </p>
       </div>
 
       {!isCardio && (
