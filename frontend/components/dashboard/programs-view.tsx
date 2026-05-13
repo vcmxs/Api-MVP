@@ -6,7 +6,7 @@ import {
   Plus, ClipboardList, Dumbbell, X,
   FolderOpen, Folder, Trash2, Pencil,
   ArrowLeft, Search, ChevronRight, Loader2, AlertCircle, Check,
-  CalendarDays, Users, LayoutList,
+  CalendarDays, Users, LayoutList, Link,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
@@ -388,7 +388,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
             userId: user.id, name: createName.trim(), programId: programFolderId,
             exercises: validEx.map((e, i) => ({
               name: e.name.trim(), sets: e.sets, reps: e.reps, targetWeight: e.weight,
-              weightUnit: "kg", restTime: 60, notes: e.notes || "", exerciseOrder: i,
+              weightUnit: "kg", restTime: e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
               trackRpe: false, trackRir: false, isCardio: e.isCardio,
             })),
           }),
@@ -510,9 +510,20 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                     </button>
                   : <div className="space-y-2">
                       {createExercises.map((e, i) => (
-                        <BuilderRow key={e.id} ex={e} index={i}
-                          onChange={updateCreateEx} onRemove={removeCreateEx}
-                          onPick={id => setExPickerTarget(id)} userId={user?.id} />
+                        <div key={e.id}>
+                          {i > 0 && (
+                            <div className="relative -my-2 z-10 flex justify-center">
+                              <button onClick={() => updateCreateEx(e.id, "isSuperset", !e.isSuperset)} 
+                                className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", e.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
+                                <Link className="h-3 w-3" />
+                                {e.isSuperset ? "BI-SERIE" : "Link"}
+                              </button>
+                            </div>
+                          )}
+                          <BuilderRow ex={e} index={i}
+                            onChange={updateCreateEx} onRemove={removeCreateEx}
+                            onPick={id => setExPickerTarget(id)} userId={user?.id} />
+                        </div>
                       ))}
                       <button onClick={addCreateEx}
                         className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/[0.08] py-2.5 text-xs text-[#555555] hover:border-[#a78bfa]/30 hover:text-[#a78bfa]">
@@ -548,7 +559,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
 
 // ── Builder Exercise Row ──────────────────────────────────────────────────
 
-interface BuilderEx { id: string; name: string; sets: number; reps: number; weight: number; notes: string; isCardio: boolean }
+interface BuilderEx { id: string; name: string; sets: number; reps: number; weight: number; notes: string; isCardio: boolean; isSuperset?: boolean }
 
 function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
   ex: BuilderEx; index: number
@@ -703,7 +714,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
           userId: user.id, name: name.trim(), description: description.trim() || undefined, programId,
           exercises: exercises.filter(e => e.name.trim()).map((e, i) => ({
             name: e.name.trim(), sets: e.sets, reps: e.reps, targetWeight: e.weight,
-            weightUnit: "kg", restTime: 60, notes: e.notes || "", exerciseOrder: i,
+            weightUnit: "kg", restTime: e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
             trackRpe: false, trackRir: false, isCardio: e.isCardio,
           })),
         }),
@@ -748,7 +759,20 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
               {exercises.length === 0
                 ? <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.10] py-8 text-sm text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> Add your first exercise</button>
                 : <div className="space-y-3">
-                    {exercises.map((e, i) => <BuilderRow key={e.id} ex={e} index={i} onChange={updateEx} onRemove={removeEx} onPick={id => setPickerTargetId(id)} />)}
+                    {exercises.map((e, i) => (
+                      <div key={e.id}>
+                        {i > 0 && (
+                          <div className="relative -my-2 z-10 flex justify-center">
+                            <button onClick={() => updateEx(e.id, "isSuperset", !e.isSuperset)} 
+                              className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", e.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
+                              <Link className="h-3 w-3" />
+                              {e.isSuperset ? "BI-SERIE" : "Link"}
+                            </button>
+                          </div>
+                        )}
+                        <BuilderRow ex={e} index={i} onChange={updateEx} onRemove={removeEx} onPick={id => setPickerTargetId(id)} />
+                      </div>
+                    ))}
                     <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> Add Exercise</button>
                   </div>}
             </div>

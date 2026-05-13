@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import {
   X, Search, Dumbbell, Users, CalendarDays, Check, Loader2,
-  AlertCircle, Plus, ChevronRight, ArrowLeft,
+  AlertCircle, Plus, ChevronRight, ArrowLeft, Link,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -51,6 +51,7 @@ interface BuilderExercise {
   weight: number
   notes: string
   isCardio: boolean
+  isSuperset?: boolean
 }
 
 interface ExSuggestion {
@@ -371,6 +372,7 @@ export function AssignWorkoutModal({
       weight: ex.targetWeight ?? (ex as any).target_weight ?? 0,
       notes: ex.notes ?? "",
       isCardio: !!ex.is_cardio,
+      isSuperset: ex.restTime === -1 || (ex as any).rest_time === -1,
     })))
   }
 
@@ -411,11 +413,11 @@ export function AssignWorkoutModal({
 
   const addBuilderEx = () => {
     const newId = `ex-${Date.now()}`
-    setBuildExercises(prev => [...prev, { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }])
+    setBuildExercises(prev => [...prev, { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false }])
     setPickerTargetId(newId)
   }
 
-  const updateBuilderEx = (id: string, field: keyof BuilderExercise, value: string | number) =>
+  const updateBuilderEx = (id: string, field: keyof BuilderExercise, value: string | number | boolean) =>
     setBuildExercises(prev => prev.map(ex => ex.id === id ? { ...ex, [field]: value } : ex))
 
   const removeBuilderEx = (id: string) =>
@@ -426,7 +428,7 @@ export function AssignWorkoutModal({
     const newId = `ex-${Date.now()}`
     setBuildExercises(prev => [
       ...prev.map(ex => ex.id === pickerTargetId ? { ...ex, name: exName, isCardio } : ex),
-      { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false },
+      { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false },
     ])
     setPickerTargetId(newId)
   }
@@ -477,7 +479,7 @@ export function AssignWorkoutModal({
       const exercises = buildExercises.filter(ex => ex.name.trim()).map((ex, i) => ({
         name: ex.name, sets: ex.sets, reps: ex.reps,
         targetWeight: ex.weight, weightUnit: "kg",
-        restTime: 60, notes: ex.notes, exerciseOrder: i,
+        restTime: ex.isSuperset ? -1 : 60, notes: ex.notes, exerciseOrder: i,
         track_rpe: 0, track_rir: 0, is_cardio: ex.isCardio ? 1 : 0,
       }))
 
@@ -732,10 +734,21 @@ export function AssignWorkoutModal({
                   ) : (
                     <div className="space-y-2">
                       {buildExercises.map((ex, i) => (
-                        <BuilderRow key={ex.id} ex={ex} index={i}
-                          onChange={updateBuilderEx} onRemove={removeBuilderEx}
-                          onPick={(id) => setPickerTargetId(id)}
-                          lastHistory={lastSessionLogs[ex.id]} />
+                        <div key={ex.id}>
+                          {i > 0 && (
+                            <div className="relative -my-2 z-10 flex justify-center">
+                              <button onClick={() => updateBuilderEx(ex.id, "isSuperset", !ex.isSuperset)} 
+                                className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", ex.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
+                                <Link className="h-3 w-3" />
+                                {ex.isSuperset ? "BI-SERIE" : "Link"}
+                              </button>
+                            </div>
+                          )}
+                          <BuilderRow ex={ex} index={i}
+                            onChange={updateBuilderEx} onRemove={removeBuilderEx}
+                            onPick={(id) => setPickerTargetId(id)}
+                            lastHistory={lastSessionLogs[ex.id]} />
+                        </div>
                       ))}
                     </div>
                   )}

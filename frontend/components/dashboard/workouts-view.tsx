@@ -7,7 +7,7 @@ import {
   ArrowLeft, CheckCircle2, Clock, ClipboardList,
   ChevronRight, Users, Search, Loader2, AlertCircle,
   Calendar, CalendarDays, RefreshCw, Pencil, RotateCcw, Check, Lock,
-  LayoutList, ChevronLeft
+  LayoutList, ChevronLeft, Zap, Link
 } from "lucide-react"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
@@ -420,6 +420,107 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   )
 }
 
+// ── Superset Section ───────────────────────────────────────────────────────
+
+function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, onRefresh }: {
+  setNum: number
+  log: ApiSetLog | undefined
+  exercise: ApiExercise
+  workoutId: number
+  workoutDate?: string
+  onRefresh: () => void
+}) {
+  const lastHistory = useLastSessionHistory(exercise.name, workoutDate)
+  const isCardio = !!(exercise.is_cardio || exercise.isCardio)
+  return (
+    <div className="space-y-1.5 rounded-lg bg-black/10 p-2">
+      <div className="flex items-center gap-2 mb-1 px-1">
+         <Dumbbell className="h-3 w-3 text-[#00ffff]" />
+         <p className="text-xs font-semibold text-white">{exercise.name}</p>
+      </div>
+      {isCardio ? (
+         <div className="grid grid-cols-4 items-center rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: log?.completed || log?.is_completed ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+           <span className="font-bold text-[#888]">{setNum}</span>
+           <span className="text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
+           <span className="text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
+           <span className="text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
+         </div>
+      ) : (
+         <SetLogRow
+           setNumber={setNum}
+           log={log}
+           exercise={exercise}
+           workoutId={workoutId}
+           onRefresh={onRefresh}
+           lastHistory={lastHistory[setNum]}
+         />
+      )}
+    </div>
+  )
+}
+
+function SupersetSection({ exercises, index, workoutId, workoutDate, onRefresh }: {
+  exercises: ApiExercise[]
+  index: number
+  workoutId: number
+  workoutDate?: string
+  onRefresh: () => void
+}) {
+  const { t } = useT()
+
+  let maxSets = 0
+  let totalCompleted = 0
+  let totalRows = 0
+
+  for (const ex of exercises) {
+    const logs = ex.logs ?? []
+    const rowCount = Math.max(ex.sets ?? 1, logs.length)
+    if (rowCount > maxSets) maxSets = rowCount
+    totalRows += rowCount
+    totalCompleted += logs.filter(l => l.completed || l.is_completed).length
+  }
+
+  return (
+    <div className="rounded-xl border border-[#00ffff]/20 bg-[#161b22] overflow-hidden">
+      <div className="bg-gradient-to-r from-[#00ffff]/10 to-transparent px-4 py-2 flex items-center justify-between border-b border-[#00ffff]/10">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-[#00ffff]" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">Bi-Serie</span>
+        </div>
+        <span className="shrink-0 text-xs font-semibold" style={{ color: totalCompleted === totalRows && totalRows > 0 ? "#00ff88" : totalCompleted > 0 ? "#ffd700" : "#555555" }}>
+          {totalCompleted}/{totalRows}
+        </span>
+      </div>
+
+      <div className="p-3 space-y-4">
+        {Array.from({ length: maxSets }, (_, i) => i + 1).map(setNum => (
+          <div key={setNum} className="rounded-xl border border-white/[0.05] bg-black/20 p-3 relative">
+            <p className="text-[10px] font-bold text-[#888] mb-2 uppercase tracking-widest">Round {setNum}</p>
+            <div className="space-y-3 relative">
+              <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px] bg-[#00ffff]/20" />
+              {exercises.map((ex) => {
+                const logs = ex.logs ?? []
+                const log = logs.find(l => (l.set_number ?? l.setNumber) === setNum)
+                return (
+                  <SupersetRowWrapper
+                    key={ex.id}
+                    setNum={setNum}
+                    log={log}
+                    exercise={ex}
+                    workoutId={workoutId}
+                    workoutDate={workoutDate}
+                    onRefresh={onRefresh}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Exercise set section ───────────────────────────────────────────────────
 
 function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh }: {
@@ -594,8 +695,9 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   }
 
   if (!workout) return null
-  const sc = getStatusConfig(workout.status)
-  const isCompleted = workout.status === "completed"
+  const currentStatus = rawDetail?.status || workout.status
+  const sc = getStatusConfig(currentStatus)
+  const isCompleted = currentStatus === "completed"
   const exercises = (rawDetail?.exercises ?? [])
     .slice()
     .sort((a, b) => (a.exerciseOrder ?? 0) - (b.exerciseOrder ?? 0))
@@ -638,16 +740,55 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
               <p className="text-xs font-bold uppercase tracking-wider text-[#555555]">
                 {exercises.length} Exercise{exercises.length !== 1 ? "s" : ""}
               </p>
-              {exercises.map((ex, idx) => (
-                <ExerciseSetSection
-                  key={ex.id}
-                  exercise={ex}
-                  index={idx}
-                  workoutId={workout.id}
-                  workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
-                  onRefresh={() => fetchDetail(workout.id, true)}
-                />
-              ))}
+              {(() => {
+                const groupedExercises: Array<{ type: "single", exercise: ApiExercise } | { type: "superset", exercises: ApiExercise[] }> = []
+                for (let i = 0; i < exercises.length; i++) {
+                  const ex = exercises[i]
+                  if (ex.rest_time === -1 || (ex as any).restTime === -1) {
+                    const prevGroup = groupedExercises[groupedExercises.length - 1]
+                    if (prevGroup) {
+                      if (prevGroup.type === "single") {
+                        groupedExercises[groupedExercises.length - 1] = {
+                          type: "superset",
+                          exercises: [prevGroup.exercise, ex]
+                        }
+                      } else {
+                        prevGroup.exercises.push(ex)
+                      }
+                    } else {
+                      groupedExercises.push({ type: "single", exercise: ex })
+                    }
+                  } else {
+                    groupedExercises.push({ type: "single", exercise: ex })
+                  }
+                }
+
+                return groupedExercises.map((group, idx) => {
+                  if (group.type === "single") {
+                    return (
+                      <ExerciseSetSection
+                        key={group.exercise.id}
+                        exercise={group.exercise}
+                        index={idx}
+                        workoutId={workout.id}
+                        workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
+                        onRefresh={() => fetchDetail(workout.id, true)}
+                      />
+                    )
+                  } else {
+                    return (
+                      <SupersetSection
+                        key={group.exercises.map(e => e.id).join("-")}
+                        exercises={group.exercises}
+                        index={idx}
+                        workoutId={workout.id}
+                        workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
+                        onRefresh={() => fetchDetail(workout.id, true)}
+                      />
+                    )
+                  }
+                })
+              })()}
             </div>
           )}
         </div>
