@@ -5,7 +5,7 @@ import {
   ArrowLeft, BarChart3, Apple, MessageCircle, CreditCard, Plus,
   ChevronDown, ChevronUp, Dumbbell, Calendar, Mail, Phone,
   Building, User, Loader2, X, ChevronRight, ChevronLeft,
-  LayoutList, CalendarDays,
+  LayoutList, CalendarDays, Zap,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { AssignWorkoutModal } from "./assign-workout-modal"
@@ -793,26 +793,39 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                 <p className="text-xs font-bold uppercase tracking-wider text-[#555555]">
                   {detailWorkout.exercises.length} Exercise{detailWorkout.exercises.length !== 1 ? "s" : ""}
                 </p>
-                {detailWorkout.exercises
-                  .slice()
-                  .sort((a, b) => (a.exerciseOrder ?? 0) - (b.exerciseOrder ?? 0))
-                  .map((ex, idx) => {
+                {(() => {
+                  const sortedEx = detailWorkout.exercises.slice().sort((a, b) => (a.exerciseOrder ?? 0) - (b.exerciseOrder ?? 0))
+                  const grouped: Array<{ type: "single", exercise: any } | { type: "superset", exercises: any[] }> = []
+                  for (let i = 0; i < sortedEx.length; i++) {
+                    const ex = sortedEx[i]
+                    if (ex.rest_time === -1 || ex.restTime === -1) {
+                      const prev = grouped[grouped.length - 1]
+                      if (prev) {
+                        if (prev.type === "single") grouped[grouped.length - 1] = { type: "superset", exercises: [prev.exercise, ex] }
+                        else prev.exercises.push(ex)
+                      } else {
+                        grouped.push({ type: "single", exercise: ex })
+                      }
+                    } else {
+                      grouped.push({ type: "single", exercise: ex })
+                    }
+                  }
+
+                  const renderSingle = (ex: any, idx: number | string) => {
                     const targetWeight = ex.target_weight ?? ex.targetWeight
                     const isCardio = !!(ex.is_cardio || ex.isCardio)
                     const showRpe = !!(ex.track_rpe || ex.trackRpe)
                     const showRir = !!(ex.track_rir || ex.trackRir)
-                    const logs = (ex.logs ?? []).slice().sort(
-                      (a, b) => (a.set_number ?? a.setNumber ?? 0) - (b.set_number ?? b.setNumber ?? 0)
-                    )
+                    const logs = (ex.logs ?? []).slice().sort((a: any, b: any) => (a.set_number ?? a.setNumber ?? 0) - (b.set_number ?? b.setNumber ?? 0))
                     const hasLogs = logs.length > 0
-                    const completedLogs = logs.filter(l => l.completed || l.is_completed)
+                    const completedLogs = logs.filter((l: any) => l.completed || l.is_completed)
 
                     return (
                       <div key={ex.id} className="rounded-xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
                         {/* Exercise header */}
                         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#00ffff]/10 text-xs font-bold text-[#00ffff]">
-                            {idx + 1}
+                            {idx}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-white truncate">{ex.name}</p>
@@ -854,7 +867,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
 
                             {/* Set rows */}
                             <div className="space-y-1">
-                              {logs.map((log) => {
+                              {logs.map((log: any) => {
                                 const setNum = log.set_number ?? log.setNumber ?? "—"
                                 const isDone = !!(log.completed || log.is_completed)
                                 const weight = log.weight_used ?? log.weightUsed
@@ -927,8 +940,8 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                               try {
                                 const parsed = JSON.parse(ex.notes)
                                 if (Array.isArray(parsed)) {
-                                  return parsed.map((n: any, idx: number) => (
-                                    <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
+                                  return parsed.map((n: any, idx2: number) => (
+                                    <div key={idx2} className="flex flex-col rounded bg-white/[0.03] p-2">
                                       <span className="text-[10px] font-bold" style={{ color: n.userName !== "Coach" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
                                       <span className="mt-1 text-xs text-[#aaa]">{n.text}</span>
                                     </div>
@@ -947,7 +960,102 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                         )}
                       </div>
                     )
-                  })}
+                  }
+
+                  return grouped.map((group, idx) => {
+                    if (group.type === "single") {
+                      return renderSingle(group.exercise, idx + 1)
+                    }
+
+                    // Render Superset
+                    let maxSets = 0
+                    let totalCompleted = 0
+                    let totalRows = 0
+                    for (const ex of group.exercises) {
+                      const logs = ex.logs ?? []
+                      const rowCount = Math.max(ex.sets ?? 1, logs.length)
+                      if (rowCount > maxSets) maxSets = rowCount
+                      totalRows += rowCount
+                      totalCompleted += logs.filter((l: any) => l.completed || l.is_completed).length
+                    }
+
+                    return (
+                      <div key={group.exercises.map(e => e.id).join("-")} className="rounded-xl border border-[#00ffff]/20 bg-[#161b22] overflow-hidden">
+                        <div className="bg-gradient-to-r from-[#00ffff]/10 to-transparent px-4 py-2 flex items-center justify-between border-b border-[#00ffff]/10">
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-[#00ffff]" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">Bi-Serie</span>
+                          </div>
+                          <span className="shrink-0 text-xs font-semibold" style={{ color: totalCompleted === totalRows && totalRows > 0 ? "#00ff88" : totalCompleted > 0 ? "#ffd700" : "#555555" }}>
+                            {totalCompleted}/{totalRows} done
+                          </span>
+                        </div>
+
+                        <div className="p-3 space-y-4">
+                          {Array.from({ length: maxSets }, (_, i) => i + 1).map(setNum => (
+                            <div key={setNum} className="rounded-xl border border-white/[0.05] bg-black/20 p-3 relative">
+                              <p className="text-[10px] font-bold text-[#888] mb-2 uppercase tracking-widest">Round {setNum}</p>
+                              <div className="space-y-3 relative">
+                                <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px] bg-[#00ffff]/20" />
+                                {group.exercises.map((ex) => {
+                                  const logs = ex.logs ?? []
+                                  const log = logs.find((l: any) => (l.set_number ?? l.setNumber) === setNum)
+                                  const isCardio = !!(ex.is_cardio || ex.isCardio)
+                                  const showRpe = !!(ex.track_rpe || ex.trackRpe)
+                                  const showRir = !!(ex.track_rir || ex.trackRir)
+                                  
+                                  const isDone = log ? !!(log.completed || log.is_completed) : false
+                                  const weight = log?.weight_used ?? log?.weightUsed
+                                  const reps = log?.reps_completed ?? log?.repsCompleted
+                                  const lastVal = lastLogsMap[ex.name]?.[setNum]
+
+                                  return (
+                                    <div key={ex.id} className="space-y-1.5 rounded-lg bg-black/10 p-2">
+                                      <div className="flex items-center gap-2 mb-1 px-1">
+                                        <Dumbbell className="h-3 w-3 text-[#00ffff]" />
+                                        <p className="text-xs font-semibold text-white">{ex.name}</p>
+                                      </div>
+                                      
+                                      {!isCardio && (
+                                        <div className="flex items-center gap-2 px-1 text-[9px] font-bold uppercase tracking-wider text-[#888888] mb-1">
+                                          <span className="w-6 shrink-0">{t.workouts?.setColumn || "Set"}</span>
+                                          <span className="w-16 shrink-0 text-center">{t.workouts?.lastColumn || "Last"}</span>
+                                          <span className="w-20 shrink-0 text-center">{t.workouts?.weightColumn || "Weight"}</span>
+                                          <span className="w-14 shrink-0 text-center">{t.workouts?.repsColumn || "Reps"}</span>
+                                          {showRpe && <span className="w-10 shrink-0 text-center">RPE</span>}
+                                          {showRir && <span className="w-10 shrink-0 text-center">RIR</span>}
+                                        </div>
+                                      )}
+
+                                      {isCardio ? (
+                                        <div className="grid grid-cols-4 items-center rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+                                          <span className="font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
+                                          <span className="text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
+                                          <span className="text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
+                                          <span className="text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+                                          <span className="w-6 shrink-0 font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
+                                          <span className="w-16 shrink-0 text-center text-[10px] font-bold" style={{ color: lastVal ? "#00ffff" : "#444444" }}>{lastVal ?? "—"}</span>
+                                          <span className="w-20 shrink-0 text-center font-medium text-white">{weight != null ? `${weight}${ex.weight_unit ?? "kg"}` : "—"}</span>
+                                          <span className="w-14 shrink-0 text-center font-medium text-white">{reps != null ? `${reps}` : "—"}</span>
+                                          {showRpe && <span className="w-10 shrink-0 text-center text-[#888888]">{log?.rpe != null ? log.rpe : "—"}</span>}
+                                          {showRir && <span className="w-10 shrink-0 text-center text-[#888888]">{log?.rir != null ? log.rir : "—"}</span>}
+                                          {!showRpe && !showRir && <span className="flex-1 text-right pr-2 text-xs font-semibold" style={{ color: isDone ? "#00ff88" : "#555555" }}>{isDone ? "✓" : "—"}</span>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
               </div>
             )}
           </div>

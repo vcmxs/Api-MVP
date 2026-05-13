@@ -432,12 +432,24 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, onR
 }) {
   const lastHistory = useLastSessionHistory(exercise.name, workoutDate)
   const isCardio = !!(exercise.is_cardio || exercise.isCardio)
+  const { t } = useT()
+
   return (
     <div className="space-y-1.5 rounded-lg bg-black/10 p-2">
       <div className="flex items-center gap-2 mb-1 px-1">
          <Dumbbell className="h-3 w-3 text-[#00ffff]" />
          <p className="text-xs font-semibold text-white">{exercise.name}</p>
       </div>
+
+      {!isCardio && (
+        <div className="flex items-center gap-2 px-1 text-[9px] font-bold uppercase tracking-wider text-[#888888] mb-1">
+          <span className="w-6 shrink-0">{t.workouts?.setColumn || "Set"}</span>
+          <span className="w-16 shrink-0 text-center">{t.workouts?.lastColumn || "Last"}</span>
+          <span className="w-20 shrink-0 text-center">{t.workouts?.weightColumn || "Weight"}</span>
+          <span className="w-14 shrink-0 text-center">{t.workouts?.repsColumn || "Reps"}</span>
+        </div>
+      )}
+
       {isCardio ? (
          <div className="grid grid-cols-4 items-center rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: log?.completed || log?.is_completed ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
            <span className="font-bold text-[#888]">{setNum}</span>
