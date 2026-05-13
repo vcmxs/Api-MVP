@@ -798,7 +798,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                   const grouped: Array<{ type: "single", exercise: any } | { type: "superset", exercises: any[] }> = []
                   for (let i = 0; i < sortedEx.length; i++) {
                     const ex = sortedEx[i]
-                    if (ex.rest_time === -1 || ex.restTime === -1) {
+                    if (ex.rest_time === -1 || (ex as any).restTime === -1) {
                       const prev = grouped[grouped.length - 1]
                       if (prev) {
                         if (prev.type === "single") grouped[grouped.length - 1] = { type: "superset", exercises: [prev.exercise, ex] }
@@ -1018,7 +1018,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                         </div>
                                         <p className="text-[10px] text-[#888888] ml-5">
                                           {t.workouts?.target || "Target:"} {ex.sets} {t.traineeDetail?.sets || "sets"} × {ex.reps} {t.traineeDetail?.reps || "reps"}
-                                          {(ex.target_weight ?? ex.targetWeight) != null && (ex.target_weight ?? ex.targetWeight) > 0 && ` @ ${ex.target_weight ?? ex.targetWeight}${ex.weight_unit ?? "kg"}`}
+                                          {(ex.target_weight ?? ex.targetWeight) != null && Number(ex.target_weight ?? ex.targetWeight) > 0 && ` @ ${ex.target_weight ?? ex.targetWeight}${ex.weight_unit ?? "kg"}`}
                                         </p>
                                       </div>
                                       

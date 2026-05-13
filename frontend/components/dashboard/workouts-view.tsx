@@ -443,7 +443,7 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, onR
         </div>
         <p className="text-[10px] text-[#888888] ml-5">
            {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
-           {(exercise.target_weight ?? exercise.targetWeight) != null && (exercise.target_weight ?? exercise.targetWeight) > 0 && ` @ ${exercise.target_weight ?? exercise.targetWeight}${exercise.weight_unit ?? "kg"}`}
+           {(exercise.target_weight ?? exercise.targetWeight) != null && Number(exercise.target_weight ?? exercise.targetWeight) > 0 && ` @ ${exercise.target_weight ?? exercise.targetWeight}${exercise.weight_unit ?? "kg"}`}
         </p>
       </div>
 
