@@ -986,7 +986,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
                           className={cn(
                             "flex flex-1 items-center justify-between rounded-lg border px-3 py-1.5 text-left text-sm transition-colors hover:border-[#a78bfa]/40",
                             assigned ? "border-white/[0.08] bg-[#0a0a0f] text-white" : "border-dashed border-white/[0.12] text-[#555555]",
-                            pickerForDay === day && "border-[#a78bfa]/50"
+                            pickerForDay === day && "border-[#a78bfa] bg-[#a78bfa]/10 ring-1 ring-[#a78bfa]/50 text-white"
                           )}
                         >
                           <span className="truncate">{assigned ? assigned.workoutName : t.programs.selectWorkout}</span>
@@ -1332,7 +1332,6 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                   <h3 className="text-base font-bold text-white">{t.programs.customize}: {getSlotName(slot)}</h3>
                   <p className="text-xs text-[#a78bfa]">{t.programs.customizeHint}</p>
                 </div>
-                <button onClick={() => setExpandedDay(null)} className="text-[#888888] hover:text-white"><X className="h-5 w-5" /></button>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
                 {exList.length === 0 && (
