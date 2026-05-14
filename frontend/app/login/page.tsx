@@ -347,7 +347,7 @@ export default function LoginPage() {
           {/* Divider */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "20px 0 0" }}>
             <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.08)" }} />
-            <span style={{ color: "#4A5568", fontSize: "12px", fontWeight: "600", whiteSpace: "nowrap" }}>OR CONTINUE WITH</span>
+            <span style={{ color: "#4A5568", fontSize: "12px", fontWeight: "600", whiteSpace: "nowrap" }}>{t("loginPage.orContinueWith")}</span>
             <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.08)" }} />
           </div>
 

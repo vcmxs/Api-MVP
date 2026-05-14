@@ -601,6 +601,7 @@ const es: TranslationKeys = {
     noAccount: "¿No tienes cuenta?",
     createAccount: "Crear una cuenta →",
     welcomeBack: "Bienvenido de nuevo",
+    orContinueWith: "O CONTINUAR CON",
     error: "Error al iniciar sesión. Verifica tus credenciales."
   },
 
@@ -677,6 +678,31 @@ const es: TranslationKeys = {
     newTraineeBodyNamed: "{name} se unió como nuevo alumno",
     newTraineeBodyAnon: "Un nuevo alumno se unió",
     notificationFallback: "Notificación",
+  },
+
+  // ── Win-Win View ──────────────────────────────────────────────────────────
+  winWinView: {
+    referredBy: "Referido por",
+    haveCode: "¿Tienes un código de referido?",
+    enterCodeDesc: "Ingresa el código de un amigo para obtener un descuento en tu primera mejora de suscripción.",
+    placeholder: "Ingresar código...",
+    apply: "Aplicar",
+    applyErrorMin: "Por favor ingresa un código válido (mín. 4 caracteres).",
+    applySuccess: "¡Código aplicado! Fuiste referido por {name}.",
+    fallbackCoach: "un entrenador",
+    applyErrorGeneric: "Error al aplicar el código. Puede ser inválido o ya haber sido usado.",
+    programTitle: "Programa Win-Win",
+    programDesc: "Comparte tu código de referido con otros entrenadores. Cuando mejoren su suscripción usando tu código, ambos ganan: ellos reciben un descuento y tú ganas una recompensa.",
+    yourCode: "Tu Código de Referido",
+    copied: "¡Copiado!",
+    clickToCopy: "Haz clic para copiar",
+    referralsCount: "Referidos",
+    totalEarned: "Total Ganado",
+    currentBalance: "Saldo Actual",
+    balanceDesc: "Tu saldo se aplica como descuento en tu próximo pago de suscripción. Contacta a soporte para retirar.",
+    recentReferrals: "Referidos Recientes",
+    statusActive: "Activo",
+    statusInactive: "Inactivo",
   },
 }
 

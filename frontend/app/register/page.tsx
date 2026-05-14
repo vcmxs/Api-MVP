@@ -436,7 +436,7 @@ export default function RegisterPage() {
             {/* Divider */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
               <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
-              <span style={{ color: '#4A5568', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>OR CONTINUE WITH</span>
+              <span style={{ color: '#4A5568', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>{t('loginPage.orContinueWith')}</span>
               <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
             </div>
 

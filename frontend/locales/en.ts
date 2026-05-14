@@ -599,6 +599,7 @@ const en = {
     noAccount: "Don't have an account?",
     createAccount: "Create an account →",
     welcomeBack: "Welcome back",
+    orContinueWith: "OR CONTINUE WITH",
     error: "Login failed. Please check your credentials."
   },
 
@@ -675,6 +676,31 @@ const en = {
     newTraineeBodyNamed: "{name} joined as a new trainee",
     newTraineeBodyAnon: "A new trainee joined",
     notificationFallback: "Notification",
+  },
+
+  // ── Win-Win View ──────────────────────────────────────────────────────────
+  winWinView: {
+    referredBy: "Referred By",
+    haveCode: "Have a referral code?",
+    enterCodeDesc: "Enter a friend's code to get a discount on your first subscription upgrade.",
+    placeholder: "Enter code...",
+    apply: "Apply",
+    applyErrorMin: "Please enter a valid referral code (min 4 characters).",
+    applySuccess: "Code applied! You were referred by {name}.",
+    fallbackCoach: "a coach",
+    applyErrorGeneric: "Failed to apply code. It may be invalid or already used.",
+    programTitle: "Win-Win Program",
+    programDesc: "Share your referral code with other coaches. When they upgrade their subscription using your code, you both win — they get a discount and you earn a reward.",
+    yourCode: "Your Referral Code",
+    copied: "Copied!",
+    clickToCopy: "Click to copy",
+    referralsCount: "Referrals",
+    totalEarned: "Total Earned",
+    currentBalance: "Current Balance",
+    balanceDesc: "Your balance is applied as a discount on your next subscription payment. Contact support to withdraw.",
+    recentReferrals: "Recent Referrals",
+    statusActive: "Active",
+    statusInactive: "Inactive",
   },
 }
 
