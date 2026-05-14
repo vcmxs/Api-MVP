@@ -134,8 +134,8 @@ function ExPickerPanel({ open, onClose, onSelect, onDone }: {
   if (typeof window === "undefined") return null
   return createPortal(
     <div
-      className="fixed top-0 z-[220] flex h-screen w-64 flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
-      style={{ right: "0rem", transform: open ? "translateX(0)" : "translateX(calc(100% + 1rem))", pointerEvents: open ? "auto" : "none" }}
+      className="fixed top-0 flex h-screen w-full max-w-[16rem] sm:max-w-xs flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
+      style={{ zIndex: 220, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
     >
       <div className="flex h-16 items-center justify-between border-b border-white/[0.08] px-4">
         <div className="flex items-center gap-2">

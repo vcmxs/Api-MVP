@@ -257,8 +257,8 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
 
   if (typeof window === "undefined") return null
   return createPortal(
-    <div className="fixed top-0 z-[9999] flex h-screen w-full max-w-[16rem] sm:max-w-xs flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
-      style={{ right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}>
+    <div className="fixed top-0 flex h-screen w-full max-w-[16rem] sm:max-w-xs flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
+      style={{ zIndex: 205, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}>
       <div className="flex h-16 items-center justify-between border-b border-white/[0.08] px-4">
         <div className="flex items-center gap-2">
           {mode === "exercises"
@@ -424,8 +424,8 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
   return createPortal(
     <>
       <div
-        className="fixed top-0 z-[9995] flex h-screen w-full max-w-[18rem] sm:max-w-sm flex-col bg-[#0d0f14] border-r border-white/[0.08] shadow-2xl transition-transform duration-300 ease-in-out"
-        style={{ right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
+        className="fixed top-0 flex h-screen w-full max-w-[18rem] sm:max-w-sm flex-col bg-[#0d0f14] border-r border-white/[0.08] shadow-2xl transition-transform duration-300 ease-in-out"
+        style={{ zIndex: 202, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
       >
         {/* ── List mode ── */}
         {mode === "list" && (
