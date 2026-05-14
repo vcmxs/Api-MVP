@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
@@ -107,18 +107,20 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      (window as any).google?.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredential,
-      });
+    let attempts = 0;
+    const init = () => {
+      const g = (window as any).google;
+      if (g?.accounts?.id) {
+        g.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredential,
+        });
+      } else if (attempts < 20) {
+        attempts++;
+        setTimeout(init, 300);
+      }
     };
-    document.head.appendChild(script);
-    return () => { document.head.removeChild(script); };
+    init();
   }, [handleGoogleCredential]);
 
   const triggerGoogleSignIn = () => {

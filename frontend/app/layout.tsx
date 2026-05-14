@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
+import Script from 'next/script'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark bg-[#0a0a0f]">
       <body className="font-sans antialiased bg-[#0a0a0f]">
+        <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
         <Providers>{children}</Providers>
         {process.env.VERCEL === '1' && <Analytics />}
       </body>
