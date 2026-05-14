@@ -114,7 +114,6 @@ export default function RegisterPage() {
         g.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredential,
-          use_fedcm_for_prompt: true,
         });
       } else if (attempts < 20) {
         attempts++;
