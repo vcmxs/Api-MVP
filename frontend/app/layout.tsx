@@ -11,6 +11,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Dupla - Fitness Coaching Dashboard',
   description: 'Premium fitness coaching platform for managing trainees, workouts, and programs',
+  applicationName: 'Dupla',
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
