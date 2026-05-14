@@ -917,10 +917,11 @@ function ExercisePickerPanel({ open, onClose, onSelect, onDone }: {
 
   return createPortal(
     <div
-      className="fixed top-0 z-[199] flex h-screen w-72 flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
+      className="fixed top-0 flex h-screen w-full max-w-[16rem] sm:max-w-xs flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
       style={{
-        right: "32rem",
-        transform: open ? "translateX(0)" : "translateX(calc(100% + 33rem))",
+        zIndex: 220,
+        right: 0,
+        transform: open ? "translateX(0)" : "translateX(100%)",
         pointerEvents: open ? "auto" : "none",
       }}
     >
@@ -1053,12 +1054,13 @@ interface BuilderExercise {
   isCardio?: boolean
 }
 
-function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise }: {
+function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive }: {
   ex: BuilderExercise
   index: number
   onChange: (id: string, field: keyof BuilderExercise, value: string | number) => void
   onRemove: (id: string) => void
   onPickExercise: (id: string) => void
+  isActive?: boolean
 }) {
   const lastHistory = useLastSessionHistory(ex.name)
   const historyEntries = Object.entries(lastHistory).sort((a, b) => Number(a[0]) - Number(b[0]))
@@ -1073,7 +1075,8 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise }: {
             "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:border-[#00ffff]/40",
             ex.name
               ? "border-white/[0.08] bg-[#0a0a0f] font-medium text-white"
-              : "border-dashed border-white/[0.12] bg-transparent text-[#555555]"
+              : "border-dashed border-white/[0.12] bg-transparent text-[#555555]",
+            isActive && "border-[#00ffff] ring-1 ring-[#00ffff]/50 bg-[#00ffff]/10 text-white"
           )}
         >
           <Dumbbell className="h-3.5 w-3.5 shrink-0 text-[#555555]" />
@@ -1195,7 +1198,6 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
             </div>
             <SheetTitle className="text-lg font-bold text-white">New Workout</SheetTitle>
           </div>
-          <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white"><X className="h-4 w-4" /></button>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -1240,7 +1242,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
               ) : (
                 <div className="space-y-3">
                   {exercises.map((ex, i) => (
-                    <ExerciseRow key={ex.id} ex={ex} index={i} onChange={updateExercise} onRemove={removeExercise} onPickExercise={openPicker} />
+                    <ExerciseRow key={ex.id} ex={ex} index={i} onChange={updateExercise} onRemove={removeExercise} onPickExercise={openPicker} isActive={pickerTargetId === ex.id} />
                   ))}
                   <button onClick={addExercise} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#00ffff]/30 hover:text-[#00ffff]">
                     <Plus className="h-4 w-4" /> Add Exercise
