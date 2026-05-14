@@ -435,6 +435,13 @@ const es: TranslationKeys = {
     noWorkoutsInLibrary: "Aún no hay rutinas en la biblioteca",
     typeToSearch: "Escribe para buscar…",
     noResults: "Sin resultados",
+    days: {
+      1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves",
+      5: "Viernes", 6: "Sábado", 7: "Domingo",
+    },
+    daysShort: {
+      1: "Lun", 2: "Mar", 3: "Mié", 4: "Jue", 5: "Vie", 6: "Sáb", 7: "Dom",
+    },
   },
 
   // ── Login ─────────────────────────────────────────────────────────────────

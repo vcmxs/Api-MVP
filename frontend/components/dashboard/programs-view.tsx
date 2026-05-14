@@ -976,7 +976,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
                       <button onClick={() => toggleDay(day)}
                         className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition-colors",
                           isActive ? "bg-[#a78bfa] text-black" : "bg-[#0a0a0f] text-[#555555] hover:text-white")}>
-                        {DAY_SHORT[day]}
+                        {((t.programs as any).daysShort?.[day] || DAY_SHORT[day])}
                       </button>
 
                       {/* Workout picker or Rest label */}
@@ -1278,7 +1278,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                         onDragOver={e => { e.preventDefault() }}
                         onDrop={() => handleDrop(day)}>
                         <div className="rounded-t-lg bg-[#161b22] py-2 text-center border-b border-[#a78bfa]/20">
-                          <span className="text-xs font-bold text-[#a78bfa]">{DAY_SHORT[day]}</span>
+                          <span className="text-xs font-bold text-[#a78bfa]">{((t.programs as any).daysShort?.[day] || DAY_SHORT[day])}</span>
                         </div>
                         <div className={cn("min-h-[120px] rounded-xl border border-white/[0.08] p-2 transition-colors",
                           !slot ? "bg-[#161b22]/50 border-dashed" : "bg-[#161b22]",
@@ -1438,7 +1438,7 @@ function PlanCard({ plan, onDelete, onAssign, onEdit }: {
             <div key={day}
               className={cn("rounded-lg px-2.5 py-1 text-xs font-medium",
                 slot ? "bg-[#a78bfa]/15 text-[#a78bfa]" : "bg-white/[0.04] text-[#333]")}>
-              <span>{DAY_SHORT[day]}</span>
+              <span>{((t.programs as any).daysShort?.[day] || DAY_SHORT[day])}</span>
               {slot && <span className="ml-1 font-normal opacity-70 max-w-[6rem] inline-block truncate align-bottom">{slot.workoutName}</span>}
             </div>
           )
