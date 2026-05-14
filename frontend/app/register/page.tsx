@@ -402,6 +402,7 @@ export default function RegisterPage() {
               <div>
                 <label style={labelStyle}>{t('registerPage.referralLabel')} <span style={{ color: '#4A5568', textTransform: 'none', letterSpacing: 0 }}>{t('registerPage.referralOptional')}</span></label>
                 <input type="text" name="referralCode" value={formData.referralCode} onChange={handleChange} placeholder={t('registerPage.referralPlaceholder')} style={{ ...inputStyle, letterSpacing: '1px' }} onFocus={onFocus} onBlur={onBlur} />
+                <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#00C4FF', fontWeight: '500' }}>✨ {t('registerPage.referralBenefit')}</p>
               </div>
             )}
 

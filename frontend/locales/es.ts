@@ -579,6 +579,7 @@ const es: TranslationKeys = {
     referralLabel: "Código de Referido",
     referralOptional: "(Opcional)",
     referralPlaceholder: "Ingrésalo si tienes uno",
+    referralBenefit: "¡Obtén 20% de descuento en tu primer mes usando un código de referido!",
     submit: "Crear Cuenta",
     submitting: "Creando cuenta...",
     haveAccount: "¿Ya tienes cuenta?",

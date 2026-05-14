@@ -577,6 +577,7 @@ const en = {
     referralLabel: "Referral Code",
     referralOptional: "(Optional)",
     referralPlaceholder: "Enter code if you have one",
+    referralBenefit: "Get 20% off your first month using a referral code!",
     submit: "Create Account",
     submitting: "Creating account...",
     haveAccount: "Already have an account?",
