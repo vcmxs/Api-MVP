@@ -11,6 +11,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
 import { apiFetch, getUserInfo } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 
 // ── API Types ─────────────────────────────────────────────────────────────
@@ -31,6 +32,8 @@ interface ProgramExercise {
   target_weight?: number
   weightUnit?: string
   weight_unit?: string
+  restTime?: number
+  rest_time?: number
   notes?: string
   is_cardio?: boolean | number
   track_rpe?: boolean | number
@@ -224,6 +227,7 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
   onSelect: (ex: { name: string; isCardio: boolean }) => void; onDone: () => void
   rightRem?: number
 }) {
+  const { t } = useT()
   const [mode, setMode] = useState<"categories" | "exercises" | "search">("categories")
   const [categories, setCategories] = useState<string[]>([])
   const [catsLoading, setCatsLoading] = useState(false)
@@ -260,7 +264,7 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
           {mode === "exercises"
             ? <button onClick={() => setMode("categories")} className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /></button>
             : <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#a78bfa]/10"><Dumbbell className="h-3.5 w-3.5 text-[#a78bfa]" /></div>}
-          <span className="text-sm font-bold text-white">{mode === "search" ? "Search" : mode === "exercises" ? selectedCat : "Muscle Group"}</span>
+          <span className="text-sm font-bold text-white">{mode === "search" ? t.common.search : mode === "exercises" ? selectedCat : t.programs.muscleGroup}</span>
         </div>
         <div className="flex gap-1">
           <button onClick={() => setMode(mode === "search" ? "categories" : "search")}
@@ -273,7 +277,7 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
         <div className="px-3 pt-3 pb-1">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#555555]" />
-            <input autoFocus type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search exercises..."
+            <input autoFocus type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder={t.programs.searchExercises}
               className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] py-2 pl-9 pr-3 text-sm text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
           </div>
         </div>
@@ -281,8 +285,8 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
       <div className="flex-1 overflow-y-auto py-1">
         {mode === "search"
           ? searchLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-            : searchQ.length < 2 ? <p className="py-8 text-center text-xs text-[#555555]">Type to search…</p>
-            : searchResults.length === 0 ? <p className="py-8 text-center text-xs text-[#555555]">No results</p>
+            : searchQ.length < 2 ? <p className="py-8 text-center text-xs text-[#555555]">{t.programs.typeToSearch}</p>
+            : searchResults.length === 0 ? <p className="py-8 text-center text-xs text-[#555555]">{t.programs.noResults}</p>
             : searchResults.map(ex => <button key={ex.id} onClick={() => pick(ex)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-white/[0.04]"><Dumbbell className="h-3 w-3 shrink-0 text-[#555555]" /><span className="truncate text-sm text-white">{ex.name}</span></button>)
           : mode === "categories"
           ? catsLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
@@ -292,7 +296,7 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
       </div>
       <div className="border-t border-white/[0.08] p-3">
         <button onClick={onDone} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a78bfa] py-2 text-sm font-bold text-black hover:opacity-90">
-          <Check className="h-3.5 w-3.5" /> Done
+          <Check className="h-3.5 w-3.5" /> {t.programs.done}
         </button>
       </div>
     </div>,
@@ -312,6 +316,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
   programFolderId?: number
   onWorkoutCreated: (w: AvailableWorkout) => void
 }) {
+  const { t } = useT()
   const user = getUserInfo()
   const [mode, setMode] = useState<"list" | "create">("list")
   const [search, setSearch] = useState("")
@@ -352,7 +357,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
     setExPickerTarget(id)
   }
 
-  const updateCreateEx = (id: string, field: keyof BuilderEx, value: string | number) =>
+  const updateCreateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) =>
     setCreateExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
 
   const removeCreateEx = (id: string) =>
@@ -426,7 +431,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
         {mode === "list" && (
           <>
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.08] px-4">
-              <span className="text-sm font-bold text-white">Select Workout</span>
+              <span className="text-sm font-bold text-white">{t.programs.selectWorkout.replace('…', '')}</span>
               <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white">
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -439,8 +444,8 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                 <Plus className="h-4 w-4 text-[#a78bfa]" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#a78bfa]">Create new workout</p>
-                <p className="text-xs text-[#555555]">Build from scratch</p>
+                <p className="text-sm font-semibold text-[#a78bfa]">{t.programs.createNewWorkout}</p>
+                <p className="text-xs text-[#555555]">{t.programs.buildFromScratch}</p>
               </div>
               <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-[#555555]" />
             </button>
@@ -449,7 +454,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
             <div className="shrink-0 px-3 py-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#555555]" />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search library…"
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.programs.searchLibrary}
                   className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] py-1.5 pl-9 pr-3 text-sm text-white placeholder:text-[#555555] focus:border-[#a78bfa]/40 focus:outline-none" />
               </div>
             </div>
@@ -457,7 +462,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
             {/* Workout list */}
             <div className="flex-1 overflow-y-auto py-1">
               {filtered.length === 0
-                ? <p className="py-8 text-center text-xs text-[#555555]">{available.length === 0 ? "No workouts in library yet" : "No matches"}</p>
+                ? <p className="py-8 text-center text-xs text-[#555555]">{available.length === 0 ? t.programs.noWorkoutsInLibrary : t.programs.noMatches}</p>
                 : Array.from(grouped.entries()).map(([progName, wks]) => (
                   <div key={progName}>
                     <p className="px-4 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-[#444]">{progName}</p>
@@ -482,7 +487,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white">
                 <ArrowLeft className="h-3.5 w-3.5" />
               </button>
-              <span className="text-sm font-bold text-white">Create Workout</span>
+              <span className="text-sm font-bold text-white">{t.programs.createWorkout}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
@@ -491,22 +496,22 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
               )}
 
               <input type="text" value={createName} onChange={e => setCreateName(e.target.value)}
-                placeholder="Workout name…" autoFocus
+                placeholder={t.programs.workoutName} autoFocus
                 className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] px-3 py-2.5 text-sm text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs text-[#555555]">{createExercises.filter(e => e.name).length} exercises</p>
+                  <p className="text-xs text-[#555555]">{createExercises.filter(e => e.name).length} {t.programs.exerciseCountPlural}</p>
                   <button onClick={addCreateEx}
                     className="flex items-center gap-1 rounded-lg bg-[#a78bfa]/10 px-2.5 py-1 text-xs font-medium text-[#a78bfa] hover:bg-[#a78bfa]/20">
-                    <Plus className="h-3 w-3" /> Add
+                    <Plus className="h-3 w-3" /> {t.common.add}
                   </button>
                 </div>
 
                 {createExercises.length === 0
                   ? <button onClick={addCreateEx}
                       className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/[0.10] py-5 text-xs text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]">
-                      <Plus className="h-3.5 w-3.5" /> Add first exercise
+                      <Plus className="h-3.5 w-3.5" /> {t.programs.addFirstExercise}
                     </button>
                   : <div className="space-y-2">
                       {createExercises.map((e, i) => (
@@ -516,7 +521,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                               <button onClick={() => updateCreateEx(e.id, "isSuperset", !e.isSuperset)} 
                                 className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", e.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
                                 <Link className="h-3 w-3" />
-                                {e.isSuperset ? "BI-SERIE" : "Link"}
+                                {e.isSuperset ? t.programs.biSerie : t.programs.link}
                               </button>
                             </div>
                           )}
@@ -527,7 +532,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                       ))}
                       <button onClick={addCreateEx}
                         className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/[0.08] py-2.5 text-xs text-[#555555] hover:border-[#a78bfa]/30 hover:text-[#a78bfa]">
-                        <Plus className="h-3.5 w-3.5" /> Add Exercise
+                        <Plus className="h-3.5 w-3.5" /> {t.programs.addExercise}
                       </button>
                     </div>}
               </div>
@@ -537,7 +542,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
               <button onClick={handleSaveNew} disabled={!createName.trim() || saving}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a78bfa] py-2.5 text-sm font-bold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {saving ? "Saving…" : "Save & Select"}
+                {saving ? t.programs.saving : t.programs.saveAndSelect}
               </button>
             </div>
           </>
@@ -567,6 +572,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
   onRemove: (id: string) => void; onPick: (id: string) => void
   userId?: number
 }) {
+  const { t } = useT()
   const [rawSets, setRawSets] = useState(String(ex.sets))
   const [rawReps, setRawReps] = useState(String(ex.reps))
   const [rawWeight, setRawWeight] = useState(String(ex.weight))
@@ -625,14 +631,14 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
           className={cn("flex flex-1 items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors hover:border-[#a78bfa]/40",
             ex.name ? "border-white/[0.08] bg-[#161b22] font-medium text-white" : "border-dashed border-white/[0.12] text-[#555555]")}>
           <Dumbbell className="h-3 w-3 shrink-0 text-[#555555]" />
-          <span className="flex-1 truncate">{ex.name || "Select exercise…"}</span>
-          {ex.isCardio && <span className="shrink-0 rounded px-1 text-[9px] font-bold uppercase" style={{ backgroundColor: "rgba(167,139,250,0.15)", color: "#a78bfa" }}>Cardio</span>}
+          <span className="flex-1 truncate">{ex.name || t.programs.selectExercise}</span>
+          {ex.isCardio && <span className="shrink-0 rounded px-1 text-[9px] font-bold uppercase" style={{ backgroundColor: "rgba(167,139,250,0.15)", color: "#a78bfa" }}>{t.programs.cardio}</span>}
         </button>
         <button onClick={() => onRemove(ex.id)} className="text-[#555555] hover:text-[#ff4444]"><X className="h-3.5 w-3.5" /></button>
       </div>
       {historyEntries.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">Last</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">{t.programs.last}</span>
           {historyEntries.map(([setNum, val]) => (
             <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#888]" style={{ backgroundColor: "rgba(167,139,250,0.1)" }}>{val}</span>
           ))}
@@ -640,7 +646,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
       )}
       <div className={cn("grid gap-2", ex.isCardio ? "grid-cols-2" : "grid-cols-3")}>
         <div>
-          <label className="mb-0.5 block text-[9px] text-[#555555]">Sets</label>
+          <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.sets}</label>
           <input type="number" value={rawSets} min={0} max={20}
             onChange={e => setRawSets(e.target.value)}
             onBlur={() => commitNum("sets", rawSets, 20)}
@@ -648,7 +654,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
         </div>
         {ex.isCardio ? (
           <div>
-            <label className="mb-0.5 block text-[9px] text-[#555555]">Duration (min)</label>
+            <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.durationMin}</label>
             <input type="number" value={rawReps} min={0} max={999}
               onChange={e => setRawReps(e.target.value)}
               onBlur={() => commitNum("reps", rawReps, 999)}
@@ -657,14 +663,14 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
         ) : (
           <>
             <div>
-              <label className="mb-0.5 block text-[9px] text-[#555555]">Reps</label>
+              <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.reps}</label>
               <input type="number" value={rawReps} min={0} max={999}
                 onChange={e => setRawReps(e.target.value)}
                 onBlur={() => commitNum("reps", rawReps, 999)}
                 className={inputCls} />
             </div>
             <div>
-              <label className="mb-0.5 block text-[9px] text-[#555555]">Weight (kg)</label>
+              <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.weightKg}</label>
               <input type="number" value={rawWeight} min={0} max={1000}
                 onChange={e => setRawWeight(e.target.value)}
                 onBlur={() => commitNum("weight", rawWeight, 1000)}
@@ -673,7 +679,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
           </>
         )}
       </div>
-      <input type="text" value={ex.notes} onChange={e => onChange(ex.id, "notes", e.target.value)} placeholder="Notes (optional)"
+      <input type="text" value={ex.notes} onChange={e => onChange(ex.id, "notes", e.target.value)} placeholder={t.programs.notesOpt}
         className="mt-2 w-full rounded-lg border border-white/[0.06] bg-transparent px-2 py-1.5 text-[10px] text-[#888888] placeholder:text-[#333] focus:outline-none" />
     </div>
   )
@@ -685,6 +691,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
   open: boolean; onOpenChange: (v: boolean) => void
   programId: number; programColor: string; onCreated: () => void
 }) {
+  const { t } = useT()
   const user = getUserInfo()
   const [name, setName] = useState(""); const [description, setDescription] = useState("")
   const [exercises, setExercises] = useState<BuilderEx[]>([])
@@ -694,7 +701,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
   useEffect(() => { if (!open) setPickerTargetId(null) }, [open])
 
   const addEx = () => { const id = `ex-${Date.now()}`; setExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }]); setPickerTargetId(id) }
-  const updateEx = (id: string, field: keyof BuilderEx, value: string | number) => setExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
+  const updateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) => setExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
   const removeEx = (id: string) => setExercises(p => p.filter(e => e.id !== id))
   const handlePickEx = ({ name: n, isCardio }: { name: string; isCardio: boolean }) => {
     if (!pickerTargetId) return
@@ -734,30 +741,30 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
               <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${programColor}18` }}>
                 <ClipboardList className="h-5 w-5" style={{ color: programColor }} />
               </div>
-              <SheetTitle className="text-lg font-bold text-white">New Workout</SheetTitle>
+              <SheetTitle className="text-lg font-bold text-white">{t.programs.newWorkoutTitle}</SheetTitle>
             </div>
             {/* Sheet renders its own close button */}
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
             {saveError && <div className="flex items-center gap-2 rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-4 py-3 text-sm text-[#ff4444]"><AlertCircle className="h-4 w-4 shrink-0" />{saveError}</div>}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#888888]">Workout Name</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., Upper Body Strength"
+              <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.workoutName}</label>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t.programs.placeholderWorkoutName}
                 className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#888888]">Description (optional)</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe the workout goals…" rows={2}
+              <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.descriptionOpt}</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t.programs.placeholderDescWorkout} rows={2}
                 className="w-full resize-none rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
             </div>
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <label className="text-sm font-medium text-[#888888]">Exercises ({exercises.filter(e => e.name).length})</label>
+                <label className="text-sm font-medium text-[#888888]">{t.programs.exerciseCountPlural} ({exercises.filter(e => e.name).length})</label>
                 <button onClick={addEx} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
-                  style={{ backgroundColor: `${programColor}18`, color: programColor }}><Plus className="h-3.5 w-3.5" /> Add Exercise</button>
+                  style={{ backgroundColor: `${programColor}18`, color: programColor }}><Plus className="h-3.5 w-3.5" /> {t.programs.addExercise}</button>
               </div>
               {exercises.length === 0
-                ? <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.10] py-8 text-sm text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> Add your first exercise</button>
+                ? <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.10] py-8 text-sm text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> {t.programs.addFirstExercise}</button>
                 : <div className="space-y-3">
                     {exercises.map((e, i) => (
                       <div key={e.id}>
@@ -766,23 +773,23 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
                             <button onClick={() => updateEx(e.id, "isSuperset", !e.isSuperset)} 
                               className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", e.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
                               <Link className="h-3 w-3" />
-                              {e.isSuperset ? "BI-SERIE" : "Link"}
+                              {e.isSuperset ? t.programs.biSerie : t.programs.link}
                             </button>
                           </div>
                         )}
                         <BuilderRow ex={e} index={i} onChange={updateEx} onRemove={removeEx} onPick={id => setPickerTargetId(id)} />
                       </div>
                     ))}
-                    <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> Add Exercise</button>
+                    <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> {t.programs.addExercise}</button>
                   </div>}
             </div>
           </div>
           <div className="flex gap-3 border-t border-white/[0.08] px-6 py-4">
-            <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-3 font-medium text-white hover:bg-[#1c2128]">Cancel</button>
+            <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-3 font-medium text-white hover:bg-[#1c2128]">{t.programs.cancel}</button>
             <button onClick={handleSave} disabled={!name.trim() || saving}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 font-bold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: programColor }}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? "Saving…" : "Save Workout"}
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? t.programs.saving : t.programs.saveWorkout}
             </button>
           </div>
         </SheetContent>
@@ -800,6 +807,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
   open: boolean; onOpenChange: (v: boolean) => void
   programFolderId?: number; editPlan?: TrainingPlan | null; onSaved: (plan: TrainingPlan) => void
 }) {
+  const { t } = useT()
   const user = getUserInfo()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -899,7 +907,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/10">
               <CalendarDays className="h-5 w-5 text-[#a78bfa]" />
             </div>
-            <SheetTitle className="text-lg font-bold text-white">{editPlan ? "Edit Training Plan" : "New Training Plan"}</SheetTitle>
+            <SheetTitle className="text-lg font-bold text-white">{editPlan ? t.programs.editPlanTitle : t.programs.newPlanTitle}</SheetTitle>
           </div>
           {/* Sheet renders its own close button */}
         </SheetHeader>
@@ -909,35 +917,35 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
           {/* Name */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#888888]">Plan Name</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., 4-Week Hypertrophy Block"
+            <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.planName}</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t.programs.placeholderPlanName}
               className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
           </div>
 
           {/* Description */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#888888]">Description (optional)</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Goals, notes…" rows={2}
+            <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.descriptionOpt}</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t.programs.placeholderDescPlan} rows={2}
               className="w-full resize-none rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
           </div>
 
           {/* Duration + Reusable */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#888888]">Duration (weeks)</label>
+              <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.durationWeeks}</label>
               <select value={durationWeeks} onChange={e => setDurationWeeks(Number(e.target.value))}
                 className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white focus:border-[#a78bfa]/50 focus:outline-none">
-                {[1,2,3,4,6,8,10,12,16,20,24].map(n => <option key={n} value={n}>{n} week{n !== 1 ? "s" : ""}</option>)}
+                {[1,2,3,4,6,8,10,12,16,20,24].map(n => <option key={n} value={n}>{n} {n === 1 ? t.programs.week : t.programs.weeks}</option>)}
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#888888]">Type</label>
+              <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.type}</label>
               <button onClick={() => setIsReusable(r => !r)}
                 className={cn("flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
                   isReusable ? "border-[#a78bfa]/40 bg-[#a78bfa]/10" : "border-white/[0.08] bg-[#161b22]")}>
                 <div>
-                  <p className={cn("text-sm font-medium", isReusable ? "text-[#a78bfa]" : "text-[#888888]")}>{isReusable ? "Template" : "One-time"}</p>
-                  <p className="text-[10px] text-[#555555]">{isReusable ? "Assign to many" : "Single use"}</p>
+                  <p className={cn("text-sm font-medium", isReusable ? "text-[#a78bfa]" : "text-[#888888]")}>{isReusable ? t.programs.template : t.programs.oneTime}</p>
+                  <p className="text-[10px] text-[#555555]">{isReusable ? t.programs.assignToMany : t.programs.singleUse}</p>
                 </div>
                 <div className={cn("h-4 w-4 rounded-full border-2 transition-colors", isReusable ? "border-[#a78bfa] bg-[#a78bfa]" : "border-[#555555]")} />
               </button>
@@ -947,8 +955,8 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
           {/* Weekly schedule */}
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <label className="text-sm font-medium text-[#888888]">Weekly Schedule</label>
-              <span className="text-xs text-[#555555]">{scheduledDays} training day{scheduledDays !== 1 ? "s" : ""} / week</span>
+              <label className="text-sm font-medium text-[#888888]">{t.programs.weeklySchedule}</label>
+              <span className="text-xs text-[#555555]">{scheduledDays} {t.programs.trainingDaysPerWeek}</span>
             </div>
 
             {loadingWk && (
@@ -981,11 +989,11 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
                             pickerForDay === day && "border-[#a78bfa]/50"
                           )}
                         >
-                          <span className="truncate">{assigned ? assigned.workoutName : "Select workout…"}</span>
+                          <span className="truncate">{assigned ? assigned.workoutName : t.programs.selectWorkout}</span>
                           <ChevronRight className="ml-1 h-3.5 w-3.5 shrink-0 text-[#555555]" />
                         </button>
                       ) : (
-                        <span className="flex-1 text-sm text-[#444]">Rest</span>
+                        <span className="flex-1 text-sm text-[#444]">{t.programs.rest}</span>
                       )}
                     </div>
                   )
@@ -996,10 +1004,10 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
         </div>
 
         <div className="flex gap-3 border-t border-white/[0.08] px-6 py-4">
-          <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-3 font-medium text-white hover:bg-[#1c2128]">Cancel</button>
+          <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-3 font-medium text-white hover:bg-[#1c2128]">{t.programs.cancel}</button>
           <button onClick={handleSave} disabled={!canSave || saving}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? "Saving…" : "Save Plan"}
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? t.programs.saving : t.programs.savePlan}
           </button>
         </div>
       </SheetContent>
@@ -1024,6 +1032,7 @@ interface AssignTrainee { id: number; name: string; email: string }
 function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   plan: TrainingPlan; open: boolean; onOpenChange: (v: boolean) => void; onAssigned: () => void
 }) {
+  const { t } = useT()
   const user = getUserInfo()
   const [trainees, setTrainees] = useState<AssignTrainee[]>([])
   const [traineeSearch, setTraineeSearch] = useState("")
@@ -1177,7 +1186,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
 
               return {
                 name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: targetWeight,
-                weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: 60, notes: ex.notes ?? "", exerciseOrder: i,
+                weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: ex.restTime ?? ex.rest_time ?? 60, notes: ex.notes ?? "", exerciseOrder: i,
                 track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
               };
             }),
@@ -1202,8 +1211,8 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 <CalendarDays className="h-5 w-5 text-[#a78bfa]" />
               </div>
               <div>
-                <SheetTitle className="text-lg font-bold text-white">Assign & Customize Plan</SheetTitle>
-                <p className="text-xs text-[#555555]">Personalize the template for this specific assignment</p>
+                <SheetTitle className="text-lg font-bold text-white">{t.programs.assignAndCustomize}</SheetTitle>
+                <p className="text-xs text-[#555555]">{t.programs.assignSubtitle}</p>
               </div>
             </div>
           </SheetHeader>
@@ -1213,43 +1222,43 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             <div className="w-80 shrink-0 border-r border-white/[0.08] flex flex-col bg-[#161b22]">
               <div className="flex-1 overflow-y-auto p-5 space-y-6">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-white">Select Trainee</label>
+                  <label className="mb-2 block text-sm font-medium text-white">{t.programs.selectTrainee}</label>
                   <div className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" />
-                    <input value={traineeSearch} onChange={e => setTraineeSearch(e.target.value)} placeholder="Search trainees…"
+                    <input value={traineeSearch} onChange={e => setTraineeSearch(e.target.value)} placeholder={t.programs.searchTrainees}
                       className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] py-2.5 pl-9 pr-4 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
                   </div>
                   <div className="max-h-48 space-y-2 overflow-y-auto">
-                    {filteredTrainees.map(t => (
-                      <button key={t.id} onClick={() => setSelectedTrainee(t)}
+                    {filteredTrainees.map(t_item => (
+                      <button key={t_item.id} onClick={() => setSelectedTrainee(t_item)}
                         className={cn("flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-all",
-                          selectedTrainee?.id === t.id ? "border-[#a78bfa]/40 bg-[#a78bfa]/10" : "border-white/[0.06] bg-[#0a0a0f] hover:border-white/[0.12]")}>
+                          selectedTrainee?.id === t_item.id ? "border-[#a78bfa]/40 bg-[#a78bfa]/10" : "border-white/[0.06] bg-[#0a0a0f] hover:border-white/[0.12]")}>
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#a78bfa]/30 to-[#00ffff]/20 text-[10px] font-bold text-[#a78bfa]">
-                          {t.name.slice(0, 2).toUpperCase()}
+                          {t_item.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="truncate text-sm font-medium text-white">{t.name}</span>
-                        {selectedTrainee?.id === t.id && <Check className="ml-auto h-4 w-4 text-[#a78bfa]" />}
+                        <span className="truncate text-sm font-medium text-white">{t_item.name}</span>
+                        {selectedTrainee?.id === t_item.id && <Check className="ml-auto h-4 w-4 text-[#a78bfa]" />}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-white">Start Date</label>
+                  <label className="mb-2 block text-sm font-medium text-white">{t.programs.startDate}</label>
                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-2.5 text-white focus:border-[#a78bfa]/50 focus:outline-none [color-scheme:dark]" />
-                  <p className="mt-1.5 text-xs text-[#555555] leading-snug">Plan starts from the week containing this date. Workouts scheduled on days before it will be skipped for the first week.</p>
+                  <p className="mt-1.5 text-xs text-[#555555] leading-snug">{t.programs.startDateHint}</p>
                 </div>
                 <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
-                  <p className="text-sm font-medium text-white">Plan Details</p>
-                  <p className="mt-1 text-xs text-[#888888]">Name: {plan.name}</p>
-                  <p className="text-xs text-[#888888]">Duration: {plan.durationWeeks} Weeks</p>
+                  <p className="text-sm font-medium text-white">{t.programs.planDetails}</p>
+                  <p className="mt-1 text-xs text-[#888888]">{t.programs.planName}: {plan.name}</p>
+                  <p className="text-xs text-[#888888]">{t.programs.durationWeeks}: {plan.durationWeeks} {plan.durationWeeks === 1 ? t.programs.week : t.programs.weeks}</p>
                 </div>
               </div>
               <div className="border-t border-white/[0.08] p-5">
                 <button onClick={handleAssign} disabled={!selectedTrainee || submitting}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90 disabled:opacity-40">
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {submitting ? "Assigning…" : "Confirm Assignment"}
+                  {submitting ? t.programs.assigning : t.programs.confirmAssignment}
                 </button>
               </div>
             </div>
@@ -1257,8 +1266,8 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             {/* Right Column: Weekly Timeline */}
             <div className="flex-1 flex flex-col bg-[#0a0a0f] overflow-hidden">
               <div className="p-6">
-                <h3 className="text-lg font-bold text-white mb-1">Weekly Timeline Template</h3>
-                <p className="text-sm text-[#888888] mb-6">Drag workouts between days, or click a card to tweak its exercises specifically for {selectedTrainee?.name || "this assignment"}.</p>
+                <h3 className="text-lg font-bold text-white mb-1">{t.programs.weeklyTimeline}</h3>
+                <p className="text-sm text-[#888888] mb-6">{t.programs.weeklyTimelineHint} {selectedTrainee?.name || t.programs.customize.toLowerCase()}.</p>
                 
                 <div className="grid grid-cols-7 gap-3">
                   {DAY_ORDER.map(day => {
@@ -1284,15 +1293,15 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                                   <Dumbbell className="h-3 w-3 text-[#a78bfa]" />
                                 </div>
                                 {editedExercises.has(day) && (
-                                  <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">Edited</span>
+                                  <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">{t.programs.edited}</span>
                                 )}
                               </div>
                               <p className="text-sm font-bold text-white leading-tight">{getSlotName(slot)}</p>
-                              <p className="mt-1 text-[10px] text-[#888888]">Click to edit</p>
+                              <p className="mt-1 text-[10px] text-[#888888]">{t.programs.clickToEdit}</p>
                             </div>
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-center opacity-50">
-                              <span className="text-[10px] text-[#555555]">Rest Day</span>
+                              <span className="text-[10px] text-[#555555]">{t.programs.restDay}</span>
                             </div>
                           )}
                         </div>
@@ -1320,8 +1329,8 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}>
               <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0a0a0f]">
                 <div>
-                  <h3 className="text-base font-bold text-white">Customize: {getSlotName(slot)}</h3>
-                  <p className="text-xs text-[#a78bfa]">Changes apply to all weeks in this assignment</p>
+                  <h3 className="text-base font-bold text-white">{t.programs.customize}: {getSlotName(slot)}</h3>
+                  <p className="text-xs text-[#a78bfa]">{t.programs.customizeHint}</p>
                 </div>
                 <button onClick={() => setExpandedDay(null)} className="text-[#888888] hover:text-white"><X className="h-5 w-5" /></button>
               </div>
@@ -1329,7 +1338,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 {exList.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-10 opacity-50">
                         <Dumbbell className="h-8 w-8 mb-2 text-[#555]" />
-                        <p className="text-sm text-[#888]">No exercises found in this template</p>
+                        <p className="text-sm text-[#888]">{t.programs.noExercisesFound}</p>
                     </div>
                 )}
                 {exList.map((ex: any, i: number) => (
@@ -1339,15 +1348,15 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                         <p className="text-sm font-bold text-white">{ex.name}</p>
                         {selectedTrainee && (
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">Last</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">{t.programs.last}</span>
                             {historyLoading ? (
-                              <span className="text-[9px] italic text-[#555]">Cargando...</span>
+                              <span className="text-[9px] italic text-[#555]">{t.common.loading}</span>
                             ) : lastLogsMap[ex.name] && Object.keys(lastLogsMap[ex.name]).length > 0 ? (
                               Object.entries(lastLogsMap[ex.name]).sort((a, b) => Number(a[0]) - Number(b[0])).map(([setNum, val]) => (
                                 <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#a78bfa]" style={{ backgroundColor: "rgba(167,139,250,0.1)" }}>{val}</span>
                               ))
                             ) : (
-                              <span className="text-[9px] font-medium text-[#555]">Ninguno</span>
+                              <span className="text-[9px] font-medium text-[#555]">{t.programs.none}</span>
                             )}
                           </div>
                         )}
@@ -1359,13 +1368,13 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                     </div>
                     <div className="grid grid-cols-4 gap-3">
                       {[
-                        { label: "Sets", field: "sets" as const, value: ex.sets },
-                        { label: "Reps", field: "reps" as const, value: ex.reps },
-                        { label: "Weight", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
-                        { label: "+ / Wk", field: "weightIncrement" as const, value: (ex as any).weightIncrement ?? 0 },
+                        { label: t.programs.sets, field: "sets" as const, value: ex.sets },
+                        { label: t.programs.reps, field: "reps" as const, value: ex.reps },
+                        { label: t.programs.weightKg, field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
+                        { label: "+ / " + t.programs.week.slice(0, 2).toUpperCase(), field: "weightIncrement" as const, value: (ex as any).weightIncrement ?? 0 },
                       ].map(({ label, field, value }) => (
                         <div key={field}>
-                          <label className="mb-1 block text-[10px] uppercase text-[#555555]">{label}</label>
+                          <label className="mb-1 block text-[10px] uppercase text-[#555555] truncate">{label}</label>
                           <input type="number" defaultValue={value as number} min={0}
                             onChange={e => {
                               const updated = exList.map((x, xi) => xi === i ? { ...x, [field]: parseFloat(e.target.value) || 0 } : x)
@@ -1379,7 +1388,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 ))}
               </div>
               <div className="border-t border-white/[0.08] p-5 bg-[#0a0a0f]">
-                <button onClick={() => setExpandedDay(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">Done Editing</button>
+                <button onClick={() => setExpandedDay(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">{t.programs.doneEditing}</button>
               </div>
             </SheetContent>
           </Sheet>
@@ -1394,6 +1403,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
 function PlanCard({ plan, onDelete, onAssign, onEdit }: {
   plan: TrainingPlan; onDelete: (id: string) => void; onAssign: (plan: TrainingPlan) => void; onEdit?: (plan: TrainingPlan) => void
 }) {
+  const { t } = useT()
   const scheduledDays = Object.keys(plan.schedule).map(Number).sort()
   const totalWorkouts = scheduledDays.length * plan.durationWeeks
 
@@ -1407,13 +1417,13 @@ function PlanCard({ plan, onDelete, onAssign, onEdit }: {
           </div>
           <div>
             <p className="font-bold text-white">{plan.name}</p>
-            <p className="text-xs text-[#555555]">{plan.durationWeeks} week{plan.durationWeeks !== 1 ? "s" : ""} · {totalWorkouts} workouts total</p>
+            <p className="text-xs text-[#555555]">{plan.durationWeeks} {plan.durationWeeks === 1 ? t.programs.week : t.programs.weeks} · {totalWorkouts} {t.programs.workoutsTotal}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
             plan.isReusable ? "bg-[#a78bfa]/15 text-[#a78bfa]" : "bg-white/[0.06] text-[#555555]")}>
-            {plan.isReusable ? "Template" : "One-time"}
+            {plan.isReusable ? t.programs.template : t.programs.oneTime}
           </span>
         </div>
       </div>
@@ -1438,7 +1448,7 @@ function PlanCard({ plan, onDelete, onAssign, onEdit }: {
       <div className="flex items-center gap-2">
         <button onClick={() => onAssign(plan)}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#a78bfa]/30 py-2 text-sm font-medium text-[#a78bfa] transition-colors hover:bg-[#a78bfa]/10">
-          <Users className="h-4 w-4" /> Assign to Trainee
+          <Users className="h-4 w-4" /> {t.programs.assignToTrainee}
         </button>
         {onEdit && (
           <button onClick={() => onEdit(plan)}
@@ -1462,6 +1472,7 @@ type FolderTab = "workouts" | "plans"
 function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
   program: ApiProgram; onBack: () => void; onWorkoutCountChange: (id: number, count: number) => void
 }) {
+  const { t } = useT()
   const color = program.hex_color ?? "#a78bfa"
   const [activeTab, setActiveTab] = useState<FolderTab>("workouts")
 
@@ -1530,13 +1541,13 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
         </div>
         <div className="flex-1">
           <h2 className="text-xl font-bold text-white">{program.name}</h2>
-          <p className="text-sm text-[#555555]">{workouts.length} workout{workouts.length !== 1 ? "s" : ""} · {plans.length} plan{plans.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-[#555555]">{workouts.length} {workouts.length === 1 ? t.programs.workoutCount : t.programs.workoutCountPlural} · {plans.length} {plans.length === 1 ? t.programs.planCount : t.programs.planCountPlural}</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-1">
-        {([["workouts", "Workouts", LayoutList], ["plans", "Plans", CalendarDays]] as [FolderTab, string, typeof LayoutList][]).map(([tab, label, Icon]) => (
+        {([["workouts", t.programs.workoutsTab, LayoutList], ["plans", t.programs.plansTab, CalendarDays]] as [FolderTab, string, typeof LayoutList][]).map(([tab, label, Icon]) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={cn("flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors",
               activeTab === tab ? "bg-[#161b22] text-white" : "text-[#555555] hover:text-[#888888]")}>
@@ -1552,21 +1563,22 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
             <button onClick={() => setBuilderOpen(true)}
               className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-black transition-colors hover:opacity-90"
               style={{ backgroundColor: color }}>
-              <Plus className="h-4 w-4" /> Add Workout
+              <Plus className="h-4 w-4" /> {t.programs.addWorkout}
             </button>
           </div>
-          {wError && <div className="flex items-center gap-2 rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-4 py-3 text-sm text-[#ff4444]"><AlertCircle className="h-4 w-4 shrink-0" />{wError}<button onClick={fetchWorkouts} className="ml-auto text-xs underline">Retry</button></div>}
+          {wError && <div className="flex items-center gap-2 rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-4 py-3 text-sm text-[#ff4444]"><AlertCircle className="h-4 w-4 shrink-0" />{wError}<button onClick={fetchWorkouts} className="ml-auto text-xs underline">{t.common.retry}</button></div>}
           {wLoading ? <div className="flex flex-col items-center justify-center py-20"><Loader2 className="mb-3 h-8 w-8 animate-spin text-[#555555]" /></div>
             : workouts.length === 0 && !wError ? (
               <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.08] py-16">
                 <ClipboardList className="mb-3 h-10 w-10 text-[#333]" />
-                <p className="text-sm font-medium text-[#888888]">No workouts yet</p>
-                <button onClick={() => setBuilderOpen(true)} className="mt-4 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-black hover:opacity-90" style={{ backgroundColor: color }}><Plus className="h-4 w-4" /> Add Workout</button>
+                <p className="text-sm font-medium text-[#888888]">{t.programs.noWorkoutsYet}</p>
+                <button onClick={() => setBuilderOpen(true)} className="mt-4 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-black hover:opacity-90" style={{ backgroundColor: color }}><Plus className="h-4 w-4" /> {t.programs.addWorkout}</button>
               </div>
             ) : (
               <div className="space-y-3">
                 {workouts.map(workout => {
                   const isExpanded = expandedId === workout.id
+                  const exCount = (workout.exercises ?? []).length
                   return (
                     <div key={workout.id} className="rounded-2xl border border-white/[0.08] bg-[#161b22] overflow-hidden" style={{ borderLeftWidth: "4px", borderLeftColor: color }}>
                       <button onClick={() => setExpandedId(isExpanded ? null : workout.id)}
@@ -1576,7 +1588,7 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-white">{workout.name}</p>
-                          <p className="text-xs text-[#555555]">{(workout.exercises ?? []).length} exercise{(workout.exercises ?? []).length !== 1 ? "s" : ""}</p>
+                          <p className="text-xs text-[#555555]">{exCount} {exCount === 1 ? t.programs.exerciseCount : t.programs.exerciseCountPlural}</p>
                         </div>
                         <ChevronRight className={cn("h-4 w-4 shrink-0 text-[#555555] transition-transform", isExpanded && "rotate-90")} />
                       </button>
@@ -1597,7 +1609,7 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
                             <button onClick={() => setAssigningWorkout(workout)}
                               className="flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors hover:opacity-80"
                               style={{ borderColor: `${color}40`, color }}>
-                              Assign to Trainee
+                              {t.programs.assignToTrainee}
                             </button>
                             <button onClick={() => handleDeleteWorkout(workout.id)} disabled={deletingId === workout.id}
                               className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#ff4444]/30 hover:text-[#ff4444] disabled:opacity-40">
@@ -1623,15 +1635,15 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
           <div className="flex justify-end">
             <button onClick={() => setPlanBuilderOpen(true)}
               className="flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2.5 text-sm font-bold text-black transition-colors hover:opacity-90">
-              <Plus className="h-4 w-4" /> New Plan
+              <Plus className="h-4 w-4" /> {t.programs.newPlan}
             </button>
           </div>
           {plans.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.08] py-16">
               <CalendarDays className="mb-3 h-10 w-10 text-[#333]" />
-              <p className="text-sm font-medium text-[#888888]">No plans yet</p>
-              <p className="mt-1 text-xs text-[#555555]">Create a multi-day training plan using workouts from this folder</p>
-              <button onClick={() => setPlanBuilderOpen(true)} className="mt-4 flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2 text-sm font-bold text-black hover:opacity-90"><Plus className="h-4 w-4" /> New Plan</button>
+              <p className="text-sm font-medium text-[#888888]">{t.programs.noPlansYet}</p>
+              <p className="mt-1 text-xs text-[#555555]">{t.programs.createFolderHint}</p>
+              <button onClick={() => setPlanBuilderOpen(true)} className="mt-4 flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2 text-sm font-bold text-black hover:opacity-90"><Plus className="h-4 w-4" /> {t.programs.newPlan}</button>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -1652,7 +1664,9 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
 function FolderCard({ program, onClick, onDelete }: {
   program: ApiProgram; onClick: () => void; onDelete: (id: number) => void
 }) {
+  const { t } = useT()
   const color = program.hex_color ?? "#a78bfa"
+  const wCount = program.workout_count ?? 0
   return (
     <button onClick={onClick}
       className="group flex w-full items-center gap-4 rounded-2xl border border-white/[0.08] bg-[#161b22] px-5 py-4 text-left transition-all hover:border-white/[0.15] hover:bg-[#1c222b]"
@@ -1664,7 +1678,7 @@ function FolderCard({ program, onClick, onDelete }: {
         <div className="flex items-center gap-2">
           <p className="font-bold text-white">{program.name}</p>
           <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${color}18`, color }}>
-            {program.workout_count ?? 0} workout{(program.workout_count ?? 0) !== 1 ? "s" : ""}
+            {wCount} {wCount === 1 ? t.programs.workoutCount : t.programs.workoutCountPlural}
           </span>
         </div>
       </div>
@@ -1684,6 +1698,7 @@ function FolderCard({ program, onClick, onDelete }: {
 function NewProgramDialog({ open, onOpenChange, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; onSaved: () => void
 }) {
+  const { t } = useT()
   const user = getUserInfo()
   const [name, setName] = useState(""); const [color, setColor] = useState(folderColors[0])
   const [saving, setSaving] = useState(false); const [error, setError] = useState("")
@@ -1703,19 +1718,19 @@ function NewProgramDialog({ open, onOpenChange, onSaved }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => onOpenChange(false)}>
       <div className="w-full max-w-sm rounded-2xl border border-white/[0.12] bg-[#161b22] p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white">New Program Folder</h3>
+          <h3 className="text-lg font-bold text-white">{t.programs.newProgramFolder}</h3>
           <button onClick={() => onOpenChange(false)} className="text-[#555555] hover:text-white"><X className="h-5 w-5" /></button>
         </div>
         {error && <p className="mb-3 rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-3 py-2 text-sm text-[#ff4444]">{error}</p>}
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#888888]">Folder Name</label>
+            <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.folderName}</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleSave() }}
-              placeholder="e.g., Hypertrophy Block"
+              placeholder={t.programs.placeholderFolderName}
               className="w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-4 py-2.5 text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-[#888888]">Color</label>
+            <label className="mb-2 block text-sm font-medium text-[#888888]">{t.programs.color}</label>
             <div className="flex flex-wrap gap-2">
               {folderColors.map(c => <button key={c} onClick={() => setColor(c)} className="h-7 w-7 rounded-full transition-transform hover:scale-110"
                 style={{ backgroundColor: c, outline: color === c ? `3px solid ${c}` : "none", outlineOffset: "2px" }} />)}
@@ -1723,11 +1738,11 @@ function NewProgramDialog({ open, onOpenChange, onSaved }: {
           </div>
         </div>
         <div className="mt-5 flex gap-3">
-          <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-2.5 font-medium text-white hover:bg-[#161b22]">Cancel</button>
+          <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-2.5 font-medium text-white hover:bg-[#161b22]">{t.programs.cancel}</button>
           <button onClick={handleSave} disabled={!name.trim() || saving}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ backgroundColor: color }}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? "Creating…" : "Create Folder"}
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? t.programs.creating : t.programs.createFolderBtn}
           </button>
         </div>
       </div>
@@ -1738,6 +1753,7 @@ function NewProgramDialog({ open, onOpenChange, onSaved }: {
 // ── Main ProgramsView ─────────────────────────────────────────────────────
 
 export function ProgramsView() {
+  const { t } = useT()
   const user = getUserInfo()
   const [programs, setPrograms] = useState<ApiProgram[]>([])
   const [loading, setLoading] = useState(false)
@@ -1786,21 +1802,21 @@ export function ProgramsView() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Program Folders</h2>
-            <p className="mt-0.5 text-sm text-[#555555]">Organize workouts into folders, then build plans from them</p>
+            <h2 className="text-xl font-bold text-white">{t.programs.title}</h2>
+            <p className="mt-0.5 text-sm text-[#555555]">{t.programs.subtitle}</p>
           </div>
           <button onClick={() => setNewProgramOpen(true)}
             className="flex items-center gap-2 rounded-xl border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-4 py-2.5 text-sm font-medium text-[#a78bfa] transition-colors hover:bg-[#a78bfa]/20">
-            <Plus className="h-4 w-4" /> New Folder
+            <Plus className="h-4 w-4" /> {t.programs.newFolder}
           </button>
         </div>
-        {error && <div className="flex items-center justify-between rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-4 py-3 text-sm text-[#ff4444]"><div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div><button onClick={fetchPrograms} className="text-xs underline">Retry</button></div>}
+        {error && <div className="flex items-center justify-between rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-4 py-3 text-sm text-[#ff4444]"><div className="flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div><button onClick={fetchPrograms} className="text-xs underline">{t.common.retry}</button></div>}
         {loading ? <div className="flex flex-col items-center justify-center py-16"><Loader2 className="mb-3 h-8 w-8 animate-spin text-[#555555]" /></div>
           : programs.length === 0 && !error ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.08] py-14">
               <Folder className="mb-3 h-10 w-10 text-[#333]" />
-              <p className="text-sm font-medium text-[#888888]">No folders yet</p>
-              <button onClick={() => setNewProgramOpen(true)} className="mt-4 flex items-center gap-2 rounded-xl border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-4 py-2 text-sm font-medium text-[#a78bfa] hover:bg-[#a78bfa]/20"><Plus className="h-4 w-4" /> New Folder</button>
+              <p className="text-sm font-medium text-[#888888]">{t.programs.noFoldersYet}</p>
+              <button onClick={() => setNewProgramOpen(true)} className="mt-4 flex items-center gap-2 rounded-xl border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-4 py-2 text-sm font-medium text-[#a78bfa] hover:bg-[#a78bfa]/20"><Plus className="h-4 w-4" /> {t.programs.newFolder}</button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1812,7 +1828,7 @@ export function ProgramsView() {
       {/* ── Divider ── */}
       <div className="flex items-center gap-4">
         <div className="h-px flex-1 bg-white/[0.06]" />
-        <span className="text-xs font-bold uppercase tracking-wider text-[#333]">Standalone Plans</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-[#333]">{t.programs.standalonePlans}</span>
         <div className="h-px flex-1 bg-white/[0.06]" />
       </div>
 
@@ -1820,20 +1836,20 @@ export function ProgramsView() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Training Plans</h2>
-            <p className="mt-0.5 text-sm text-[#555555]">Multi-day schedules that can be assigned to any trainee</p>
+            <h2 className="text-xl font-bold text-white">{t.programs.trainingPlansTitle}</h2>
+            <p className="mt-0.5 text-sm text-[#555555]">{t.programs.trainingPlansSubtitle}</p>
           </div>
           <button onClick={() => { setEditingStandalonePlan(null); setPlanBuilderOpen(true); }}
             className="flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2.5 text-sm font-bold text-black transition-colors hover:opacity-90">
-            <Plus className="h-4 w-4" /> New Plan
+            <Plus className="h-4 w-4" /> {t.programs.newPlan}
           </button>
         </div>
         {standalonePlans.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.08] py-14">
             <CalendarDays className="mb-3 h-10 w-10 text-[#333]" />
-            <p className="text-sm font-medium text-[#888888]">No standalone plans yet</p>
-            <p className="mt-1 text-xs text-[#555555]">Plans inside folders also appear in the folder's Plans tab</p>
-            <button onClick={() => { setEditingStandalonePlan(null); setPlanBuilderOpen(true); }} className="mt-4 flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2 text-sm font-bold text-black hover:opacity-90"><Plus className="h-4 w-4" /> New Plan</button>
+            <p className="text-sm font-medium text-[#888888]">{t.programs.noStandalonePlansYet}</p>
+            <p className="mt-1 text-xs text-[#555555]">{t.programs.plansInsideFoldersHint}</p>
+            <button onClick={() => { setEditingStandalonePlan(null); setPlanBuilderOpen(true); }} className="mt-4 flex items-center gap-2 rounded-xl bg-[#a78bfa] px-4 py-2 text-sm font-bold text-black hover:opacity-90"><Plus className="h-4 w-4" /> {t.programs.newPlan}</button>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
