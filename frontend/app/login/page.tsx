@@ -77,6 +77,7 @@ export default function LoginPage() {
         g.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredential,
+          use_fedcm_for_prompt: true,
         })
       } else if (attempts < 20) {
         attempts++
@@ -90,11 +91,7 @@ export default function LoginPage() {
     const g = (window as any).google
     if (!g) { setError("Google Sign-In not ready, please refresh."); return }
     g.accounts.id.cancel()
-    g.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        setError("Google sign-in was blocked by your browser. Please allow pop-ups for this site and try again.")
-      }
-    })
+    g.accounts.id.prompt()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
