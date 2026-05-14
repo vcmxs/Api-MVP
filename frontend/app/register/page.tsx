@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { setAuth, API_URL } from '@/lib/api';
 
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "").trim();
 
 export default function RegisterPage() {
   const { t } = useT();
