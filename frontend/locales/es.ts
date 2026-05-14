@@ -637,6 +637,46 @@ const es: TranslationKeys = {
     errorPasswordMismatch: "Las contraseñas no coinciden.",
     errorPasswordShort: "La contraseña debe tener al menos 6 caracteres."
   },
+
+  // ── Notifications View & Formatting ───────────────────────────────────────
+  notificationsView: {
+    title: "Notificaciones",
+    unread: "sin leer",
+    markAllRead: "Marcar todo como leído",
+    clearAll: "Borrar todo",
+    loading: "Cargando notificaciones...",
+    emptyState: "Aún no hay notificaciones.",
+    clearDialogTitle: "Borrar todas las notificaciones",
+    clearDialogDesc: "¿Estás seguro de que deseas borrar todas las notificaciones? Esta acción no se puede deshacer.",
+    deleteAll: "Borrar todo",
+    // Time ago
+    justNow: "Justo ahora",
+    minutesAgo: "m",
+    hoursAgo: "h",
+    yesterday: "Ayer",
+    daysAgo: "d",
+    // Formatting templates
+    workoutCompletedTitle: "Rutina Completada",
+    workoutCompletedBodyWithWorkout: "{name} completó la rutina: {workoutName}",
+    workoutCompletedBodyNamed: "{name} completó una rutina",
+    workoutCompletedBodyAnon: "Un alumno completó una rutina",
+    workoutAssignedTitle: "Rutina Asignada",
+    workoutAssignedBodyNamed: "{name} te asignó una nueva rutina: {workoutName}",
+    workoutAssignedBodyWorkout: "Nueva rutina asignada: {workoutName}",
+    workoutAssignedBodyAnon: "Se asignó una nueva rutina",
+    subExpiringTitle: "Suscripción por Expirar",
+    subExpiringBodyNamed: "La suscripción de {name} expira pronto",
+    subExpiringBodyAnon: "La suscripción de un alumno expira pronto",
+    subExpiredTitle: "Suscripción Expirada",
+    subExpiredBodyNamed: "La suscripción de {name} ha expirado",
+    subExpiredBodyAnon: "La suscripción de un alumno ha expirado",
+    blastTitle: "Mensaje Masivo",
+    blastBodyDefault: "Se envió un mensaje masivo",
+    newTraineeTitle: "Nuevo Alumno",
+    newTraineeBodyNamed: "{name} se unió como nuevo alumno",
+    newTraineeBodyAnon: "Un nuevo alumno se unió",
+    notificationFallback: "Notificación",
+  },
 }
 
 export default es

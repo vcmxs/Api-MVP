@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
 import { formatNotification } from "@/lib/notifications"
+import { useT } from "@/lib/i18n"
 
 // ── API types ─────────────────────────────────────────────────────────────
 
@@ -36,22 +37,24 @@ function getConfig(type: string): { accentColor: string; icon: React.ReactNode }
   return { accentColor: "#888888", icon: <Bell className="h-4 w-4" /> }
 }
 
-function timeAgo(dateStr?: string): string {
+function timeAgo(dateStr?: string, t?: any): string {
   if (!dateStr) return ""
   const diff = Date.now() - new Date(dateStr).getTime()
   const m = Math.floor(diff / 60000)
-  if (m < 1) return "Just now"
-  if (m < 60) return `${m}m ago`
+  const nv = t?.notificationsView
+  if (m < 1) return nv?.justNow || "Just now"
+  if (m < 60) return `${m}${nv?.minutesAgo || "m ago"}`
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
+  if (h < 24) return `${h}${nv?.hoursAgo || "h ago"}`
   const d = Math.floor(h / 24)
-  if (d === 1) return "Yesterday"
-  return `${d}d ago`
+  if (d === 1) return nv?.yesterday || "Yesterday"
+  return `${d}${nv?.daysAgo || "d ago"}`
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
 
 export function NotificationsView() {
+  const { t } = useT()
   const [notifications, setNotifications] = useState<ApiNotification[]>([])
   const [loading, setLoading] = useState(false)
   const [showClearDialog, setShowClearDialog] = useState(false)
@@ -104,16 +107,16 @@ export function NotificationsView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white">Notifications</h2>
+          <h2 className="text-xl font-bold text-white">{t.notificationsView?.title || "Notifications"}</h2>
           {unreadCount > 0 && (
-            <p className="text-sm text-[#888888]">{unreadCount} unread</p>
+            <p className="text-sm text-[#888888]">{unreadCount} {t.notificationsView?.unread || "unread"}</p>
           )}
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={fetchNotifications}
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-[#161b22] text-[#888888] transition-colors hover:text-white"
-            title="Refresh"
+            title={t.common?.refresh || "Refresh"}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -123,7 +126,7 @@ export function NotificationsView() {
             className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-2.5 text-sm font-medium text-[#888888] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check className="h-4 w-4" />
-            Mark All Read
+            {t.notificationsView?.markAllRead || "Mark All Read"}
           </button>
           <button
             onClick={() => setShowClearDialog(true)}
@@ -131,7 +134,7 @@ export function NotificationsView() {
             className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-2.5 text-sm font-medium text-[#ff4444] transition-colors hover:bg-[#ff4444]/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
-            Clear All
+            {t.notificationsView?.clearAll || "Clear All"}
           </button>
         </div>
       </div>
@@ -140,23 +143,23 @@ export function NotificationsView() {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#555555]" />
-          <p className="text-sm text-[#555555]">Loading notifications...</p>
+          <p className="text-sm text-[#555555]">{t.notificationsView?.loading || "Loading notifications..."}</p>
         </div>
       ) : notifications.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-[#161b22] py-20">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(136,136,136,0.15)" }}>
             <Bell className="h-8 w-8 text-[#555555]" />
           </div>
-          <p className="text-lg font-medium text-[#888888]">No notifications yet.</p>
+          <p className="text-lg font-medium text-[#888888]">{t.notificationsView?.emptyState || "No notifications yet."}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {notifications.map((n) => {
             const config = getConfig(n.type)
             const isHovered = hoveredId === n.id
-            const timestamp = timeAgo(n.createdAt ?? n.created_at)
+            const timestamp = timeAgo(n.createdAt ?? n.created_at, t)
 
-            const fmt = formatNotification(n)
+            const fmt = formatNotification(n, t)
             return (
               <div
                 key={n.id}
@@ -209,9 +212,9 @@ export function NotificationsView() {
       <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
         <DialogContent className="border-[#00ffff]/30 bg-[#161b22] text-white sm:max-w-md" style={{ borderWidth: "1px" }}>
           <DialogHeader>
-            <DialogTitle className="text-white">Clear All Notifications</DialogTitle>
+            <DialogTitle className="text-white">{t.notificationsView?.clearDialogTitle || "Clear All Notifications"}</DialogTitle>
             <DialogDescription className="text-[#888888]">
-              Are you sure you want to clear all notifications? This action cannot be undone.
+              {t.notificationsView?.clearDialogDesc || "Are you sure you want to clear all notifications? This action cannot be undone."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-3 sm:gap-3">
@@ -219,13 +222,13 @@ export function NotificationsView() {
               onClick={() => setShowClearDialog(false)}
               className="flex-1 rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#1c2128]"
             >
-              Cancel
+              {t.common?.cancel || "Cancel"}
             </button>
             <button
               onClick={handleClearAll}
               className="flex-1 rounded-xl bg-[#ff4444] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#ff4444]/90"
             >
-              Delete All
+              {t.notificationsView?.deleteAll || "Delete All"}
             </button>
           </DialogFooter>
         </DialogContent>

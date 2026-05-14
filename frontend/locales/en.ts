@@ -635,6 +635,46 @@ const en = {
     errorPasswordMismatch: "Passwords do not match.",
     errorPasswordShort: "Password must be at least 6 characters."
   },
+
+  // ── Notifications View & Formatting ───────────────────────────────────────
+  notificationsView: {
+    title: "Notifications",
+    unread: "unread",
+    markAllRead: "Mark All Read",
+    clearAll: "Clear All",
+    loading: "Loading notifications...",
+    emptyState: "No notifications yet.",
+    clearDialogTitle: "Clear All Notifications",
+    clearDialogDesc: "Are you sure you want to clear all notifications? This action cannot be undone.",
+    deleteAll: "Delete All",
+    // Time ago
+    justNow: "Just now",
+    minutesAgo: "m ago",
+    hoursAgo: "h ago",
+    yesterday: "Yesterday",
+    daysAgo: "d ago",
+    // Formatting templates
+    workoutCompletedTitle: "Workout Completed",
+    workoutCompletedBodyWithWorkout: "{name} completed the workout: {workoutName}",
+    workoutCompletedBodyNamed: "{name} completed a workout",
+    workoutCompletedBodyAnon: "A trainee completed a workout",
+    workoutAssignedTitle: "Workout Assigned",
+    workoutAssignedBodyNamed: "{name} assigned you a new workout: {workoutName}",
+    workoutAssignedBodyWorkout: "New workout assigned: {workoutName}",
+    workoutAssignedBodyAnon: "A new workout was assigned",
+    subExpiringTitle: "Subscription Expiring Soon",
+    subExpiringBodyNamed: "{name}'s subscription is expiring soon",
+    subExpiringBodyAnon: "A trainee's subscription is expiring soon",
+    subExpiredTitle: "Subscription Expired",
+    subExpiredBodyNamed: "{name}'s subscription has expired",
+    subExpiredBodyAnon: "A trainee's subscription has expired",
+    blastTitle: "Blast Message",
+    blastBodyDefault: "A blast message was sent",
+    newTraineeTitle: "New Trainee",
+    newTraineeBodyNamed: "{name} joined as a new trainee",
+    newTraineeBodyAnon: "A new trainee joined",
+    notificationFallback: "Notification",
+  },
 }
 
 export type TranslationKeys = typeof en

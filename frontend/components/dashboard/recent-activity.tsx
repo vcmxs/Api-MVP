@@ -8,8 +8,8 @@ import { formatNotification } from "@/lib/notifications"
 import type { RawNotification } from "@/lib/notifications"
 import { useT } from "@/lib/i18n"
 
-function notifToActivity(n: RawNotification) {
-  const fmt = formatNotification(n)
+function notifToActivity(n: RawNotification, t?: any) {
+  const fmt = formatNotification(n, t)
   const dateStr = n.createdAt ?? n.created_at
 
   let accentColor = "#888888"
@@ -22,13 +22,14 @@ function notifToActivity(n: RawNotification) {
   else if (n.type?.includes("blast") || n.type?.includes("message")) { accentColor = "#a78bfa"; icon = <Megaphone className="h-5 w-5" /> }
 
   let time = ""
+  const nv = t?.notificationsView
   if (dateStr) {
     const diff = Date.now() - new Date(dateStr).getTime()
     const m = Math.floor(diff / 60000)
-    if (m < 1) time = "Just now"
-    else if (m < 60) time = `${m}m ago`
-    else if (m < 1440) time = `${Math.floor(m / 60)}h ago`
-    else time = `${Math.floor(m / 1440)}d ago`
+    if (m < 1) time = nv?.justNow || "Just now"
+    else if (m < 60) time = `${m}${nv?.minutesAgo || "m ago"}`
+    else if (m < 1440) time = `${Math.floor(m / 60)}${nv?.hoursAgo || "h ago"}`
+    else time = `${Math.floor(m / 1440)}${nv?.daysAgo || "d ago"}`
   }
 
   return { id: n.id, title: fmt.title, description: fmt.body, time, accentColor, icon }
@@ -50,11 +51,11 @@ export function RecentActivity({ onViewAll }: RecentActivityProps) {
         const sorted = unread.sort(
           (a, b) => new Date(b.createdAt ?? b.created_at ?? 0).getTime() - new Date(a.createdAt ?? a.created_at ?? 0).getTime()
         )
-        setActivities(sorted.slice(0, 3).map(notifToActivity))
+        setActivities(sorted.slice(0, 3).map(n => notifToActivity(n, t)))
       })
       .catch(() => setActivities([]))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   return (
     <div className="space-y-3">

@@ -64,7 +64,7 @@ const TEMPLATES: Record<string, { title: string; body: (p: Record<string, string
   },
 }
 
-export function formatNotification(n: RawNotification): Formatted {
+export function formatNotification(n: RawNotification, t?: any): Formatted {
   const type = n.type ?? ""
 
   // Parse both fields — sometimes only one is JSON
@@ -80,18 +80,77 @@ export function formatNotification(n: RawNotification): Formatted {
   const rawTitle =
     Object.keys(titleParams).length === 0 ? (n.title ?? "") : ""
 
-  const template = TEMPLATES[type.toLowerCase()]
+  const nv = t?.notificationsView
 
-  if (template) {
-    return {
-      title: rawTitle || template.title,
-      body: rawMessage || template.body(params),
+  const lowerType = type.toLowerCase()
+  let title = rawTitle
+  let body = rawMessage
+
+  if (lowerType === "workout_completed") {
+    title = title || nv?.workoutCompletedTitle || "Workout Completed"
+    if (!body) {
+      if (params.name && params.workoutName) {
+        body = (nv?.workoutCompletedBodyWithWorkout || "{name} completed the workout: {workoutName}")
+          .replace("{name}", params.name)
+          .replace("{workoutName}", params.workoutName)
+      } else if (params.name) {
+        body = (nv?.workoutCompletedBodyNamed || "{name} completed a workout")
+          .replace("{name}", params.name)
+      } else {
+        body = nv?.workoutCompletedBodyAnon || "A trainee completed a workout"
+      }
+    }
+  } else if (lowerType === "workout_assigned") {
+    title = title || nv?.workoutAssignedTitle || "Workout Assigned"
+    if (!body) {
+      if (params.name && params.workoutName) {
+        body = (nv?.workoutAssignedBodyNamed || "{name} assigned you a new workout: {workoutName}")
+          .replace("{name}", params.name)
+          .replace("{workoutName}", params.workoutName)
+      } else if (params.workoutName) {
+        body = (nv?.workoutAssignedBodyWorkout || "New workout assigned: {workoutName}")
+          .replace("{workoutName}", params.workoutName)
+      } else {
+        body = nv?.workoutAssignedBodyAnon || "A new workout was assigned"
+      }
+    }
+  } else if (lowerType === "subscription_expiring") {
+    title = title || nv?.subExpiringTitle || "Subscription Expiring Soon"
+    if (!body) {
+      body = params.name
+        ? (nv?.subExpiringBodyNamed || "{name}'s subscription is expiring soon").replace("{name}", params.name)
+        : (nv?.subExpiringBodyAnon || "A trainee's subscription is expiring soon")
+    }
+  } else if (lowerType === "subscription_expired") {
+    title = title || nv?.subExpiredTitle || "Subscription Expired"
+    if (!body) {
+      body = params.name
+        ? (nv?.subExpiredBodyNamed || "{name}'s subscription has expired").replace("{name}", params.name)
+        : (nv?.subExpiredBodyAnon || "A trainee's subscription has expired")
+    }
+  } else if (lowerType === "blast") {
+    title = title || nv?.blastTitle || "Blast Message"
+    if (!body) {
+      body = params.message ?? params.body ?? nv?.blastBodyDefault ?? "A blast message was sent"
+    }
+  } else if (lowerType === "new_trainee") {
+    title = title || nv?.newTraineeTitle || "New Trainee"
+    if (!body) {
+      body = params.name
+        ? (nv?.newTraineeBodyNamed || "{name} joined as a new trainee").replace("{name}", params.name)
+        : (nv?.newTraineeBodyAnon || "A new trainee joined")
+    }
+  } else {
+    // Unknown template fallback
+    const template = TEMPLATES[lowerType]
+    if (template) {
+      title = title || template.title
+      body = body || template.body(params)
+    } else {
+      title = title || type || nv?.notificationFallback || "Notification"
+      body = body || (Object.keys(params).length ? Object.values(params).join(" — ") : "")
     }
   }
 
-  // Unknown type — fall back to whatever strings are available
-  return {
-    title: rawTitle || type || "Notification",
-    body: rawMessage || (Object.keys(params).length ? Object.values(params).join(" — ") : ""),
-  }
+  return { title, body }
 }
