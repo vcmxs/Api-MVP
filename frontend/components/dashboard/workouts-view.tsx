@@ -911,6 +911,7 @@ function ExercisePickerPanel({ open, onClose, onSelect, onDone }: {
     setMode("categories")
     setSelectedCat(null)
     setSearchQuery("")
+    onDone()
   }
 
   if (typeof window === "undefined") return null

@@ -1116,7 +1116,10 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     apiFetch<AssignTrainee[] | { trainees: AssignTrainee[] }>(`/coaches/${user.id}/trainees`)
       .then(d => {
         const fetched = Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])
-        const userTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
+        const endDate = user.coachSubscriptionEndDate ?? user.coach_subscription_end_date
+        const isSubExpired = endDate ? new Date(endDate).getTime() < Date.now() : false
+        const rawTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
+        const userTier = isSubExpired ? "starter" : rawTier
         const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
         const realTrainees = fetched.filter(t => t.id !== user.id).map((t, i) => ({ ...t, isOverLimit: i >= currentLimit }))
         const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "", isOverLimit: false }
