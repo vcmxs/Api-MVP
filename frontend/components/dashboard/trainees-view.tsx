@@ -129,6 +129,12 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
   const rawTier = user?.subscriptionTier ?? user?.subscription_tier ?? "starter"
   const userTier = isSubExpired ? "starter" : rawTier
   const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
+  
+  const tierColors: Record<string, string> = {
+    starter: "#888888", bronze: "#cd7f32", silver: "#c0c0c0",
+    gold: "#ffd700", olympian: "#85a9f7", platinum: "#e5e4e2",
+  }
+  const tierColor = tierColors[userTier.toLowerCase()] ?? "#888888"
 
   const traineesWithLimit = trainees.map((trainee, index) => ({
     ...trainee,
@@ -167,8 +173,15 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold text-white">{t.trainees.title}</h2>
           {!loading && (
-            <span className="rounded-full bg-white/[0.08] px-2.5 py-0.5 text-sm font-medium text-[#888888]">
-              {trainees.length}
+            <span 
+              className="rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider"
+              style={{
+                backgroundColor: `${tierColor}22`,
+                color: tierColor,
+                border: `1px solid ${tierColor}44`
+              }}
+            >
+              Plan: {userTier} {trainees.length}/{currentLimit}
             </span>
           )}
         </div>
