@@ -1227,10 +1227,10 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             </div>
           </SheetHeader>
 
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 flex-col sm:flex-row overflow-y-auto sm:overflow-hidden">
             {/* Left Column: Settings */}
-            <div className="w-80 shrink-0 border-r border-white/[0.08] flex flex-col bg-[#161b22]">
-              <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            <div className="w-full sm:w-80 shrink-0 border-b sm:border-b-0 sm:border-r border-white/[0.08] flex flex-col bg-[#161b22]">
+              <div className="flex-1 overflow-y-visible sm:overflow-y-auto p-5 space-y-6">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-white">{t.programs.selectTrainee}</label>
                   <div className="relative mb-3">
@@ -1278,50 +1278,52 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             </div>
 
             {/* Right Column: Weekly Timeline */}
-            <div className="flex-1 flex flex-col bg-[#0a0a0f] overflow-hidden">
-              <div className="p-6">
+            <div className="flex-1 flex flex-col bg-[#0a0a0f] sm:overflow-hidden">
+              <div className="p-6 overflow-y-visible sm:overflow-y-auto">
                 <h3 className="text-lg font-bold text-white mb-1">{t.programs.weeklyTimeline}</h3>
                 <p className="text-sm text-[#888888] mb-6">{t.programs.weeklyTimelineHint} {selectedTrainee?.name || t.programs.customize.toLowerCase()}.</p>
                 
-                <div className="grid grid-cols-7 gap-3">
-                  {DAY_ORDER.map(day => {
-                    const slot = localSchedule[day]
-                    const isDraggedOver = draggedDay !== null && draggedDay !== day
-                    return (
-                      <div key={day} className="flex flex-col gap-2"
-                        onDragOver={e => { e.preventDefault() }}
-                        onDrop={() => handleDrop(day)}>
-                        <div className="rounded-t-lg bg-[#161b22] py-2 text-center border-b border-[#a78bfa]/20">
-                          <span className="text-xs font-bold text-[#a78bfa]">{((t.programs as any).daysShort?.[day] || DAY_SHORT[day])}</span>
-                        </div>
-                        <div className={cn("min-h-[120px] rounded-xl border border-white/[0.08] p-2 transition-colors",
-                          !slot ? "bg-[#161b22]/50 border-dashed" : "bg-[#161b22]",
-                          isDraggedOver && "border-[#a78bfa]/50 bg-[#a78bfa]/5")}>
-                          
-                          {slot ? (
-                            <div draggable onDragStart={() => setDraggedDay(day)} onDragEnd={() => setDraggedDay(null)}
-                              onClick={() => setExpandedDay(day)}
-                              className="group relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#1c2128] p-3 shadow-md hover:border-[#a78bfa]/40 hover:bg-[#22272e] transition-all">
-                              <div className="mb-2 flex items-center justify-between">
-                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#a78bfa]/10">
-                                  <Dumbbell className="h-3 w-3 text-[#a78bfa]" />
+                <div className="overflow-x-auto pb-4">
+                  <div className="grid grid-cols-7 gap-3 min-w-[700px]">
+                    {DAY_ORDER.map(day => {
+                      const slot = localSchedule[day]
+                      const isDraggedOver = draggedDay !== null && draggedDay !== day
+                      return (
+                        <div key={day} className="flex flex-col gap-2"
+                          onDragOver={e => { e.preventDefault() }}
+                          onDrop={() => handleDrop(day)}>
+                          <div className="rounded-t-lg bg-[#161b22] py-2 text-center border-b border-[#a78bfa]/20">
+                            <span className="text-xs font-bold text-[#a78bfa]">{((t.programs as any).daysShort?.[day] || DAY_SHORT[day])}</span>
+                          </div>
+                          <div className={cn("min-h-[120px] rounded-xl border border-white/[0.08] p-2 transition-colors",
+                            !slot ? "bg-[#161b22]/50 border-dashed" : "bg-[#161b22]",
+                            isDraggedOver && "border-[#a78bfa]/50 bg-[#a78bfa]/5")}>
+                            
+                            {slot ? (
+                              <div draggable onDragStart={() => setDraggedDay(day)} onDragEnd={() => setDraggedDay(null)}
+                                onClick={() => setExpandedDay(day)}
+                                className="group relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#1c2128] p-3 shadow-md hover:border-[#a78bfa]/40 hover:bg-[#22272e] transition-all">
+                                <div className="mb-2 flex items-center justify-between">
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#a78bfa]/10">
+                                    <Dumbbell className="h-3 w-3 text-[#a78bfa]" />
+                                  </div>
+                                  {editedExercises.has(day) && (
+                                    <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">{t.programs.edited}</span>
+                                  )}
                                 </div>
-                                {editedExercises.has(day) && (
-                                  <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">{t.programs.edited}</span>
-                                )}
+                                <p className="text-sm font-bold text-white leading-tight">{getSlotName(slot)}</p>
+                                <p className="mt-1 text-[10px] text-[#888888]">{t.programs.clickToEdit}</p>
                               </div>
-                              <p className="text-sm font-bold text-white leading-tight">{getSlotName(slot)}</p>
-                              <p className="mt-1 text-[10px] text-[#888888]">{t.programs.clickToEdit}</p>
-                            </div>
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-center opacity-50">
-                              <span className="text-[10px] text-[#555555]">{t.programs.restDay}</span>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-center opacity-50">
+                                <span className="text-[10px] text-[#555555]">{t.programs.restDay}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
