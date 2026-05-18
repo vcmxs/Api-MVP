@@ -13,6 +13,10 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
 
+const TIER_LIMITS: Record<string, number> = {
+  starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface ExistingWorkout {
@@ -41,6 +45,7 @@ interface Trainee {
   name: string
   email: string
   subscriptionTier?: string
+  isOverLimit?: boolean
 }
 
 interface BuilderExercise {
@@ -129,6 +134,7 @@ function ExPickerPanel({ open, onClose, onSelect, onDone }: {
   const pick = (ex: ExSuggestion) => {
     onSelect({ name: ex.name, isCardio: isCardioEx(ex) })
     setMode("categories"); setSelectedCat(null); setSearchQ("")
+    onDone()
   }
 
   if (typeof window === "undefined") return null
@@ -352,8 +358,17 @@ export function AssignWorkoutModal({
     try {
       const data = await apiFetch<Trainee[] | { trainees: Trainee[] }>(`/coaches/${user.id}/trainees`)
       const fetched = Array.isArray(data) ? data : ((data as { trainees: Trainee[] }).trainees ?? [])
-      const meAsTrainee: Trainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
-      setTrainees([meAsTrainee, ...fetched.filter(t => t.id !== user.id)])
+      
+      const userTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
+      const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
+      
+      const realTrainees = fetched.filter(t => t.id !== user.id).map((t, i) => ({
+        ...t,
+        isOverLimit: i >= currentLimit
+      }))
+      
+      const meAsTrainee: Trainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "", isOverLimit: false }
+      setTrainees([meAsTrainee, ...realTrainees])
     } catch (e) {
       const meAsTrainee: Trainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
       setTrainees([meAsTrainee])
@@ -783,15 +798,16 @@ export function AssignWorkoutModal({
                       const initials = t.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
                       const color = tierColor[t.subscriptionTier ?? ""] ?? "#888888"
                       return (
-                        <button key={t.id} onClick={() => setSelectedTrainee(t)}
+                        <button key={t.id} onClick={() => { if (!t.isOverLimit) setSelectedTrainee(t) }}
                           className={cn("flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all",
+                            t.isOverLimit ? "opacity-60 cursor-not-allowed border-white/[0.08] bg-[#161b22]" :
                             selectedTrainee?.id === t.id ? "border-[#00ffff]/50 bg-[#00ffff]/10" : "border-white/[0.08] bg-[#0a0a0f] hover:border-white/[0.15]")}>
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#00ffff]/30 to-[#00ff88]/30 text-sm font-bold text-[#00ffff]">
                             {initials}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="truncate font-medium text-white">{t.name}</p>
+                              <p className="truncate font-medium text-white">{t.name} {t.isOverLimit && "(Locked 🔒)"}</p>
                               {t.subscriptionTier && (
                                 <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" style={{ backgroundColor: `${color}20`, color }}>{t.subscriptionTier}</span>
                               )}

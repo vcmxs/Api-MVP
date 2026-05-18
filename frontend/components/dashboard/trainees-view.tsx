@@ -11,6 +11,15 @@ import {
 } from "@/components/ui/dialog"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
+
+const TIER_LIMITS: Record<string, number> = {
+  starter: 1,
+  bronze: 4,
+  silver: 10,
+  gold: 25,
+  olympian: 999
+}
 
 export interface ApiTrainee {
   id: number
@@ -25,9 +34,10 @@ export interface ApiTrainee {
   status?: string
   coach_subscription_status?: string
   coach_subscription_end_date?: string
+  isOverLimit?: boolean
 }
 
-function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () => void }) {
+function TraineeCard({ trainee, onClick, isOverLimit }: { trainee: ApiTrainee; onClick: () => void; isOverLimit?: boolean }) {
   const { t } = useT()
   const isBlocked = trainee.status === "blocked"
   
@@ -45,15 +55,15 @@ function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () =>
 
   return (
     <button
-      onClick={onClick}
-      className="group flex w-full items-center justify-between rounded-2xl border border-white/[0.08] bg-[#161b22] p-4 text-left transition-all hover:border-white/[0.15] hover:bg-[#1c222b]"
+      onClick={() => { if (!isOverLimit) onClick() }}
+      className={cn("group flex w-full items-center justify-between rounded-2xl border border-white/[0.08] bg-[#161b22] p-4 text-left transition-all", isOverLimit ? "opacity-60 cursor-not-allowed" : "hover:border-white/[0.15] hover:bg-[#1c222b]")}
     >
       <div className="flex items-center gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#00ffff]/20 to-[#00ff88]/20 text-sm font-bold text-[#00ffff]">
           {trainee.name.split(" ").map((n) => n[0]).join("")}
         </div>
         <div>
-          <h3 className="text-lg font-bold text-white">{trainee.name}</h3>
+          <h3 className="text-lg font-bold text-white">{trainee.name} {isOverLimit && "(Locked 🔒)"}</h3>
           <p className="text-sm text-[#888888]">{trainee.email}</p>
           {trainee.gym && <p className="mt-0.5 text-xs text-[#555555]">{trainee.gym}</p>}
         </div>
@@ -62,12 +72,13 @@ function TraineeCard({ trainee, onClick }: { trainee: ApiTrainee; onClick: () =>
       <div className="flex flex-col items-end gap-1.5">
         <div
           className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${
+            isOverLimit ? "bg-[#ff4444]/15 text-[#ff4444]" :
             isBlocked || isExpired || isInactive
               ? "bg-[#ff4444]/15 text-[#ff4444]"
               : "bg-[#00ff88]/15 text-[#00ff88]"
           }`}
         >
-          {isBlocked ? t.trainees.blocked : isExpired ? "Expired" : isInactive ? "Inactive" : t.trainees.active}
+          {isOverLimit ? "Locked" : isBlocked ? t.trainees.blocked : isExpired ? "Expired" : isInactive ? "Inactive" : t.trainees.active}
         </div>
         {trainee.subscriptionTier && (
           <span className="text-xs text-[#555555] uppercase tracking-wider">
@@ -113,10 +124,18 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
     fetchTrainees()
   }, [fetchTrainees])
 
-  const filteredTrainees = trainees.filter(
-    (t) =>
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const userTier = user?.subscriptionTier ?? user?.subscription_tier ?? "starter"
+  const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
+
+  const traineesWithLimit = trainees.map((trainee, index) => ({
+    ...trainee,
+    isOverLimit: index >= currentLimit
+  }))
+
+  const filteredTrainees = traineesWithLimit.filter(
+    (tr) =>
+      tr.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tr.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleAddTrainee = async () => {
@@ -223,6 +242,7 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
             <TraineeCard
               key={trainee.id}
               trainee={trainee}
+              isOverLimit={trainee.isOverLimit}
               onClick={() => onSelectTrainee?.(trainee)}
             />
           ))}

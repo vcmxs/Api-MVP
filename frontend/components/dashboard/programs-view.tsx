@@ -253,7 +253,7 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
     } catch { setCatExs([]) } finally { setCatLoading(false) }
   }
 
-  const pick = (ex: ExSuggestion) => { onSelect({ name: ex.name, isCardio: isCardioEx(ex) }); setMode("categories"); setSelectedCat(null); setSearchQ("") }
+  const pick = (ex: ExSuggestion) => { onSelect({ name: ex.name, isCardio: isCardioEx(ex) }); setMode("categories"); setSelectedCat(null); setSearchQ(""); onDone() }
 
   if (typeof window === "undefined") return null
   return createPortal(
@@ -1027,7 +1027,11 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
 // ── Assign Plan Modal ─────────────────────────────────────────────────────
 
-interface AssignTrainee { id: number; name: string; email: string }
+interface AssignTrainee { id: number; name: string; email: string; isOverLimit?: boolean }
+
+const TIER_LIMITS: Record<string, number> = {
+  starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
+}
 
 function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   plan: TrainingPlan; open: boolean; onOpenChange: (v: boolean) => void; onAssigned: () => void
@@ -1112,11 +1116,14 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     apiFetch<AssignTrainee[] | { trainees: AssignTrainee[] }>(`/coaches/${user.id}/trainees`)
       .then(d => {
         const fetched = Array.isArray(d) ? d : ((d as { trainees: AssignTrainee[] }).trainees ?? [])
-        const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
-        setTrainees([meAsTrainee, ...fetched.filter(t => t.id !== user.id)])
+        const userTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
+        const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
+        const realTrainees = fetched.filter(t => t.id !== user.id).map((t, i) => ({ ...t, isOverLimit: i >= currentLimit }))
+        const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "", isOverLimit: false }
+        setTrainees([meAsTrainee, ...realTrainees])
       })
       .catch(() => {
-        const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "" }
+        const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "", isOverLimit: false }
         setTrainees([meAsTrainee])
       })
       
@@ -1198,7 +1205,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     } catch (e) { alert("Failed to assign plan") } finally { setSubmitting(false) }
   }
 
-  const filteredTrainees = trainees.filter(t => t.name.toLowerCase().includes(traineeSearch.toLowerCase()))
+  const filteredTrainees = trainees.filter(tr => tr.name.toLowerCase().includes(traineeSearch.toLowerCase()))
 
   return (
     <>
@@ -1230,14 +1237,18 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                   </div>
                   <div className="max-h-48 space-y-2 overflow-y-auto">
                     {filteredTrainees.map(t_item => (
-                      <button key={t_item.id} onClick={() => setSelectedTrainee(t_item)}
+                      <button key={t_item.id}
+                        onClick={() => { if (!t_item.isOverLimit) setSelectedTrainee(t_item) }}
                         className={cn("flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-all",
+                          t_item.isOverLimit ? "opacity-50 cursor-not-allowed border-white/[0.04] bg-[#0a0a0f]" :
                           selectedTrainee?.id === t_item.id ? "border-[#a78bfa]/40 bg-[#a78bfa]/10" : "border-white/[0.06] bg-[#0a0a0f] hover:border-white/[0.12]")}>
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#a78bfa]/30 to-[#00ffff]/20 text-[10px] font-bold text-[#a78bfa]">
                           {t_item.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="truncate text-sm font-medium text-white">{t_item.name}</span>
-                        {selectedTrainee?.id === t_item.id && <Check className="ml-auto h-4 w-4 text-[#a78bfa]" />}
+                        <span className="truncate text-sm font-medium text-white">
+                          {t_item.name} {t_item.isOverLimit && "🔒"}
+                        </span>
+                        {!t_item.isOverLimit && selectedTrainee?.id === t_item.id && <Check className="ml-auto h-4 w-4 text-[#a78bfa]" />}
                       </button>
                     ))}
                   </div>
