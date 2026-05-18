@@ -359,7 +359,7 @@ export function AssignWorkoutModal({
       const data = await apiFetch<Trainee[] | { trainees: Trainee[] }>(`/coaches/${user.id}/trainees`)
       const fetched = Array.isArray(data) ? data : ((data as { trainees: Trainee[] }).trainees ?? [])
       
-      const endDate = user.coachSubscriptionEndDate ?? user.coach_subscription_end_date
+      const endDate = user.subscription_end_date ?? user.subscriptionEndDate ?? user.subscriptionExpiry ?? user.coachSubscriptionEndDate ?? user.coach_subscription_end_date
       const isSubExpired = endDate ? new Date(endDate).getTime() < Date.now() : false
       const rawTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
       const userTier = isSubExpired ? "starter" : rawTier

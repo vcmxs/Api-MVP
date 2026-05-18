@@ -329,7 +329,8 @@ const en = {
     lastColumn: "Last",
     weightColumn: "Weight",
     repsColumn: "Reps",
-    target: "Target:"
+    target: "Target:",
+    expiredAlert: "Your subscription has expired. Please contact your coach to resume your training."
   },
 
   // ── Programs ──────────────────────────────────────────────────────────────

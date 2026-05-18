@@ -331,7 +331,8 @@ const es: TranslationKeys = {
     lastColumn: "Anterior",
     weightColumn: "Peso",
     repsColumn: "Reps",
-    target: "Objetivo:"
+    target: "Objetivo:",
+    expiredAlert: "Tu suscripción ha expirado. Por favor contacta a tu entrenador para retomar tu entrenamiento."
   },
 
   // ── Programs ──────────────────────────────────────────────────────────────

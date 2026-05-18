@@ -201,6 +201,7 @@ function WorkoutCard({ workout, onClick, onDelete, onAssign, isExpired }: {
   onAssign: (id: number) => void
   isExpired?: boolean
 }) {
+  const { t } = useT()
   const [hovered, setHovered] = useState(false)
   const sc = getStatusConfig(workout.status)
 
@@ -221,7 +222,7 @@ function WorkoutCard({ workout, onClick, onDelete, onAssign, isExpired }: {
       style={workout.isCoOp || workout.isCoachAssigned ? { borderRadius: "14px" } : {}}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={isExpired ? () => alert("Your subscription has expired. Please contact your coach to resume your training.") : onClick}
+      onClick={isExpired ? () => alert(t.workouts.expiredAlert) : onClick}
     >
       {isExpired && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm">
