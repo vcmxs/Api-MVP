@@ -398,6 +398,7 @@ const es: TranslationKeys = {
     biSerie: "BI-SERIE",
     link: "Vincular",
     newWorkoutTitle: "Nueva Rutina",
+    editWorkoutTitle: "Editar Rutina Preestablecida",
     editPlanTitle: "Editar Plan de Entrenamiento",
     newPlanTitle: "Nuevo Plan de Entrenamiento",
     planName: "Nombre del Plan",

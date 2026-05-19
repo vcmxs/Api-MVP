@@ -396,6 +396,7 @@ const en = {
     biSerie: "BI-SERIE",
     link: "Link",
     newWorkoutTitle: "New Workout",
+    editWorkoutTitle: "Edit Workout Template",
     editPlanTitle: "Edit Training Plan",
     newPlanTitle: "New Training Plan",
     planName: "Plan Name",

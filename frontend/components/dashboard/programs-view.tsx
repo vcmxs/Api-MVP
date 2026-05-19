@@ -259,7 +259,7 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
   if (typeof window === "undefined") return null
   return createPortal(
     <div className="fixed top-0 flex h-screen w-full max-w-full sm:max-w-xs flex-col border-l border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
-      style={{ zIndex: 205, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
+      style={{ zIndex: 250, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
       onPointerDown={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
       onTouchStart={e => e.stopPropagation()}
@@ -769,7 +769,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-lg"
           style={{ zIndex: 200 }} onInteractOutside={e => { if (pickerTargetId) e.preventDefault() }}>
           <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
@@ -777,7 +777,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
               <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${programColor}18` }}>
                 <ClipboardList className="h-5 w-5" style={{ color: programColor }} />
               </div>
-              <SheetTitle className="text-lg font-bold text-white">{editWorkoutId ? "Edit Workout Template" : t.programs.newWorkoutTitle}</SheetTitle>
+              <SheetTitle className="text-lg font-bold text-white">{editWorkoutId ? t.programs.editWorkoutTitle : t.programs.newWorkoutTitle}</SheetTitle>
             </div>
             {/* Sheet renders its own close button */}
           </SheetHeader>
@@ -1168,6 +1168,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   // Per-workout exercise overrides by Day Number (1-7)
   const [editedExercises, setEditedExercises] = useState<Map<number, (ProgramExercise & { weightIncrement?: number })[]>>(new Map())
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
+  const [pickerForCustomDay, setPickerForCustomDay] = useState<number | null>(null)
   const [lastLogsMap, setLastLogsMap] = useState<Record<string, Record<number, string>>>({})
   const [historyLoading, setHistoryLoading] = useState(false)
 
@@ -1531,10 +1532,38 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                     </div>
                   </div>
                 ))}
+                <button onClick={() => setPickerForCustomDay(expandedDay)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#888888] hover:border-[#a78bfa]/30 hover:text-[#a78bfa] transition-colors"
+                >
+                  <Plus className="h-4 w-4" /> {t.programs.addExercise}
+                </button>
               </div>
               <div className="border-t border-white/[0.08] p-5 bg-[#0a0a0f]">
                 <button onClick={() => setExpandedDay(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">{t.programs.doneEditing}</button>
               </div>
+              <ExPickerPanel
+                open={pickerForCustomDay === expandedDay}
+                onClose={() => setPickerForCustomDay(null)}
+                onSelect={({ name, isCardio }) => {
+                  const newEx = {
+                    id: Date.now() + Math.random(),
+                    name,
+                    sets: 3,
+                    reps: 10,
+                    targetWeight: 0,
+                    target_weight: 0,
+                    isCardio,
+                    weightIncrement: 0
+                  }
+                  const updated = [...exList, newEx]
+                  setEditedExercises(m => {
+                    const n = new Map(m)
+                    n.set(expandedDay, updated)
+                    return n
+                  })
+                }}
+                onDone={() => setPickerForCustomDay(null)}
+              />
             </SheetContent>
           </Sheet>
         )
