@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 
 const TIER_LIMITS: Record<string, number> = {
   starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
@@ -23,7 +24,7 @@ interface ExistingWorkout {
   id: number
   name: string
   description?: string
-  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; weightUnit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number }[]
+  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; weightUnit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number }[]
 }
 
 interface ApiProgram {
@@ -37,7 +38,7 @@ interface ApiProgramWorkout {
   id: number
   name: string
   description?: string
-  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number }[]
+  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number }[]
 }
 
 interface Trainee {
@@ -296,6 +297,7 @@ export function AssignWorkoutModal({
   open, onOpenChange, preselectedTraineeId, preselectedTemplateId, preselectedWorkout, onAssigned,
 }: AssignWorkoutModalProps) {
   const user = getUserInfo()
+  const { t } = useT()
 
   type Step = "workout" | "build" | "trainee" | "date"
   const [step, setStep] = useState<Step>("workout")
@@ -512,6 +514,13 @@ export function AssignWorkoutModal({
           exercises,
         }),
       })
+      
+      const successMsg = t.workouts.assignedSuccess
+        .replace("{workout}", buildName || "Workout")
+        .replace("{trainee}", selectedTrainee.name)
+        .replace("{date}", format(scheduledDate, "MMM d, yyyy"))
+      alert(successMsg)
+
       onAssigned?.()
       onOpenChange(false)
     } catch (e) {

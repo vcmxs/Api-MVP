@@ -332,7 +332,8 @@ const es: TranslationKeys = {
     weightColumn: "Peso",
     repsColumn: "Reps",
     target: "Objetivo:",
-    expiredAlert: "Tu suscripción ha expirado. Por favor contacta a tu entrenador para retomar tu entrenamiento."
+    expiredAlert: "Tu suscripción ha expirado. Por favor contacta a tu entrenador para retomar tu entrenamiento.",
+    assignedSuccess: "Se ha asignado la rutina {workout} a {trainee} para el {date} exitosamente."
   },
 
   // ── Programs ──────────────────────────────────────────────────────────────
@@ -354,6 +355,7 @@ const es: TranslationKeys = {
     noWorkoutsYet: "Aún no hay rutinas",
     noPlansYet: "Aún no hay planes",
     assignToTrainee: "Asignar a Alumno",
+    assignedSuccess: "Se ha asignado el plan {plan} a {trainee} desde {start} hasta {end} exitosamente.",
     workoutsTotal: "rutinas en total",
     template: "Plantilla",
     oneTime: "Un solo uso",

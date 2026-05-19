@@ -330,7 +330,8 @@ const en = {
     weightColumn: "Weight",
     repsColumn: "Reps",
     target: "Target:",
-    expiredAlert: "Your subscription has expired. Please contact your coach to resume your training."
+    expiredAlert: "Your subscription has expired. Please contact your coach to resume your training.",
+    assignedSuccess: "Successfully assigned {workout} to {trainee} for {date}."
   },
 
   // ── Programs ──────────────────────────────────────────────────────────────
@@ -352,6 +353,7 @@ const en = {
     noWorkoutsYet: "No workouts yet",
     noPlansYet: "No plans yet",
     assignToTrainee: "Assign to Trainee",
+    assignedSuccess: "Successfully assigned {plan} to {trainee} from {start} to {end}.",
     workoutsTotal: "workouts total",
     template: "Template",
     oneTime: "One-time",

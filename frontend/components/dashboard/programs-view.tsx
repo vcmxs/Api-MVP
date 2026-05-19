@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
+import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { AssignWorkoutModal } from "./assign-workout-modal"
@@ -1204,6 +1205,16 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         })
       }
       if (!plan.isReusable) await removePlan(plan.id)
+      
+      const startD = dates.length > 0 ? format(dates[0].date, "MMM d, yyyy") : startDate
+      const endD = dates.length > 0 ? format(dates[dates.length - 1].date, "MMM d, yyyy") : startDate
+      const successMsg = t.programs.assignedSuccess
+        .replace("{plan}", plan.name || "Plan")
+        .replace("{trainee}", selectedTrainee.name)
+        .replace("{start}", startD)
+        .replace("{end}", endD)
+      alert(successMsg)
+
       onAssigned(); onOpenChange(false)
     } catch (e) { alert("Failed to assign plan") } finally { setSubmitting(false) }
   }
@@ -1212,9 +1223,9 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-5xl"
-          style={{ zIndex: 200 }} onInteractOutside={e => { if (expandedDay) e.preventDefault() }}>
+          style={{ zIndex: 200 }} onInteractOutside={e => e.preventDefault()}>
           <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/10">
@@ -1225,6 +1236,9 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 <p className="text-xs text-[#555555]">{t.programs.assignSubtitle}</p>
               </div>
             </div>
+            <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
           </SheetHeader>
 
           <div className="flex flex-1 flex-col sm:flex-row overflow-y-auto sm:overflow-hidden">
