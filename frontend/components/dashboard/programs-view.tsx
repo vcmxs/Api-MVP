@@ -899,10 +899,10 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-lg"
         style={{ zIndex: 200 }}
-        onInteractOutside={e => { if (pickerForDay !== null) e.preventDefault() }}>
+        onInteractOutside={e => e.preventDefault()}>
         <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/10">
@@ -910,7 +910,9 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
             </div>
             <SheetTitle className="text-lg font-bold text-white">{editPlan ? t.programs.editPlanTitle : t.programs.newPlanTitle}</SheetTitle>
           </div>
-          {/* Sheet renders its own close button */}
+          <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
@@ -1355,13 +1357,17 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         const exList = (rawExList as (ProgramExercise & { weightIncrement?: number })[])
         console.log("[AssignPlanModal] Day:", expandedDay, "Slot:", slot, "ExList:", exList)
         return (
-          <Sheet open={true} onOpenChange={() => setExpandedDay(null)} modal={false}>
-            <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}>
+          <Sheet open={true} onOpenChange={() => setExpandedDay(null)}>
+            <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}
+              onInteractOutside={e => e.preventDefault()}>
               <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0a0a0f]">
                 <div>
                   <h3 className="text-base font-bold text-white">{t.programs.customize}: {getSlotName(slot)}</h3>
                   <p className="text-xs text-[#a78bfa]">{t.programs.customizeHint}</p>
                 </div>
+                <button onClick={() => setExpandedDay(null)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
+                  <X className="h-4 w-4" />
+                </button>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
                 {exList.length === 0 && (
