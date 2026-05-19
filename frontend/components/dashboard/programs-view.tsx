@@ -910,9 +910,6 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
             </div>
             <SheetTitle className="text-lg font-bold text-white">{editPlan ? t.programs.editPlanTitle : t.programs.newPlanTitle}</SheetTitle>
           </div>
-          <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
-            <X className="h-4 w-4" />
-          </button>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
@@ -1238,9 +1235,6 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 <p className="text-xs text-[#555555]">{t.programs.assignSubtitle}</p>
               </div>
             </div>
-            <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
-              <X className="h-4 w-4" />
-            </button>
           </SheetHeader>
 
           <div className="flex flex-1 flex-col sm:flex-row overflow-y-auto sm:overflow-hidden">
