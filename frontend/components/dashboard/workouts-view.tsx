@@ -919,13 +919,16 @@ function ExercisePickerPanel({ open, onClose, onSelect, onDone }: {
 
   return createPortal(
     <div
-      className="fixed top-0 flex h-screen w-full max-w-[16rem] sm:max-w-xs flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
+      className="fixed top-0 flex h-screen w-full max-w-full sm:max-w-xs flex-col border-l border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
       style={{
         zIndex: 220,
         right: 0,
         transform: open ? "translateX(0)" : "translateX(100%)",
         pointerEvents: open ? "auto" : "none",
       }}
+      onPointerDown={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
+      onTouchStart={e => e.stopPropagation()}
     >
       {/* Header */}
       <div className="flex h-20 items-center justify-between border-b border-white/[0.08] px-5">

@@ -56,10 +56,10 @@ app.use(helmet({
 app.use(compression()); // Compress responses
 
 // Rate limiting configuration
-// General API rate limiter - 1000 requests per 15 minutes per IP
+// General API rate limiter - 10000 requests per 15 minutes per IP
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs
+  max: 10000, // Limit each IP to 10000 requests per windowMs
   message: {
     error: 'Too Many Requests',
     message: 'Too many requests from this IP, please try again after 15 minutes.'
@@ -68,10 +68,10 @@ const apiLimiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
-// Stricter rate limiter for authentication endpoints - 5 attempts per 15 minutes
+// Stricter rate limiter for authentication endpoints - 20 attempts per 15 minutes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 login attempts per windowMs
+  max: 20, // Limit each IP to 20 login attempts per windowMs
   message: {
     error: 'Too Many Login Attempts',
     message: 'Too many login attempts from this IP, please try again after 15 minutes.'

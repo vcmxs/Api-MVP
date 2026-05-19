@@ -258,8 +258,12 @@ function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
 
   if (typeof window === "undefined") return null
   return createPortal(
-    <div className="fixed top-0 flex h-screen w-full max-w-[16rem] sm:max-w-xs flex-col border-r border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
-      style={{ zIndex: 205, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}>
+    <div className="fixed top-0 flex h-screen w-full max-w-full sm:max-w-xs flex-col border-l border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
+      style={{ zIndex: 205, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
+      onPointerDown={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
+      onTouchStart={e => e.stopPropagation()}
+    >
       <div className="flex h-16 items-center justify-between border-b border-white/[0.08] px-4">
         <div className="flex items-center gap-2">
           {mode === "exercises"
@@ -567,6 +571,17 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
 
 interface BuilderEx { id: string; name: string; sets: number; reps: number; weight: number; notes: string; isCardio: boolean; isSuperset?: boolean }
 
+const mapApiExToBuilderEx = (ex: any): BuilderEx => ({
+  id: ex.id ? `ex-${ex.id}` : `ex-${Date.now()}-${Math.random()}`,
+  name: ex.name || "",
+  sets: ex.sets || 3,
+  reps: ex.reps || 10,
+  weight: Number(ex.targetWeight ?? ex.target_weight ?? 0),
+  notes: ex.notes || "",
+  isSuperset: ex.isSuperset || ex.restTime === -1 || ex.rest_time === -1 || false,
+  isCardio: !!(ex.isCardio ?? ex.is_cardio ?? false),
+})
+
 function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
   ex: BuilderEx; index: number
   onChange: (id: string, field: keyof BuilderEx, value: string | number) => void
@@ -688,9 +703,13 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
 
 // ── Workout Builder Sheet ─────────────────────────────────────────────────
 
-function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCreated }: {
+function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCreated, editWorkoutId, editWorkoutName, editWorkoutDesc, editWorkoutExercises }: {
   open: boolean; onOpenChange: (v: boolean) => void
   programId: number; programColor: string; onCreated: () => void
+  editWorkoutId?: number | null
+  editWorkoutName?: string
+  editWorkoutDesc?: string
+  editWorkoutExercises?: BuilderEx[]
 }) {
   const { t } = useT()
   const user = getUserInfo()
@@ -699,7 +718,21 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
   const [pickerTargetId, setPickerTargetId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false); const [saveError, setSaveError] = useState("")
 
-  useEffect(() => { if (!open) setPickerTargetId(null) }, [open])
+  useEffect(() => {
+    if (!open) {
+      setPickerTargetId(null)
+      return
+    }
+    if (editWorkoutId) {
+      setName(editWorkoutName || "")
+      setDescription(editWorkoutDesc || "")
+      setExercises(editWorkoutExercises || [])
+    } else {
+      setName("")
+      setDescription("")
+      setExercises([])
+    }
+  }, [open, editWorkoutId, editWorkoutName, editWorkoutDesc, editWorkoutExercises])
 
   const addEx = () => { const id = `ex-${Date.now()}`; setExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }]); setPickerTargetId(id) }
   const updateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) => setExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
@@ -716,8 +749,10 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
     if (!name.trim() || !user?.id) return
     setSaving(true); setSaveError("")
     try {
-      await apiFetch("/workout-templates", {
-        method: "POST",
+      const url = editWorkoutId ? `/workout-templates/${editWorkoutId}` : "/workout-templates"
+      const method = editWorkoutId ? "PUT" : "POST"
+      await apiFetch(url, {
+        method,
         body: JSON.stringify({
           userId: user.id, name: name.trim(), description: description.trim() || undefined, programId,
           exercises: exercises.filter(e => e.name.trim()).map((e, i) => ({
@@ -742,7 +777,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
               <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${programColor}18` }}>
                 <ClipboardList className="h-5 w-5" style={{ color: programColor }} />
               </div>
-              <SheetTitle className="text-lg font-bold text-white">{t.programs.newWorkoutTitle}</SheetTitle>
+              <SheetTitle className="text-lg font-bold text-white">{editWorkoutId ? "Edit Workout Template" : t.programs.newWorkoutTitle}</SheetTitle>
             </div>
             {/* Sheet renders its own close button */}
           </SheetHeader>
@@ -821,6 +856,32 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
   const [pickerForDay, setPickerForDay] = useState<number | null>(null)
+
+  // Preset workout template editing states
+  const [editingWorkoutId, setEditingWorkoutId] = useState<number | null>(null)
+  const [editingWorkoutExercises, setEditingWorkoutExercises] = useState<BuilderEx[]>([])
+  const [editingWorkoutName, setEditingWorkoutName] = useState("")
+  const [editingWorkoutDesc, setEditingWorkoutDesc] = useState("")
+  const [editWorkoutOpen, setEditWorkoutOpen] = useState(false)
+
+
+  const handleEditPresetWorkout = async (day: number, assigned: DaySlot) => {
+    const tid = getSlotWorkoutId(assigned)
+    if (!tid) return
+    try {
+      const data = await apiFetch<{ workout: ApiProgramWorkout }>(`/programs/workouts/${tid}`)
+      const w = data.workout
+      if (w) {
+        setEditingWorkoutId(w.id)
+        setEditingWorkoutName(w.name)
+        setEditingWorkoutDesc(w.description || "")
+        setEditingWorkoutExercises((w.exercises ?? []).map(mapApiExToBuilderEx))
+        setEditWorkoutOpen(true)
+      }
+    } catch (e) {
+      console.error("Failed to load workout template for editing", e)
+    }
+  }
 
   useEffect(() => {
     if (!open) { setPickerForDay(null); return }
@@ -981,17 +1042,28 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
                       {/* Workout picker or Rest label */}
                       {isActive ? (
-                        <button
-                          onClick={() => setPickerForDay(day)}
-                          className={cn(
-                            "flex flex-1 items-center justify-between rounded-lg border px-3 py-1.5 text-left text-sm transition-colors hover:border-[#a78bfa]/40",
-                            assigned ? "border-white/[0.08] bg-[#0a0a0f] text-white" : "border-dashed border-white/[0.12] text-[#555555]",
-                            pickerForDay === day && "border-[#a78bfa] bg-[#a78bfa]/10 ring-1 ring-[#a78bfa]/50 text-white"
+                        <div className="flex flex-1 items-center gap-2">
+                          <button
+                            onClick={() => setPickerForDay(day)}
+                            className={cn(
+                              "flex flex-1 items-center justify-between rounded-lg border px-3 py-1.5 text-left text-sm transition-colors hover:border-[#a78bfa]/40",
+                              assigned ? "border-white/[0.08] bg-[#0a0a0f] text-white" : "border-dashed border-white/[0.12] text-[#555555]",
+                              pickerForDay === day && "border-[#a78bfa] bg-[#a78bfa]/10 ring-1 ring-[#a78bfa]/50 text-white"
+                            )}
+                          >
+                            <span className="truncate">{assigned ? assigned.workoutName : t.programs.selectWorkout}</span>
+                            <ChevronRight className="ml-1 h-3.5 w-3.5 shrink-0 text-[#555555]" />
+                          </button>
+                          {assigned && (
+                            <button
+                              onClick={() => handleEditPresetWorkout(day, assigned)}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-[#161b22] text-[#888888] hover:bg-white/[0.04] hover:text-white"
+                              title="Edit Workout Exercises"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
                           )}
-                        >
-                          <span className="truncate">{assigned ? assigned.workoutName : t.programs.selectWorkout}</span>
-                          <ChevronRight className="ml-1 h-3.5 w-3.5 shrink-0 text-[#555555]" />
-                        </button>
+                        </div>
                       ) : (
                         <span className="flex-1 text-sm text-[#444]">{t.programs.rest}</span>
                       )}
@@ -1020,6 +1092,50 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
       available={available}
       programFolderId={programFolderId}
       onWorkoutCreated={w => setAvailable(p => [w, ...p])}
+    />
+
+    <WorkoutBuilderSheet
+      open={editWorkoutOpen}
+      onOpenChange={setEditWorkoutOpen}
+      programId={programFolderId || 0}
+      programColor="#a78bfa"
+      editWorkoutId={editingWorkoutId}
+      editWorkoutName={editingWorkoutName}
+      editWorkoutDesc={editingWorkoutDesc}
+      editWorkoutExercises={editingWorkoutExercises}
+      onCreated={async () => {
+        if (user?.id) {
+          try {
+            const d = await apiFetch<{ programs: ApiProgram[] }>(`/programs/users/${user.id}`)
+            const programs = programFolderId
+              ? (d.programs ?? []).filter(p => p.id === programFolderId)
+              : (d.programs ?? [])
+            const all: AvailableWorkout[] = []
+            await Promise.all(programs.map(async prog => {
+              try {
+                const wd = await apiFetch<{ workouts: ApiProgramWorkout[] }>(`/programs/${prog.id}/workouts`)
+                for (const w of wd.workouts ?? []) all.push({ id: w.id, name: w.name, programId: prog.id, programName: prog.name })
+              } catch { /* skip */ }
+            }))
+            setAvailable(all)
+            if (editingWorkoutId) {
+              const updatedW = all.find(w => w.id === editingWorkoutId)
+              if (updatedW) {
+                setSchedule(s => {
+                  const next = { ...s }
+                  for (const day of Object.keys(next).map(Number)) {
+                    const slot = next[day]
+                    if (slot && getSlotWorkoutId(slot) === editingWorkoutId) {
+                      next[day] = { ...slot, workoutName: updatedW.name }
+                    }
+                  }
+                  return next
+                })
+              }
+            }
+          } catch {}
+        }
+      }}
     />
     </>
   )
@@ -1498,8 +1614,8 @@ function PlanCard({ plan, onDelete, onAssign, onEdit }: {
 
 type FolderTab = "workouts" | "plans"
 
-function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
-  program: ApiProgram; onBack: () => void; onWorkoutCountChange: (id: number, count: number) => void
+function FolderDetailView({ program, onBack, onWorkoutCountChange, onDeleteFolder }: {
+  program: ApiProgram; onBack: () => void; onWorkoutCountChange: (id: number, count: number) => void; onDeleteFolder?: (id: number) => void
 }) {
   const { t } = useT()
   const color = program.hex_color ?? "#a78bfa"
@@ -1513,6 +1629,7 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [assigningWorkout, setAssigningWorkout] = useState<ApiProgramWorkout | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [editingWorkout, setEditingWorkout] = useState<ApiProgramWorkout | null>(null)
 
   // Plans tab state
   const [plans, setPlans] = useState<TrainingPlan[]>([])
@@ -1569,7 +1686,17 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
           <FolderOpen className="h-5 w-5" style={{ color }} />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-bold text-white">{program.name}</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white">{program.name}</h2>
+            {onDeleteFolder && (
+              <button onClick={() => onDeleteFolder(program.id)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#ff4444]/30 hover:text-[#ff4444]"
+                title="Delete Folder"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           <p className="text-sm text-[#555555]">{workouts.length} {workouts.length === 1 ? t.programs.workoutCount : t.programs.workoutCountPlural} · {plans.length} {plans.length === 1 ? t.programs.planCount : t.programs.planCountPlural}</p>
         </div>
       </div>
@@ -1640,6 +1767,12 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
                               style={{ borderColor: `${color}40`, color }}>
                               {t.programs.assignToTrainee}
                             </button>
+                            <button onClick={() => { setEditingWorkout(workout); setBuilderOpen(true) }}
+                              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"
+                              title="Edit Workout Template"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
                             <button onClick={() => handleDeleteWorkout(workout.id)} disabled={deletingId === workout.id}
                               className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#ff4444]/30 hover:text-[#ff4444] disabled:opacity-40">
                               {deletingId === workout.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -1652,7 +1785,17 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange }: {
                 })}
               </div>
             )}
-          <WorkoutBuilderSheet open={builderOpen} onOpenChange={setBuilderOpen} programId={program.id} programColor={color} onCreated={fetchWorkouts} />
+          <WorkoutBuilderSheet
+            open={builderOpen}
+            onOpenChange={v => { setBuilderOpen(v); if (!v) setEditingWorkout(null) }}
+            programId={program.id}
+            programColor={color}
+            onCreated={fetchWorkouts}
+            editWorkoutId={editingWorkout?.id}
+            editWorkoutName={editingWorkout?.name}
+            editWorkoutDesc={editingWorkout?.description}
+            editWorkoutExercises={editingWorkout ? (editingWorkout.exercises ?? []).map(mapApiExToBuilderEx) : undefined}
+          />
           <AssignWorkoutModal open={assigningWorkout !== null} onOpenChange={v => { if (!v) setAssigningWorkout(null) }}
             preselectedWorkout={assigningWorkout ? toAssignWorkout(assigningWorkout) : undefined} onAssigned={() => setAssigningWorkout(null)} />
         </>
@@ -1713,7 +1856,7 @@ function FolderCard({ program, onClick, onDelete }: {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <button onClick={e => { e.stopPropagation(); onDelete(program.id) }}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#555555] opacity-0 transition-all group-hover:opacity-100 hover:bg-[#ff4444]/10 hover:text-[#ff4444]">
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#555555] opacity-0 pointer-events-none transition-all group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-[#ff4444]/10 hover:text-[#ff4444]">
           <Trash2 className="h-4 w-4" />
         </button>
         <ChevronRight className="h-4 w-4 text-[#555555] transition-transform group-hover:translate-x-0.5" />
@@ -1787,8 +1930,9 @@ export function ProgramsView() {
   const [programs, setPrograms] = useState<ApiProgram[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [openProgramId, setOpenProgramId] = useState<number | null>(null)
+   const [openProgramId, setOpenProgramId] = useState<number | null>(null)
   const [newProgramOpen, setNewProgramOpen] = useState(false)
+  const [deleteConfirmProgramId, setDeleteConfirmProgramId] = useState<number | null>(null)
 
   // Standalone plans (no folder)
   const [standalonePlans, setStandalonePlans] = useState<TrainingPlan[]>([])
@@ -1822,7 +1966,7 @@ export function ProgramsView() {
 
   if (openProgramId !== null) {
     const prog = programs.find(p => p.id === openProgramId)
-    if (prog) return <FolderDetailView program={prog} onBack={() => setOpenProgramId(null)} onWorkoutCountChange={updateWorkoutCount} />
+    if (prog) return <FolderDetailView program={prog} onBack={() => setOpenProgramId(null)} onWorkoutCountChange={updateWorkoutCount} onDeleteFolder={id => setDeleteConfirmProgramId(id)} />
   }
 
   return (
@@ -1849,7 +1993,7 @@ export function ProgramsView() {
             </div>
           ) : (
             <div className="space-y-3">
-              {programs.map(p => <FolderCard key={p.id} program={p} onClick={() => setOpenProgramId(p.id)} onDelete={handleDeleteProgram} />)}
+              {programs.map(p => <FolderCard key={p.id} program={p} onClick={() => setOpenProgramId(p.id)} onDelete={id => setDeleteConfirmProgramId(id)} />)}
             </div>
           )}
       </div>
@@ -1890,6 +2034,34 @@ export function ProgramsView() {
       <NewProgramDialog open={newProgramOpen} onOpenChange={setNewProgramOpen} onSaved={fetchPrograms} />
       <PlanBuilderSheet open={planBuilderOpen} onOpenChange={(v) => { setPlanBuilderOpen(v); if (!v) setEditingStandalonePlan(null); }} editPlan={editingStandalonePlan} onSaved={() => { setPlanBuilderOpen(false); loadStandalonePlans(); setEditingStandalonePlan(null); }} />
       {assigningPlan && <AssignPlanModal plan={assigningPlan} open={assigningPlan !== null} onOpenChange={v => { if (!v) setAssigningPlan(null) }} onAssigned={() => setAssigningPlan(null)} />}
+
+      {deleteConfirmProgramId !== null && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[#0d0f14] p-6 shadow-2xl space-y-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ff4444]/10 text-[#ff4444] mx-auto">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-bold text-white">Delete Folder</h3>
+              <p className="text-sm text-[#888888]">Are you sure you want to delete this folder? All workouts inside it will be kept but the folder category will be removed.</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirmProgramId(null)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-2.5 text-sm font-medium text-white hover:bg-[#1c2128]">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (deleteConfirmProgramId) {
+                    await handleDeleteProgram(deleteConfirmProgramId)
+                    setDeleteConfirmProgramId(null)
+                  }
+                }}
+                className="flex-1 rounded-xl bg-[#ff4444] py-2.5 text-sm font-bold text-white hover:opacity-90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -169,8 +169,8 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
   return (
     <div className="space-y-6">
       {/* Header Row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-bold text-white">{t.trainees.title}</h2>
           {!loading && (
             <span 
@@ -186,21 +186,21 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative flex-1 min-w-[140px] sm:flex-initial">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" />
             <input
               type="text"
               placeholder={t.trainees.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 w-64 rounded-xl border border-white/[0.08] bg-[#161b22] pl-10 pr-4 text-sm text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none focus:ring-1 focus:ring-[#00ffff]/50"
+              className="h-10 w-full sm:w-64 rounded-xl border border-white/[0.08] bg-[#161b22] pl-10 pr-4 text-sm text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none focus:ring-1 focus:ring-[#00ffff]/50"
             />
           </div>
 
           <button
             onClick={fetchTrainees}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-[#161b22] text-[#888888] transition-colors hover:text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-[#161b22] text-[#888888] transition-colors hover:text-white"
             title="Refresh"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -208,10 +208,10 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
 
           <button
             onClick={() => setIsAddDialogOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#00ffff] px-4 py-2.5 text-sm font-semibold text-black transition-all hover:bg-[#00ffff]/90"
+            className="flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-xl bg-[#00ffff] px-4 py-2.5 text-sm font-semibold text-black transition-all hover:bg-[#00ffff]/90"
           >
             <UserPlus className="h-4 w-4" />
-            {t.trainees.addTrainee}
+            <span className="whitespace-nowrap">{t.trainees.addTrainee}</span>
           </button>
         </div>
       </div>
