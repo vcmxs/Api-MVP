@@ -523,12 +523,27 @@ const es: TranslationKeys = {
       mostPopular: "MÁS POPULAR",
       perMonth: "/mes",
       tiers: {
-        starter: { name: "Starter", sub: "Gratis por siempre", cta: "Empieza gratis", features: ["1 Alumno", "Creador de rutinas", "Seguimiento de sesiones"] },
-        bronze:  { name: "Bronze",  sub: "Hasta 4 alumnos",  cta: "Obtener Bronze",    features: ["4 Alumnos", "Todo lo de Starter", "Estadísticas avanzadas", "Control de pagos"] },
-        silver:  { name: "Silver",  sub: "Hasta 10 alumnos", cta: "Ir a Silver",       features: ["10 Alumnos", "Soporte prioritario", "Analítica completa", "Reportes semanales"] },
-        gold:    { name: "Gold",    sub: "Hasta 25 alumnos", cta: "Obtener Gold",      features: ["25 Alumnos", "Todas las funciones", "Soporte 24/7", "Programa de referidos"] },
-        olympian:{ name: "Olympian",sub: "Alumnos ilimitados",cta: "Contactar Ventas", features: ["Alumnos ilimitados", "Acceso VIP", "Herramientas Enterprise", "Soporte dedicado"] }
+        starter: { name: "Starter", sub: "Perfecto para empezar", cta: "Comenzar Gratis", features: ["Hasta 3 alumnos", "Rutinas básicas", "Chat con alumnos", "Soporte por email"] },
+        bronze:  { name: "Bronze",  sub: "Para entrenadores en crecimiento",  cta: "Elegir Bronze",        features: ["Hasta 10 alumnos", "Rutinas avanzadas", "Planes nutricionales", "Gráficas de progreso", "Soporte prioritario"] },
+        silver:  { name: "Silver",  sub: "El más popular", cta: "Elegir Silver",         features: ["Hasta 30 alumnos", "Todo en Bronze", "Marca personalizada", "Analíticas avanzadas", "Temporizadores HIIT", "API access"] },
+        gold:    { name: "Gold",    sub: "Para profesionales", cta: "Elegir Gold",          features: ["Hasta 75 alumnos", "Todo en Silver", "Múltiples entrenadores", "Reportes exportables", "Integraciones premium", "Onboarding personalizado"] },
+        olympian:{ name: "Olympian",sub: "Para gimnasios y equipos",cta: "Contactar Ventas",     features: ["Alumnos ilimitados", "Todo en Gold", "White-label completo", "Manager dedicado", "SLA garantizado", "Desarrollo a medida"] }
       }
+    },
+    mockup: {
+      coachDashboard: "Panel del Entrenador",
+      completed: "Completado",
+      active: "Activo",
+      workoutName: "Frecuencia 2 - Pecho, Espalda y Bíceps",
+      workoutSub: "Programa de 8 semanas",
+      nutritionName: "Plan Nutricional - Definición",
+      nutritionSub: "2,200 kcal / día",
+      cardioName: "Cardio HIIT - Semana 4",
+      cardioSub: "3 sesiones / semana",
+      trainees: "Alumnos",
+      workouts: "Rutinas",
+      adherence: "Adherencia",
+      traineeView: "Vista del Alumno",
     },
     modal: {
       title: "Mejorar a",
@@ -550,7 +565,10 @@ const es: TranslationKeys = {
       cta: "Empieza a Ganar →"
     },
     footer: {
-      copyright: "© 2026 Dupla. Todos los derechos reservados."
+      copyright: "© 2026 Dupla. Todos los derechos reservados.",
+      privacy: "Privacidad",
+      terms: "Términos",
+      deleteAccount: "Eliminar Cuenta"
     }
   },
 

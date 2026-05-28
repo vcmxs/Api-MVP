@@ -521,12 +521,27 @@ const en = {
       mostPopular: "MOST POPULAR",
       perMonth: "/mo",
       tiers: {
-        starter: { name: "Starter", sub: "Forever free", cta: "Get started free", features: ["1 Trainee", "Workout builder", "Session tracking"] },
-        bronze:  { name: "Bronze",  sub: "Up to 4 trainees",  cta: "Get Bronze",        features: ["4 Trainees", "All Starter features", "Advanced stats", "Revenue tracking"] },
-        silver:  { name: "Silver",  sub: "Up to 10 trainees", cta: "Go Silver",         features: ["10 Trainees", "Priority support", "Full analytics", "Weekly insights"] },
-        gold:    { name: "Gold",    sub: "Up to 25 trainees", cta: "Get Gold",          features: ["25 Trainees", "All features", "24/7 support", "Referral program"] },
-        olympian:{ name: "Olympian",sub: "Unlimited trainees",cta: "Contact Sales",     features: ["Unlimited trainees", "VIP access", "Enterprise tools", "Dedicated support"] }
+        starter: { name: "Starter", sub: "Perfect to get started", cta: "Start for Free", features: ["Up to 3 trainees", "Basic workouts", "Chat with trainees", "Email support"] },
+        bronze:  { name: "Bronze",  sub: "For growing coaches",  cta: "Choose Bronze",        features: ["Up to 10 trainees", "Advanced workouts", "Nutrition plans", "Progress charts", "Priority support"] },
+        silver:  { name: "Silver",  sub: "Most popular", cta: "Choose Silver",         features: ["Up to 30 trainees", "Everything in Bronze", "Custom branding", "Advanced analytics", "HIIT timers", "API access"] },
+        gold:    { name: "Gold",    sub: "For professionals", cta: "Choose Gold",          features: ["Up to 75 trainees", "Everything in Silver", "Multiple coaches", "Exportable reports", "Premium integrations", "Personalized onboarding"] },
+        olympian:{ name: "Olympian",sub: "For gyms and teams",cta: "Contact Sales",     features: ["Unlimited trainees", "Everything in Gold", "Full white-label", "Dedicated manager", "Guaranteed SLA", "Custom development"] }
       }
+    },
+    mockup: {
+      coachDashboard: "Coach Dashboard",
+      completed: "Completed",
+      active: "Active",
+      workoutName: "Frequency 2 - Chest, Back & Biceps",
+      workoutSub: "8-week program",
+      nutritionName: "Nutrition Plan - Cutting",
+      nutritionSub: "2,200 kcal / day",
+      cardioName: "Cardio HIIT - Week 4",
+      cardioSub: "3 sessions / week",
+      trainees: "Trainees",
+      workouts: "Workouts",
+      adherence: "Adherence",
+      traineeView: "Trainee View",
     },
     modal: {
       title: "Upgrade to",
@@ -548,7 +563,10 @@ const en = {
       cta: "Start Earning →"
     },
     footer: {
-      copyright: "© 2026 Dupla. All rights reserved."
+      copyright: "© 2026 Dupla. All rights reserved.",
+      privacy: "Privacy Policy",
+      terms: "Terms of Service",
+      deleteAccount: "Delete Account"
     }
   },
 
