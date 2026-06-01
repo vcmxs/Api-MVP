@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { createPortal } from "react-dom"
 import {
   Plus, Trash2, Dumbbell, X, UserPlus,
@@ -311,13 +311,41 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   const [reps, setReps] = useState("")
   const [saving, setSaving] = useState(false)
 
-  // Sync inputs when log data changes
+  // Track whether the user has manually edited either input.
+  // If they have, we should NOT overwrite their in-progress values
+  // when a sibling set is saved and triggers a parent refresh.
+  const userEdited = useRef(false)
+  // Track the log id so we know when THIS specific set transitions from
+  // unsaved → saved (i.e. log.id appears or completed flips). In that
+  // case we DO want to sync back to server values.
+  const prevLogId = useRef<number | undefined>(log?.id)
+  const prevIsDone = useRef(isDone)
+
+  // Initialize on first mount
   useEffect(() => {
     const logWeight = log?.weight_used ?? log?.weightUsed
     const logReps   = log?.reps_completed ?? log?.repsCompleted
     setWeight(logWeight != null ? String(logWeight) : String(exercise.target_weight ?? exercise.targetWeight ?? ""))
     setReps(logReps != null ? String(logReps) : String(exercise.reps ?? ""))
-  }, [log, exercise])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On subsequent renders, only sync if:
+  //   (a) the user hasn't touched the inputs yet, OR
+  //   (b) THIS set just completed (log.id appeared or isDone flipped true)
+  //       meaning the save was for this row — show confirmed server values
+  useEffect(() => {
+    const justCompleted = (!prevIsDone.current && isDone) || (prevLogId.current !== log?.id && log?.id != null)
+    prevLogId.current = log?.id
+    prevIsDone.current = isDone
+
+    if (!userEdited.current || justCompleted) {
+      const logWeight = log?.weight_used ?? log?.weightUsed
+      const logReps   = log?.reps_completed ?? log?.repsCompleted
+      setWeight(logWeight != null ? String(logWeight) : String(exercise.target_weight ?? exercise.targetWeight ?? ""))
+      setReps(logReps != null ? String(logReps) : String(exercise.reps ?? ""))
+      if (justCompleted) userEdited.current = false // reset dirty flag after confirmed save
+    }
+  }, [log, exercise, isDone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLog = async () => {
     setSaving(true)
@@ -391,14 +419,14 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
       <input
         type="number"
         value={weight}
-        onChange={(e) => setWeight(e.target.value)}
+        onChange={(e) => { userEdited.current = true; setWeight(e.target.value) }}
         placeholder={String(exercise.target_weight ?? exercise.targetWeight ?? "0")}
         className="w-20 min-w-0 shrink-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
       />
       <input
         type="number"
         value={reps}
-        onChange={(e) => setReps(e.target.value)}
+        onChange={(e) => { userEdited.current = true; setReps(e.target.value) }}
         placeholder={String(exercise.reps ?? "0")}
         className="w-14 min-w-0 shrink-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
       />

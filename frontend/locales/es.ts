@@ -523,10 +523,10 @@ const es: TranslationKeys = {
       mostPopular: "MÁS POPULAR",
       perMonth: "/mes",
       tiers: {
-        starter: { name: "Starter", sub: "Perfecto para empezar", cta: "Comenzar Gratis", features: ["Hasta 3 alumnos", "Rutinas básicas", "Chat con alumnos", "Soporte por email"] },
-        bronze:  { name: "Bronze",  sub: "Para entrenadores en crecimiento",  cta: "Elegir Bronze",        features: ["Hasta 10 alumnos", "Rutinas avanzadas", "Planes nutricionales", "Gráficas de progreso", "Soporte prioritario"] },
-        silver:  { name: "Silver",  sub: "El más popular", cta: "Elegir Silver",         features: ["Hasta 30 alumnos", "Todo en Bronze", "Marca personalizada", "Analíticas avanzadas", "Temporizadores HIIT", "API access"] },
-        gold:    { name: "Gold",    sub: "Para profesionales", cta: "Elegir Gold",          features: ["Hasta 75 alumnos", "Todo en Silver", "Múltiples entrenadores", "Reportes exportables", "Integraciones premium", "Onboarding personalizado"] },
+        starter: { name: "Starter", sub: "Perfecto para empezar", cta: "Comenzar Gratis", features: ["1 alumno", "Rutinas básicas", "Chat con alumnos", "Soporte por email"] },
+        bronze:  { name: "Bronze",  sub: "Para entrenadores en crecimiento",  cta: "Elegir Bronze",        features: ["Hasta 4 alumnos", "Rutinas avanzadas", "Planes nutricionales", "Gráficas de progreso", "Soporte prioritario"] },
+        silver:  { name: "Silver",  sub: "El más popular", cta: "Elegir Silver",         features: ["Hasta 10 alumnos", "Todo en Bronze", "Marca personalizada", "Analíticas avanzadas", "Temporizadores HIIT", "API access"] },
+        gold:    { name: "Gold",    sub: "Para profesionales", cta: "Elegir Gold",          features: ["Hasta 25 alumnos", "Todo en Silver", "Múltiples entrenadores", "Reportes exportables", "Integraciones premium", "Onboarding personalizado"] },
         olympian:{ name: "Olympian",sub: "Para gimnasios y equipos",cta: "Contactar Ventas",     features: ["Alumnos ilimitados", "Todo en Gold", "White-label completo", "Manager dedicado", "SLA garantizado", "Desarrollo a medida"] }
       }
     },
@@ -570,6 +570,14 @@ const es: TranslationKeys = {
       terms: "Términos",
       deleteAccount: "Eliminar Cuenta"
     }
+  },
+
+  sidebar: {
+    activePlan: "Plan:",
+    changePlan: "Cambiar",
+    modalTitle: "Planes de Suscripción",
+    modalSubtitle: "Explora nuestros planes y escala tu negocio.",
+    currentPlan: "Plan Actual",
   },
 
   // ── Register Page ─────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ import { getUserInfo, clearAuth, apiFetch } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { PricingPlansModal } from "./pricing-plans-modal"
 
 const tierColors: Record<string, string> = {
   starter: "#888888",
@@ -83,12 +84,14 @@ export function Sidebar({ activeTab, onTabChange, collapsed, onToggleCollapse }:
     ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?"
 
-  const [tier, setTier] = useState<string | null>(null)
+  const initialTier = user?.subscription_tier ?? user?.subscriptionTier ?? null
+  const [tier, setTier] = useState<string | null>(initialTier)
+  const [isPricingOpen, setIsPricingOpen] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
-    apiFetch<{ subscriptionTier?: string; status?: string }>(`/users/${user.id}/profile`)
-      .then((data) => setTier(data.subscriptionTier ?? null))
+    apiFetch<{ subscription_tier?: string; subscriptionTier?: string; status?: string }>(`/users/${user.id}/profile`)
+      .then((data) => setTier(data.subscription_tier ?? data.subscriptionTier ?? null))
       .catch(() => {})
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -217,6 +220,38 @@ export function Sidebar({ activeTab, onTabChange, collapsed, onToggleCollapse }:
               <p className="truncate text-xs text-[#555555] capitalize">{user?.role ?? "Coach"}</p>
             </div>
           </div>
+          
+          {/* Plan Info Button (for Coaches) */}
+          {!isTrainee && (
+            <button
+              onClick={() => setIsPricingOpen(true)}
+              className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-300 active:scale-[0.98]"
+              style={{
+                borderColor: tierColor ? `${tierColor}33` : "rgba(0,255,255,0.2)",
+                backgroundColor: tierColor ? `${tierColor}0d` : "rgba(0,255,255,0.05)",
+                color: tierColor || "#00ffff"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = tierColor ? `${tierColor}66` : "rgba(0,255,255,0.4)";
+                e.currentTarget.style.backgroundColor = tierColor ? `${tierColor}1a` : "rgba(0,255,255,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = tierColor ? `${tierColor}33` : "rgba(0,255,255,0.2)";
+                e.currentTarget.style.backgroundColor = tierColor ? `${tierColor}0d` : "rgba(0,255,255,0.05)";
+              }}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Gift className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {t.sidebar?.activePlan ?? "Plan:"} <span className="uppercase font-extrabold">{tier ?? "Starter"}</span>
+                </span>
+              </div>
+              <span className="text-[10px] opacity-80 hover:opacity-100 font-bold uppercase tracking-wider shrink-0">
+                {t.sidebar?.changePlan ?? "Change"} &rarr;
+              </span>
+            </button>
+          )}
+
           <button
             onClick={handleLogout}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm font-medium text-[#888888] transition-colors hover:border-[#ff4444]/30 hover:text-[#ff4444]"
@@ -237,6 +272,14 @@ export function Sidebar({ activeTab, onTabChange, collapsed, onToggleCollapse }:
             <LogOut className="h-5 w-5" />
           </button>
         </div>
+      )}
+
+      {/* Pricing Plans Modal */}
+      {isPricingOpen && (
+        <PricingPlansModal 
+          currentTier={tier} 
+          onClose={() => setIsPricingOpen(false)} 
+        />
       )}
     </aside>
   )

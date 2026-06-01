@@ -521,10 +521,10 @@ const en = {
       mostPopular: "MOST POPULAR",
       perMonth: "/mo",
       tiers: {
-        starter: { name: "Starter", sub: "Perfect to get started", cta: "Start for Free", features: ["Up to 3 trainees", "Basic workouts", "Chat with trainees", "Email support"] },
-        bronze:  { name: "Bronze",  sub: "For growing coaches",  cta: "Choose Bronze",        features: ["Up to 10 trainees", "Advanced workouts", "Nutrition plans", "Progress charts", "Priority support"] },
-        silver:  { name: "Silver",  sub: "Most popular", cta: "Choose Silver",         features: ["Up to 30 trainees", "Everything in Bronze", "Custom branding", "Advanced analytics", "HIIT timers", "API access"] },
-        gold:    { name: "Gold",    sub: "For professionals", cta: "Choose Gold",          features: ["Up to 75 trainees", "Everything in Silver", "Multiple coaches", "Exportable reports", "Premium integrations", "Personalized onboarding"] },
+        starter: { name: "Starter", sub: "Perfect to get started", cta: "Start for Free", features: ["1 trainee", "Basic workouts", "Chat with trainees", "Email support"] },
+        bronze:  { name: "Bronze",  sub: "For growing coaches",  cta: "Choose Bronze",        features: ["Up to 4 trainees", "Advanced workouts", "Nutrition plans", "Progress charts", "Priority support"] },
+        silver:  { name: "Silver",  sub: "Most popular", cta: "Choose Silver",         features: ["Up to 10 trainees", "Everything in Bronze", "Custom branding", "Advanced analytics", "HIIT timers", "API access"] },
+        gold:    { name: "Gold",    sub: "For professionals", cta: "Choose Gold",          features: ["Up to 25 trainees", "Everything in Silver", "Multiple coaches", "Exportable reports", "Premium integrations", "Personalized onboarding"] },
         olympian:{ name: "Olympian",sub: "For gyms and teams",cta: "Contact Sales",     features: ["Unlimited trainees", "Everything in Gold", "Full white-label", "Dedicated manager", "Guaranteed SLA", "Custom development"] }
       }
     },
@@ -568,6 +568,14 @@ const en = {
       terms: "Terms of Service",
       deleteAccount: "Delete Account"
     }
+  },
+
+  sidebar: {
+    activePlan: "Plan:",
+    changePlan: "Change",
+    modalTitle: "Subscription Plans",
+    modalSubtitle: "Explore our plans and scale your business.",
+    currentPlan: "Current Plan",
   },
 
   // ── Register Page ─────────────────────────────────────────────────────────
