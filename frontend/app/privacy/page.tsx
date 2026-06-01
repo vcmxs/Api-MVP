@@ -55,31 +55,37 @@ export default function PrivacyPage() {
                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>3. Seguridad de los datos</h2>
                             <p>La seguridad de sus datos es importante para nosotros. Implementamos medidas de seguridad estándar de la industria para proteger su información personal contra el acceso no autorizado o la divulgación.</p>
 
-                            <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>4. Eliminación de datos</h2>
-                            <p>Usted tiene derecho a solicitar la eliminación de sus datos personales. Puede hacerlo a través de la sección "Eliminar Cuenta" en nuestra aplicación o visitando nuestra página de <Link href="/delete-account" style={{ color: '#8b5cf6' }}>Eliminación de Cuenta</Link>.</p>
+                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>4. Eliminación de datos</h2>
+                             <p>Usted tiene derecho a solicitar la eliminación de sus datos personales. Puede hacerlo a través de la sección "Eliminar Cuenta" en nuestra aplicación o visitando nuestra página de <Link href="/delete-account" style={{ color: '#8b5cf6' }}>Eliminación de Cuenta</Link>.</p>
+
+                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>5. Conservación de datos</h2>
+                             <p>Conservamos sus datos personales únicamente durante el tiempo que sea necesario para cumplir con los fines para los cuales fueron recopilados, incluyendo la prestación de los servicios de la aplicación, el soporte a los usuarios y el cumplimiento de nuestras obligaciones legales o contractuales. Si decide eliminar su cuenta, procederemos a borrar o anonimizar sus datos personales en un plazo máximo de 30 días, a menos que la ley nos obligue a conservarlos por un período mayor.</p>
                         </>
                     ) : (
                         <>
-                            <p>At DUPLA, accessible from duplapp.win, one of our main priorities is the privacy of our visitors. This Privacy Policy document contains types of information that is collected and recorded by DUPLA and how we use it.</p>
-                            
-                            <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>1. Information We Collect</h2>
-                            <p>We collect personal information that you provide to us, such as your name, email address, contact details, and health or fitness data necessary to provide our personalized training services.</p>
+                             <p>At DUPLA, accessible from duplapp.win, one of our main priorities is the privacy of our visitors. This Privacy Policy document contains types of information that is collected and recorded by DUPLA and how we use it.</p>
+                             
+                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>1. Information We Collect</h2>
+                             <p>We collect personal information that you provide to us, such as your name, email address, contact details, and health or fitness data necessary to provide our personalized training services.</p>
 
-                            <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>2. How We Use Your Information</h2>
-                            <p>We use the information we collect in various ways, including to:</p>
-                            <ul>
-                                <li>Provide, operate, and maintain our application</li>
-                                <li>Improve, personalize, and expand our application</li>
-                                <li>Understand and analyze how you use our application</li>
-                                <li>Develop new products, services, features, and functionality</li>
-                                <li>Communicate with you for support and updates</li>
-                            </ul>
+                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>2. How We Use Your Information</h2>
+                             <p>We use the information we collect in various ways, including to:</p>
+                             <ul>
+                                 <li>Provide, operate, and maintain our application</li>
+                                 <li>Improve, personalize, and expand our application</li>
+                                 <li>Understand and analyze how you use our application</li>
+                                 <li>Develop new products, services, features, and functionality</li>
+                                 <li>Communicate with you for support and updates</li>
+                             </ul>
 
-                            <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>3. Data Security</h2>
-                            <p>The security of your data is important to us. We implement industry-standard security measures to protect your personal information from unauthorized access or disclosure.</p>
+                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>3. Data Security</h2>
+                             <p>The security of your data is important to us. We implement industry-standard security measures to protect your personal information from unauthorized access or disclosure.</p>
 
-                            <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>4. Data Deletion</h2>
-                            <p>You have the right to request the deletion of your personal data. You can do this through the "Delete Account" section in our app or by visiting our <Link href="/delete-account" style={{ color: '#8b5cf6' }}>Account Deletion</Link> page.</p>
+                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>4. Data Deletion</h2>
+                             <p>You have the right to request the deletion of your personal data. You can do this through the "Delete Account" section in our app or by visiting our <Link href="/delete-account" style={{ color: '#8b5cf6' }}>Account Deletion</Link> page.</p>
+
+                             <h2 style={{ color: 'white', marginTop: '30px', marginBottom: '15px' }}>5. Data Retention</h2>
+                             <p>We retain your personal data only for as long as is necessary to fulfill the purposes for which it was collected, including providing application services, user support, and complying with our legal or contractual obligations. If you choose to delete your account, we will delete or anonymize your personal data within a maximum period of 30 days, unless we are legally required to retain it for a longer period.</p>
                         </>
                     )}
                 </div>

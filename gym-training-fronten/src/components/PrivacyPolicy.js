@@ -28,7 +28,10 @@ const PrivacyPolicy = () => {
             <h2>4. Data Deletion</h2>
             <p>You have the right to request deletion of your account and all associated data. You can do this within the app settings or via our <a href="/delete-account" style={{ color: '#00ffff' }}>web deletion form</a>.</p>
 
-            <h2>5. Contact Us</h2>
+            <h2>5. Data Retention</h2>
+            <p>We retain your personal information only for as long as necessary to provide you with our services, comply with legal obligations, and resolve disputes. When you request the deletion of your account, your personal data will be removed or anonymized within 30 days, except where we are required by law to keep it for a longer duration.</p>
+
+            <h2>6. Contact Us</h2>
             <p>If you have any questions about this privacy policy, please contact us at support@dupla.fit.</p>
         </div>
     );
