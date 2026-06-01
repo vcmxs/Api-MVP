@@ -7,7 +7,7 @@ class User {
      */
     static async findByEmail(email) {
         const result = await pool.query(
-            'SELECT * FROM users WHERE email = $1',
+            'SELECT * FROM users WHERE LOWER(email) = LOWER($1)',
             [email]
         );
         return result.rows[0];
@@ -77,7 +77,7 @@ class User {
      */
     static async authenticate(email, password) {
         const result = await pool.query(
-            'SELECT id, name, email, role, subscription_status, status, is_verified FROM users WHERE email = $1 AND password = $2',
+            'SELECT id, name, email, role, subscription_status, status, is_verified FROM users WHERE LOWER(email) = LOWER($1) AND password = $2',
             [email, password]
         );
         return result.rows[0];
