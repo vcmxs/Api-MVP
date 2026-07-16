@@ -121,6 +121,47 @@ function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
   }
 }
 
+// ── Last session history hook ─────────────────────────────────────────────
+
+function useLastSessionHistory(exerciseName: string, workoutDate?: string) {
+  const user = getUserInfo()
+  const [history, setHistory] = useState<Record<number, string>>({})
+
+  useEffect(() => {
+    if (!exerciseName || !user?.id) return
+    let cancelled = false
+    setHistory({})
+    apiFetch<{ progression?: { date?: string; completed_at?: string; setNumber?: number; set_number?: number; weight?: number; weight_used?: number; weightUsed?: number; reps?: number; reps_completed?: number; repsCompleted?: number; weightUnit?: string; weight_unit?: string }[] }>(
+      `/workout-plans/users/${user.id}/progression?exercise=${encodeURIComponent(exerciseName)}`
+    ).then(d => {
+      if (cancelled) return
+      const rawLogs = d.progression ?? []
+      if (!rawLogs.length) return
+      const logsByDate: Record<string, typeof rawLogs> = {}
+      for (const l of rawLogs) {
+        const date = (l.date || l.completed_at || "").split("T")[0] || "unknown"
+        ;(logsByDate[date] ??= []).push(l)
+      }
+      const sorted = Object.keys(logsByDate).sort((a, b) => b.localeCompare(a))
+      const cutoff = workoutDate ?? getLocalISOString()
+      const targetDate = sorted.find(d => d < cutoff)
+      if (!targetDate) return
+      const map: Record<number, string> = {}
+      for (const l of logsByDate[targetDate]) {
+        const setNum = l.setNumber ?? l.set_number
+        const w = l.weight ?? l.weightUsed ?? l.weight_used
+        const r = l.reps ?? l.repsCompleted ?? l.reps_completed
+        const unit = l.weightUnit ?? l.weight_unit ?? "kg"
+        if (setNum != null && w != null && r != null) map[setNum] = `${w}${unit}×${r}`
+      }
+      setHistory(map)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [exerciseName, user?.id, workoutDate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return history
+}
+
 // ── Date grouping ─────────────────────────────────────────────────────────
 
 function dayStart(d: Date) {
@@ -254,46 +295,7 @@ function WorkoutCard({ workout, onClick, onDelete, onAssign, isExpired }: {
   return hasGradientBorder ? <div style={wrapperStyle}>{inner}</div> : inner
 }
 
-// ── Last session history hook ─────────────────────────────────────────────
 
-function useLastSessionHistory(exerciseName: string, workoutDate?: string) {
-  const user = getUserInfo()
-  const [history, setHistory] = useState<Record<number, string>>({})
-
-  useEffect(() => {
-    if (!exerciseName || !user?.id) return
-    let cancelled = false
-    setHistory({})
-    apiFetch<{ progression?: { date?: string; completed_at?: string; setNumber?: number; set_number?: number; weight?: number; weight_used?: number; weightUsed?: number; reps?: number; reps_completed?: number; repsCompleted?: number; weightUnit?: string; weight_unit?: string }[] }>(
-      `/workout-plans/users/${user.id}/progression?exercise=${encodeURIComponent(exerciseName)}`
-    ).then(d => {
-      if (cancelled) return
-      const rawLogs = d.progression ?? []
-      if (!rawLogs.length) return
-      const logsByDate: Record<string, typeof rawLogs> = {}
-      for (const l of rawLogs) {
-        const date = (l.date || l.completed_at || "").split("T")[0] || "unknown"
-        ;(logsByDate[date] ??= []).push(l)
-      }
-      const sorted = Object.keys(logsByDate).sort((a, b) => b.localeCompare(a))
-      const cutoff = workoutDate ?? getLocalISOString()
-      const targetDate = sorted.find(d => d < cutoff)
-      if (!targetDate) return
-      const map: Record<number, string> = {}
-      for (const l of logsByDate[targetDate]) {
-        const setNum = l.setNumber ?? l.set_number
-        const w = l.weight ?? l.weightUsed ?? l.weight_used
-        const r = l.reps ?? l.repsCompleted ?? l.reps_completed
-        const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-        if (setNum != null && w != null && r != null) map[setNum] = `${w}${unit}×${r}`
-      }
-      setHistory(map)
-    }).catch(() => {})
-    return () => { cancelled = true }
-  }, [exerciseName, user?.id, workoutDate]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return history
-}
 
 // ── Set log row (interactive) ─────────────────────────────────────────────
 
