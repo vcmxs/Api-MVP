@@ -13,6 +13,7 @@ import { cn, getLocalISOString } from "@/lib/utils"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
+import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 
 // ── API Types ─────────────────────────────────────────────────────────────
@@ -147,6 +148,78 @@ async function removePlan(id: string) {
   }
 }
 
+// ── Local (browser-only) routines ─────────────────────────────────────────
+//
+// A routine created inside a plan has no workout_templates row, so the plan
+// builder keeps it in localStorage under a negative id. The assign sheet used
+// to ask /programs/workouts/<id> for those ids (a 404 since 010) and render the
+// day as empty; these helpers let both flows read the same record.
+
+const LOCAL_WORKOUTS_KEY = "dupla_local_workouts"
+
+interface LocalWorkoutExercise {
+  name?: string
+  sets?: number
+  reps?: number
+  weight?: number
+  notes?: string
+  isCardio?: boolean
+  isSuperset?: boolean
+}
+
+interface LocalWorkoutRecord {
+  id: number
+  name: string
+  description?: string
+  exercises?: LocalWorkoutExercise[]
+}
+
+const isLocalWorkoutId = (id: number) => id < 0
+
+function readLocalWorkouts(): LocalWorkoutRecord[] {
+  if (typeof window === "undefined") return []
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LOCAL_WORKOUTS_KEY) ?? "[]")
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+/** Stored builder routine → the workout shape `workoutCache` holds. */
+function localWorkoutToProgramWorkout(workout: LocalWorkoutRecord): ApiProgramWorkout {
+  return {
+    id: workout.id,
+    name: workout.name,
+    description: workout.description ?? "",
+    exercises: (workout.exercises ?? [])
+      .filter(ex => (ex.name ?? "").trim().length > 0)
+      .map((ex, index) => ({
+        name: (ex.name ?? "").trim(),
+        sets: ex.sets ?? 3,
+        reps: ex.reps ?? 10,
+        targetWeight: ex.weight ?? 0,
+        weightUnit: "kg",
+        restTime: ex.isSuperset ? -1 : 60,
+        notes: ex.notes ?? "",
+        exerciseOrder: index,
+        is_cardio: ex.isCardio ? 1 : 0,
+        isCardio: ex.isCardio ?? false,
+      })),
+  }
+}
+
+/** Local routines among `ids` (negative ids) ready to merge into workoutCache. */
+function localWorkoutsFor(ids: number[]): Map<number, ApiProgramWorkout> {
+  const map = new Map<number, ApiProgramWorkout>()
+  const wanted = new Set(ids.filter(isLocalWorkoutId))
+  if (wanted.size === 0) return map
+  for (const workout of readLocalWorkouts()) {
+    if (wanted.has(workout.id)) map.set(workout.id, localWorkoutToProgramWorkout(workout))
+  }
+  return map
+}
+
 // ── Date helpers ──────────────────────────────────────────────────────────
 
 /** stored day 1=Mon…7=Sun → JS day 0=Sun…6=Sat */
@@ -195,119 +268,6 @@ function fmtDate(d: Date) {
 // ── Constants ─────────────────────────────────────────────────────────────
 
 const folderColors = ["#00ffff", "#00ff88", "#ffd700", "#a78bfa", "#ff4444", "#ff8800", "#4F46E5", "#10B981"]
-
-// ── Exercise Picker Panel ─────────────────────────────────────────────────
-
-interface ExSuggestion { id: number; name: string; muscle_group?: string; muscle_category?: string; is_cardio?: boolean | number }
-
-function isCardioEx(ex: ExSuggestion) {
-  const cat = (ex.muscle_category ?? ex.muscle_group ?? "").toLowerCase()
-  const name = (ex.name ?? "").toLowerCase()
-  return !!(ex.is_cardio || cat.includes("cardio") || cat.includes("aerobic") || name.includes("treadmill") || name.includes("cycling") || name.includes("running"))
-}
-
-function useExSuggestions(query: string) {
-  const [suggestions, setSuggestions] = useState<ExSuggestion[]>([])
-  const [loading, setLoading] = useState(false)
-  useEffect(() => {
-    if (query.length < 2) { setSuggestions([]); return }
-    const t = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const data = await apiFetch<ExSuggestion[] | { exercises: ExSuggestion[] }>(`/exercises?search=${encodeURIComponent(query)}`)
-        setSuggestions((Array.isArray(data) ? data : (data as { exercises: ExSuggestion[] }).exercises ?? []).slice(0, 8))
-      } catch { setSuggestions([]) } finally { setLoading(false) }
-    }, 300)
-    return () => clearTimeout(t)
-  }, [query])
-  return { suggestions, loading }
-}
-
-function ExPickerPanel({ open, onClose, onSelect, onDone, rightRem = 34 }: {
-  open: boolean; onClose: () => void
-  onSelect: (ex: { name: string; isCardio: boolean }) => void; onDone: () => void
-  rightRem?: number
-}) {
-  const { t } = useT()
-  const [mode, setMode] = useState<"categories" | "exercises" | "search">("categories")
-  const [categories, setCategories] = useState<string[]>([])
-  const [catsLoading, setCatsLoading] = useState(false)
-  const [selectedCat, setSelectedCat] = useState<string | null>(null)
-  const [catExs, setCatExs] = useState<ExSuggestion[]>([])
-  const [catLoading, setCatLoading] = useState(false)
-  const [searchQ, setSearchQ] = useState("")
-  const { suggestions: searchResults, loading: searchLoading } = useExSuggestions(searchQ)
-
-  useEffect(() => {
-    if (!open) return
-    setMode("categories"); setSelectedCat(null); setSearchQ(""); setCatsLoading(true)
-    apiFetch<string[] | { categories: string[] }>("/exercises/categories")
-      .then(d => setCategories(Array.isArray(d) ? d : (d as { categories: string[] }).categories ?? []))
-      .catch(() => setCategories([])).finally(() => setCatsLoading(false))
-  }, [open])
-
-  const selectCat = async (cat: string) => {
-    setSelectedCat(cat); setMode("exercises"); setCatLoading(true)
-    try {
-      const d = await apiFetch<ExSuggestion[] | { exercises: ExSuggestion[] }>(`/exercises?category=${encodeURIComponent(cat)}`)
-      setCatExs(Array.isArray(d) ? d : (d as { exercises: ExSuggestion[] }).exercises ?? [])
-    } catch { setCatExs([]) } finally { setCatLoading(false) }
-  }
-
-  const pick = (ex: ExSuggestion) => { onSelect({ name: ex.name, isCardio: isCardioEx(ex) }); setMode("categories"); setSelectedCat(null); setSearchQ(""); onDone() }
-
-  if (typeof window === "undefined") return null
-  return createPortal(
-    <div className="fixed top-0 flex h-screen w-full max-w-full sm:max-w-xs flex-col border-l border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
-      style={{ zIndex: 250, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
-      onPointerDown={e => e.stopPropagation()}
-      onMouseDown={e => e.stopPropagation()}
-      onTouchStart={e => e.stopPropagation()}
-    >
-      <div className="flex h-16 items-center justify-between border-b border-white/[0.08] px-4">
-        <div className="flex items-center gap-2">
-          {mode === "exercises"
-            ? <button onClick={() => setMode("categories")} className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /></button>
-            : <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#a78bfa]/10"><Dumbbell className="h-3.5 w-3.5 text-[#a78bfa]" /></div>}
-          <span className="text-sm font-bold text-white">{mode === "search" ? t.common.search : mode === "exercises" ? selectedCat : t.programs.muscleGroup}</span>
-        </div>
-        <div className="flex gap-1">
-          <button onClick={() => setMode(mode === "search" ? "categories" : "search")}
-            className={cn("flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08]", mode === "search" ? "bg-[#a78bfa]/10 text-[#a78bfa]" : "text-[#888888] hover:text-white")}>
-            <Search className="h-3.5 w-3.5" /></button>
-          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white"><X className="h-3.5 w-3.5" /></button>
-        </div>
-      </div>
-      {mode === "search" && (
-        <div className="px-3 pt-3 pb-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#555555]" />
-            <input autoFocus type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder={t.programs.searchExercises}
-              className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] py-2 pl-9 pr-3 text-sm text-white placeholder:text-[#555555] focus:border-[#a78bfa]/50 focus:outline-none" />
-          </div>
-        </div>
-      )}
-      <div className="flex-1 overflow-y-auto py-1">
-        {mode === "search"
-          ? searchLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-            : searchQ.length < 2 ? <p className="py-8 text-center text-xs text-[#555555]">{t.programs.typeToSearch}</p>
-            : searchResults.length === 0 ? <p className="py-8 text-center text-xs text-[#555555]">{t.programs.noResults}</p>
-            : searchResults.map(ex => <button key={ex.id} onClick={() => pick(ex)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-white/[0.04]"><Dumbbell className="h-3 w-3 shrink-0 text-[#555555]" /><span className="truncate text-sm text-white">{ex.name}</span></button>)
-          : mode === "categories"
-          ? catsLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-            : categories.map((cat, i) => <button key={i} onClick={() => selectCat(cat)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-white/[0.04]"><span className="text-sm font-medium text-white">{cat}</span><ChevronRight className="h-3.5 w-3.5 text-[#555555]" /></button>)
-          : catLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-          : catExs.map(ex => <button key={ex.id} onClick={() => pick(ex)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-white/[0.04]"><Dumbbell className="h-3 w-3 shrink-0 text-[#555555]" /><span className="truncate text-sm text-white">{ex.name}</span></button>)}
-      </div>
-      <div className="border-t border-white/[0.08] p-3">
-        <button onClick={onDone} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a78bfa] py-2 text-sm font-bold text-black hover:opacity-90">
-          <Check className="h-3.5 w-3.5" /> {t.programs.done}
-        </button>
-      </div>
-    </div>,
-    document.body
-  )
-}
 
 // ── Workout Picker Panel ──────────────────────────────────────────────────
 // Slides in from behind the Plan Builder Sheet.
@@ -370,12 +330,8 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
 
   const handlePickEx = ({ name: n, isCardio }: { name: string; isCardio: boolean }) => {
     if (!exPickerTarget) return
-    const nid = `ex-${Date.now()}`
-    setCreateExercises(p => [
-      ...p.map(e => e.id === exPickerTarget ? { ...e, name: n, isCardio } : e),
-      { id: nid, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false },
-    ])
-    setExPickerTarget(nid)
+    // The picker closes itself after a pick, so just fill the row that opened it.
+    setCreateExercises(p => p.map(e => e.id === exPickerTarget ? { ...e, name: n, isCardio } : e))
   }
 
   const handleExPickerDone = () => {
@@ -409,9 +365,9 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
         // Standalone plan — save locally with a negative ID
         const localId = -(Date.now())
         newW = { id: localId, name: createName.trim(), programId: 0, programName: "Local" }
-        const stored = JSON.parse(localStorage.getItem("dupla_local_workouts") ?? "[]")
+        const stored = JSON.parse(localStorage.getItem(LOCAL_WORKOUTS_KEY) ?? "[]")
         stored.unshift({ id: localId, name: createName.trim(), exercises: validEx })
-        localStorage.setItem("dupla_local_workouts", JSON.stringify(stored))
+        localStorage.setItem(LOCAL_WORKOUTS_KEY, JSON.stringify(stored))
       }
 
       onWorkoutCreated(newW)
@@ -425,7 +381,6 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
   if (typeof window === "undefined") return null
 
   // WorkoutPickerPanel: right=34rem, width=w-72 (18rem) → left edge at 52rem
-  // ExPickerPanel for exercises: right=53rem (52+1 gap)
   return createPortal(
     <>
       <div
@@ -554,13 +509,12 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
         )}
       </div>
 
-      {/* Exercise picker for create mode — slides further left (right=50rem: 32+18) */}
-      <ExPickerPanel
+      {/* Exercise picker for create mode */}
+      <ExercisePickerSheet
         open={exPickerTarget !== null}
-        onClose={handleExPickerDone}
+        onOpenChange={next => { if (!next) handleExPickerDone() }}
         onSelect={handlePickEx}
-        onDone={handleExPickerDone}
-        rightRem={50}
+        accent="violet"
       />
     </>,
     document.body
@@ -580,6 +534,17 @@ const mapApiExToBuilderEx = (ex: any): BuilderEx => ({
   notes: ex.notes || "",
   isSuperset: ex.isSuperset || ex.restTime === -1 || ex.rest_time === -1 || false,
   isCardio: !!(ex.isCardio ?? ex.is_cardio ?? false),
+})
+
+const mapLocalWorkoutExercise = (exercise: any, index: number): BuilderEx => ({
+  id: exercise.id ? String(exercise.id) : `ex-local-${index}`,
+  name: exercise.name || "",
+  sets: Number(exercise.sets) || 3,
+  reps: Number(exercise.reps) || 10,
+  weight: Number(exercise.weight ?? exercise.targetWeight ?? exercise.target_weight) || 0,
+  notes: exercise.notes || "",
+  isCardio: Boolean(exercise.isCardio ?? exercise.is_cardio),
+  isSuperset: Boolean(exercise.isSuperset) || exercise.restTime === -1 || exercise.rest_time === -1,
 })
 
 function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
@@ -703,10 +668,11 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
 
 // ── Workout Builder Sheet ─────────────────────────────────────────────────
 
-function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCreated, editWorkoutId, editWorkoutName, editWorkoutDesc, editWorkoutExercises }: {
+function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCreated, editWorkoutId, isLocalWorkout, editWorkoutName, editWorkoutDesc, editWorkoutExercises }: {
   open: boolean; onOpenChange: (v: boolean) => void
   programId: number; programColor: string; onCreated: () => void
   editWorkoutId?: number | null
+  isLocalWorkout?: boolean
   editWorkoutName?: string
   editWorkoutDesc?: string
   editWorkoutExercises?: BuilderEx[]
@@ -739,9 +705,8 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
   const removeEx = (id: string) => setExercises(p => p.filter(e => e.id !== id))
   const handlePickEx = ({ name: n, isCardio }: { name: string; isCardio: boolean }) => {
     if (!pickerTargetId) return
-    const nid = `ex-${Date.now()}`
-    setExercises(p => [...p.map(e => e.id === pickerTargetId ? { ...e, name: n, isCardio } : e), { id: nid, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }])
-    setPickerTargetId(nid)
+    // The picker closes itself after a pick, so just fill the row that opened it.
+    setExercises(p => p.map(e => e.id === pickerTargetId ? { ...e, name: n, isCardio } : e))
   }
   const handlePickerDone = () => { setExercises(p => p.filter(e => e.name.trim())); setPickerTargetId(null) }
 
@@ -749,19 +714,39 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
     if (!name.trim() || !user?.id) return
     setSaving(true); setSaveError("")
     try {
-      const url = editWorkoutId ? `/workout-templates/${editWorkoutId}` : "/workout-templates"
-      const method = editWorkoutId ? "PUT" : "POST"
-      await apiFetch(url, {
-        method,
-        body: JSON.stringify({
-          userId: user.id, name: name.trim(), description: description.trim() || undefined, programId,
-          exercises: exercises.filter(e => e.name.trim()).map((e, i) => ({
-            name: e.name.trim(), sets: e.sets, reps: e.reps, targetWeight: e.weight,
-            weightUnit: "kg", restTime: e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
-            trackRpe: false, trackRir: false, isCardio: e.isCardio,
-          })),
-        }),
-      })
+      const savedExercises = exercises.filter(e => e.name.trim()).map((e, i) => ({
+        ...e,
+        id: e.id || `ex-${Date.now()}-${i}`,
+        name: e.name.trim(),
+        exerciseOrder: i,
+      }))
+
+      if (isLocalWorkout && editWorkoutId !== undefined && editWorkoutId !== null) {
+        const stored = JSON.parse(localStorage.getItem(LOCAL_WORKOUTS_KEY) ?? "[]")
+        const index = stored.findIndex((workout: { id: number }) => workout.id === editWorkoutId)
+        if (index < 0) throw new Error(t.programs.localWorkoutMissing)
+        stored[index] = {
+          ...stored[index],
+          name: name.trim(),
+          description: description.trim() || "",
+          exercises: savedExercises,
+        }
+        localStorage.setItem(LOCAL_WORKOUTS_KEY, JSON.stringify(stored))
+      } else {
+        const url = editWorkoutId ? `/workout-templates/${editWorkoutId}` : "/workout-templates"
+        const method = editWorkoutId ? "PUT" : "POST"
+        await apiFetch(url, {
+          method,
+          body: JSON.stringify({
+            userId: user.id, name: name.trim(), description: description.trim() || undefined, programId,
+            exercises: savedExercises.map((e, i) => ({
+              name: e.name, sets: e.sets, reps: e.reps, targetWeight: e.weight,
+              weightUnit: "kg", restTime: e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
+              trackRpe: false, trackRir: false, isCardio: e.isCardio,
+            })),
+          }),
+        })
+      }
       setName(""); setDescription(""); setExercises([]); onCreated(); onOpenChange(false)
     } catch (e: unknown) { setSaveError(e instanceof Error ? e.message : "Failed to save workout") }
     finally { setSaving(false) }
@@ -830,7 +815,12 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
           </div>
         </SheetContent>
       </Sheet>
-      <ExPickerPanel open={pickerTargetId !== null} onClose={handlePickerDone} onSelect={handlePickEx} onDone={handlePickerDone} />
+      <ExercisePickerSheet
+        open={pickerTargetId !== null}
+        onOpenChange={next => { if (!next) handlePickerDone() }}
+        onSelect={handlePickEx}
+        accent="violet"
+      />
     </>
   )
 }
@@ -859,6 +849,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
   // Preset workout template editing states
   const [editingWorkoutId, setEditingWorkoutId] = useState<number | null>(null)
+  const [editingLocalWorkout, setEditingLocalWorkout] = useState(false)
   const [editingWorkoutExercises, setEditingWorkoutExercises] = useState<BuilderEx[]>([])
   const [editingWorkoutName, setEditingWorkoutName] = useState("")
   const [editingWorkoutDesc, setEditingWorkoutDesc] = useState("")
@@ -868,11 +859,31 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
   const handleEditPresetWorkout = async (day: number, assigned: DaySlot) => {
     const tid = getSlotWorkoutId(assigned)
     if (!tid) return
+
+    if (tid < 0 || assigned.programId === 0) {
+      try {
+        const localWorkouts = readLocalWorkouts()
+        const workout = localWorkouts.find(item => item.id === tid)
+        if (!workout) throw new Error(t.programs.localWorkoutMissing)
+
+        setEditingWorkoutId(workout.id)
+        setEditingLocalWorkout(true)
+        setEditingWorkoutName(workout.name)
+        setEditingWorkoutDesc(workout.description || "")
+        setEditingWorkoutExercises((workout.exercises ?? []).map(mapLocalWorkoutExercise))
+        setEditWorkoutOpen(true)
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : "Could not load this local workout")
+      }
+      return
+    }
+
     try {
       const data = await apiFetch<{ workout: ApiProgramWorkout }>(`/programs/workouts/${tid}`)
       const w = data.workout
       if (w) {
         setEditingWorkoutId(w.id)
+        setEditingLocalWorkout(false)
         setEditingWorkoutName(w.name)
         setEditingWorkoutDesc(w.description || "")
         setEditingWorkoutExercises((w.exercises ?? []).map(mapApiExToBuilderEx))
@@ -960,7 +971,7 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-lg"
         style={{ zIndex: 200 }}
         onInteractOutside={e => e.preventDefault()}>
@@ -1100,10 +1111,38 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
       programId={programFolderId || 0}
       programColor="#a78bfa"
       editWorkoutId={editingWorkoutId}
+      isLocalWorkout={editingLocalWorkout}
       editWorkoutName={editingWorkoutName}
       editWorkoutDesc={editingWorkoutDesc}
       editWorkoutExercises={editingWorkoutExercises}
       onCreated={async () => {
+        if (editingLocalWorkout && editingWorkoutId !== null) {
+          try {
+            const stored = JSON.parse(localStorage.getItem(LOCAL_WORKOUTS_KEY) ?? "[]")
+            const updated = stored.find((workout: { id: number }) => workout.id === editingWorkoutId)
+            if (updated) {
+              setEditingWorkoutName(updated.name)
+              setEditingWorkoutDesc(updated.description || "")
+              setEditingWorkoutExercises((updated.exercises ?? []).map(mapLocalWorkoutExercise))
+              const updatedWorkout = { id: updated.id, name: updated.name, programId: 0, programName: "Local" }
+              setAvailable(current => [updatedWorkout, ...current.filter(workout => workout.id !== updatedWorkout.id)])
+              setSchedule(current => {
+                const next = { ...current }
+                for (const scheduledDay of Object.keys(next).map(Number)) {
+                  const slot = next[scheduledDay]
+                  if (slot && getSlotWorkoutId(slot) === editingWorkoutId) {
+                    next[scheduledDay] = { ...slot, workoutName: updatedWorkout.name }
+                  }
+                }
+                return next
+              })
+            }
+          } catch (e) {
+            console.error("Failed to refresh local workout after edit", e)
+          }
+          return
+        }
+
         if (user?.id) {
           try {
             const d = await apiFetch<{ programs: ApiProgram[] }>(`/programs/users/${user.id}`)
@@ -1225,6 +1264,15 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     }
   }, [expandedDay, selectedTrainee?.id, localSchedule, workoutCache, editedExercises]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Resolves a day's routine: server-side workouts come from `workoutCache`,
+   * routines created inside a plan (negative id) from localStorage.
+   */
+  const resolveWorkout = (workoutId: number | undefined) => {
+    if (!workoutId) return undefined
+    return workoutCache.get(workoutId) ?? localWorkoutsFor([workoutId]).get(workoutId)
+  }
+
   useEffect(() => {
     if (!open) return
     setSelectedTrainee(null); setTraineeSearch(""); setStartDate(new Date().toISOString().split("T")[0])
@@ -1247,11 +1295,21 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         setTrainees([meAsTrainee])
       })
       
-    const uniqueWorkoutIds = [...new Set(Object.values(plan.schedule).filter(Boolean).map(s => getSlotWorkoutId(s!)).filter(id => !!id))]
-    if (uniqueWorkoutIds.length > 0) {
+    const uniqueWorkoutIds: number[] = [...new Set(
+      Object.values(plan.schedule).filter(Boolean)
+        .map(s => getSlotWorkoutId(s!))
+        .filter((id): id is number => !!id)
+    )]
+    // Routines created inside a plan only exist in localStorage (negative id),
+    // so they are seeded straight into the cache instead of being requested
+    // from /programs/workouts/<id>.
+    const localWorkoutMap = localWorkoutsFor(uniqueWorkoutIds)
+    if (localWorkoutMap.size > 0) setWorkoutCache(prev => new Map([...prev, ...localWorkoutMap]))
+    const remoteWorkoutIds = uniqueWorkoutIds.filter(id => !isLocalWorkoutId(id))
+    if (remoteWorkoutIds.length > 0) {
       // In this system, workouts are often fetched via their program/folder. 
       // If we don't have a programId, we try to fetch the individual workout details.
-      Promise.all(uniqueWorkoutIds.map(id =>
+      Promise.all(remoteWorkoutIds.map(id =>
         apiFetch<{ workout: ApiProgramWorkout }>(`/programs/workouts/${id}`).then(d => [d.workout]).catch(() => [])
       )).then(results => {
         const map = new Map<number, ApiProgramWorkout>()
@@ -1290,36 +1348,55 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     setSubmitting(true)
     try {
       const dates = getPlanDates(new Date(startDate + "T12:00:00"), plan.durationWeeks, localSchedule)
+
+      // Build every payload before writing anything: a day without exercises is
+      // rejected by POST /workout-plans (400) and used to leave the plan half
+      // assigned, so it is reported instead of being sent.
+      const payloads: {
+        traineeId: number; coachId: number; name: string; description: string
+        scheduledDate: string; exercises: Record<string, unknown>[]
+      }[] = []
+      const emptyDays: string[] = []
+
       for (const { date, slot, weekIndex, dayKey } of dates) {
         const tid = getSlotWorkoutId(slot)
-        const workout = tid ? workoutCache.get(tid) : undefined
-        
+        const workout = resolveWorkout(tid)
+
         let exSource = editedExercises.get(dayKey)
         if (!exSource) {
             const rawExList = workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
             exSource = (rawExList as (ProgramExercise & { weightIncrement?: number })[])
         }
 
-        await apiFetch("/workout-plans", {
-          method: "POST",
-          body: JSON.stringify({
-            traineeId: selectedTrainee.id, coachId: user.id,
-            name: getSlotName(slot), description: workout?.description ?? "",
-            scheduledDate: getLocalISOString(date),
-            exercises: exSource.map((ex, i) => {
-              const baseWeight = ex.targetWeight ?? ex.target_weight ?? 0;
-              const increment = ex.weightIncrement ?? 0;
-              const targetWeight = baseWeight + (increment * weekIndex);
+        const exercises = exSource.filter(ex => ex && ex.name).map((ex, i) => {
+          const baseWeight = ex.targetWeight ?? ex.target_weight ?? 0;
+          const increment = ex.weightIncrement ?? 0;
 
-              return {
-                name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: targetWeight,
-                weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: ex.restTime ?? ex.rest_time ?? 60, notes: ex.notes ?? "", exerciseOrder: i,
-                track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
-              };
-            }),
-          }),
+          return {
+            name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: baseWeight + (increment * weekIndex),
+            weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: ex.restTime ?? ex.rest_time ?? 60, notes: ex.notes ?? "", exerciseOrder: i,
+            track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
+          };
+        })
+
+        if (exercises.length === 0) { emptyDays.push(`${DAY_NAMES[dayKey] ?? dayKey} · ${getSlotName(slot)}`); continue }
+
+        payloads.push({
+          traineeId: selectedTrainee.id, coachId: user.id,
+          name: getSlotName(slot), description: workout?.description ?? "",
+          scheduledDate: getLocalISOString(date),
+          exercises,
         })
       }
+
+      if (emptyDays.length > 0) {
+        throw new Error(t.programs.assignMissingExercises.replace("{days}", [...new Set(emptyDays)].join(", ")))
+      }
+
+      for (const payload of payloads) {
+        await apiFetch("/workout-plans", { method: "POST", body: JSON.stringify(payload) })
+      }
+
       if (!plan.isReusable) await removePlan(plan.id)
       
       const startD = dates.length > 0 ? format(dates[0].date, "MMM d, yyyy") : startDate
@@ -1332,7 +1409,11 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
       alert(successMsg)
 
       onAssigned(); onOpenChange(false)
-    } catch (e) { alert("Failed to assign plan") } finally { setSubmitting(false) }
+    } catch (e) {
+      console.error("Failed to assign plan", e)
+      const errorMessage = e instanceof Error ? e.message : String(e)
+      alert(t.programs.assignFailed.replace("{error}", errorMessage))
+    } finally { setSubmitting(false) }
   }
 
   const filteredTrainees = trainees.filter(tr => tr.name.toLowerCase().includes(traineeSearch.toLowerCase()))
@@ -1463,10 +1544,9 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         const slot = localSchedule[expandedDay]
         if (!slot) return null
         const tid = getSlotWorkoutId(slot)
-        const workout = tid ? workoutCache.get(tid) : undefined
+        const workout = resolveWorkout(tid)
         const rawExList = editedExercises.get(expandedDay) || workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
         const exList = (rawExList as (ProgramExercise & { weightIncrement?: number })[])
-        console.log("[AssignPlanModal] Day:", expandedDay, "Slot:", slot, "ExList:", exList)
         return (
           <Sheet open={true} onOpenChange={() => setExpandedDay(null)}>
             <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}
@@ -1541,9 +1621,11 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
               <div className="border-t border-white/[0.08] p-5 bg-[#0a0a0f]">
                 <button onClick={() => setExpandedDay(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">{t.programs.doneEditing}</button>
               </div>
-              <ExPickerPanel
+              <ExercisePickerSheet
                 open={pickerForCustomDay === expandedDay}
-                onClose={() => setPickerForCustomDay(null)}
+                onOpenChange={next => { if (!next) setPickerForCustomDay(null) }}
+                targetUserId={selectedTrainee?.id}
+                subjectName={selectedTrainee?.name}
                 onSelect={({ name, isCardio }) => {
                   const newEx = {
                     id: Date.now() + Math.random(),
@@ -1562,7 +1644,6 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                     return n
                   })
                 }}
-                onDone={() => setPickerForCustomDay(null)}
               />
             </SheetContent>
           </Sheet>
@@ -1692,7 +1773,12 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange, onDeleteFolde
     } catch { } finally { setDeletingId(null) }
   }
 
-  const handleDeletePlan = async (id: string) => { await removePlan(id); loadPlans() }
+  const handleDeletePlan = async (id: string) => {
+    const target = plans.find(plan => plan.id === id)
+    if (!window.confirm(t.programs.confirmDeletePlan.replace("{plan}", target?.name ?? id))) return
+    await removePlan(id)
+    loadPlans()
+  }
 
   const toAssignWorkout = (w: ApiProgramWorkout) => ({
     id: w.id, name: w.name, description: w.description,
@@ -1990,7 +2076,12 @@ export function ProgramsView() {
   const handleDeleteProgram = async (id: number) => {
     try { await apiFetch(`/programs/${id}`, { method: "DELETE" }); setPrograms(p => p.filter(pr => pr.id !== id)); if (openProgramId === id) setOpenProgramId(null) } catch { }
   }
-  const handleDeletePlan = async (id: string) => { await removePlan(id); loadStandalonePlans() }
+  const handleDeletePlan = async (id: string) => {
+    const target = standalonePlans.find(plan => plan.id === id)
+    if (!window.confirm(t.programs.confirmDeletePlan.replace("{plan}", target?.name ?? id))) return
+    await removePlan(id)
+    loadStandalonePlans()
+  }
   const updateWorkoutCount = (id: number, count: number) => setPrograms(p => p.map(pr => pr.id === id ? { ...pr, workout_count: count } : pr))
 
   if (openProgramId !== null) {

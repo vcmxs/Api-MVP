@@ -53,7 +53,7 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
       if (wRes && wRes.workoutPlans) {
         setWorkouts(wRes.workoutPlans)
       }
-    } catch (e) { console.error("Failed to fetch workouts") }
+    } catch (e) { console.error("Failed to fetch workouts", e) }
 
     try {
       // Fetch nutrition

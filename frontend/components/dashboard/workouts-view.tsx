@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { createPortal } from "react-dom"
 import {
   Plus, Trash2, Dumbbell, X, UserPlus,
-  ArrowLeft, CheckCircle2, Clock, ClipboardList,
-  ChevronRight, Users, Search, Loader2, AlertCircle,
+  CheckCircle2, Clock, ClipboardList,
+  ChevronRight, Users, Loader2, AlertCircle,
   Calendar, CalendarDays, RefreshCw, Pencil, RotateCcw, Check, Lock,
-  LayoutList, ChevronLeft, Zap, Link
+  LayoutList, ChevronLeft, Zap
 } from "lucide-react"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
@@ -16,7 +15,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { cn, getLocalISOString } from "@/lib/utils"
 import { format, parseISO } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
+import { ExerciseNoteEntry, parseExerciseNotes, serializeCoachNote } from "@/lib/exercise-notes"
 import { useT } from "@/lib/i18n"
+import { ExercisePickerSheet } from "./exercise-picker-sheet"
+import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 
 // ── API types ─────────────────────────────────────────────────────────────
 
@@ -65,17 +67,10 @@ interface ApiWorkout {
   status: "pending" | "assigned" | "completed"
   coach_id?: number
   coachId?: number
+  trainee_id?: number
+  traineeId?: number
   is_shared?: number | boolean
   exercises?: ApiExercise[]
-}
-
-interface ExerciseSuggestion {
-  id: number
-  name: string
-  muscle_group?: string
-  muscle_category?: string
-  is_cardio?: boolean | number
-  category?: string
 }
 
 // ── Internal display types ────────────────────────────────────────────────
@@ -123,16 +118,19 @@ function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
 
 // ── Last session history hook ─────────────────────────────────────────────
 
-function useLastSessionHistory(exerciseName: string, workoutDate?: string) {
+function useLastSessionHistory(exerciseName: string, workoutDate?: string, subjectId?: number) {
   const user = getUserInfo()
+  // Who the "last session" belongs to: the trainee the workout is assigned to,
+  // falling back to the signed-in user when the coach looks at their own routine.
+  const historyUserId = subjectId ?? user?.id
   const [history, setHistory] = useState<Record<number, string>>({})
 
   useEffect(() => {
-    if (!exerciseName || !user?.id) return
+    if (!exerciseName || !historyUserId) return
     let cancelled = false
     setHistory({})
     apiFetch<{ progression?: { date?: string; completed_at?: string; setNumber?: number; set_number?: number; weight?: number; weight_used?: number; weightUsed?: number; reps?: number; reps_completed?: number; repsCompleted?: number; weightUnit?: string; weight_unit?: string }[] }>(
-      `/workout-plans/users/${user.id}/progression?exercise=${encodeURIComponent(exerciseName)}`
+      `/workout-plans/users/${historyUserId}/progression?exercise=${encodeURIComponent(exerciseName)}`
     ).then(d => {
       if (cancelled) return
       const rawLogs = d.progression ?? []
@@ -157,7 +155,7 @@ function useLastSessionHistory(exerciseName: string, workoutDate?: string) {
       setHistory(map)
     }).catch(() => {})
     return () => { cancelled = true }
-  }, [exerciseName, user?.id, workoutDate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exerciseName, historyUserId, workoutDate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return history
 }
@@ -451,32 +449,163 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   )
 }
 
+function ExerciseNotesPanel({ exercise, workoutId, coachId, traineeId, onRefresh }: {
+  exercise: ApiExercise
+  workoutId: number
+  coachId?: number
+  traineeId?: number
+  onRefresh: () => void
+}) {
+  const { t } = useT()
+  const user = getUserInfo()
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+  const notes = parseExerciseNotes(exercise.notes)
+  const canAddNote = user?.role === "coach" || user?.role === "trainee"
+
+  const handleSave = async () => {
+    const text = draft.trim()
+    if (!text || !user?.id || !canAddNote) return
+
+    const role = user.role === "coach" ? "coach" : "trainee"
+    const nextNote: ExerciseNoteEntry = {
+      userId: user.id,
+      userName: role === "coach" ? "Coach" : user.name || "Trainee",
+      authorName: user.name || undefined,
+      role,
+      text,
+      createdAt: new Date().toISOString(),
+    }
+
+    setSaving(true)
+    setError("")
+    try {
+      await apiFetch(`/workout-plans/${workoutId}/exercises/${exercise.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ notes: JSON.stringify([...notes, nextNote]) }),
+      })
+      setDraft("")
+      setComposerOpen(false)
+      onRefresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t.workouts.noteSaveError)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const getAuthor = (note: ExerciseNoteEntry) => {
+    const role = note.role?.toLowerCase() || (
+      note.userName === "Coach" || (coachId != null && String(note.userId) === String(coachId))
+        ? "coach"
+        : traineeId != null && String(note.userId) === String(traineeId)
+          ? "trainee"
+          : ""
+    )
+    if (role === "coach") return { label: t.workouts.coach, color: "#ffd700" }
+    if (role === "trainee") return { label: t.workouts.trainee, color: "#a78bfa" }
+    return { label: note.userName || t.workouts.note, color: "#a78bfa" }
+  }
+
+  return (
+    <div className="mx-3 mb-3 rounded-lg border border-white/[0.06] bg-[#0a0a0f] p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#888888]">
+          {t.workouts.exerciseNotes}{notes.length > 0 ? ` (${notes.length})` : ""}
+        </p>
+        {canAddNote && (
+          <button
+            type="button"
+            onClick={() => { setError(""); setComposerOpen(value => !value) }}
+            className="text-xs font-semibold text-[#00ffff] hover:text-white"
+          >
+            {composerOpen ? t.common.cancel : `+ ${t.workouts.addNote}`}
+          </button>
+        )}
+      </div>
+
+      {notes.length > 0 ? (
+        <div className="space-y-2">
+          {notes.map((note, index) => {
+            const author = getAuthor(note)
+            return (
+              <div key={`${note.userId ?? "legacy"}-${note.createdAt ?? index}-${index}`} className="rounded-md border border-white/[0.04] bg-white/[0.025] p-2">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-[10px] font-bold" style={{ color: author.color }}>{author.label}</span>
+                  {note.authorName && <span className="text-[10px] text-[#777777]">{note.authorName}</span>}
+                  {note.createdAt && <span className="ml-auto text-[9px] text-[#555555]">{new Date(note.createdAt).toLocaleString()}</span>}
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-xs text-[#cccccc]">{note.text}</p>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-[#555555]">{t.workouts.noExerciseNotes}</p>
+      )}
+
+      {composerOpen && (
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={draft}
+            onChange={event => setDraft(event.target.value)}
+            placeholder={user?.role === "coach" ? t.workouts.coachNotePlaceholder : t.workouts.traineeNotePlaceholder}
+            rows={3}
+            maxLength={2000}
+            className="w-full resize-y rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white placeholder:text-[#555555] focus:border-[#00ffff]/40 focus:outline-none"
+          />
+          {error && <p role="alert" className="text-xs text-[#ff7777]">{error}</p>}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!draft.trim() || saving}
+              className="rounded-lg bg-[#00ffff] px-3 py-1.5 text-xs font-bold text-black disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saving ? t.workouts.savingNote : t.workouts.saveNote}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Superset Section ───────────────────────────────────────────────────────
 
-function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, onRefresh }: {
+function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coachId, traineeId, onRefresh }: {
   setNum: number
   log: ApiSetLog | undefined
   exercise: ApiExercise
   workoutId: number
   workoutDate?: string
+  coachId?: number
+  traineeId?: number
   onRefresh: () => void
 }) {
-  const lastHistory = useLastSessionHistory(exercise.name, workoutDate)
+  const lastHistory = useLastSessionHistory(exercise.name, workoutDate, traineeId)
   const isCardio = !!(exercise.is_cardio || exercise.isCardio)
   const { t } = useT()
 
   return (
     <div className="space-y-1.5 rounded-lg bg-black/10 p-2">
-      <div className="flex flex-col gap-1 mb-2 px-1">
-        <div className="flex items-center gap-2">
-           <Dumbbell className="h-3 w-3 text-[#00ffff]" />
-           <p className="text-xs font-semibold text-white">{exercise.name}</p>
+      <div className="mb-2 flex items-start gap-2 px-1">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <Dumbbell className="h-3 w-3 shrink-0 text-[#00ffff]" />
+            <p className="truncate text-xs font-semibold text-white">{exercise.name}</p>
+          </div>
+          <p className="ml-5 text-[10px] text-[#888888]">
+            {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
+            {(exercise.target_weight ?? exercise.targetWeight) != null && Number(exercise.target_weight ?? exercise.targetWeight) > 0 && ` @ ${exercise.target_weight ?? exercise.targetWeight}${exercise.weight_unit ?? "kg"}`}
+          </p>
         </div>
-        <p className="text-[10px] text-[#888888] ml-5">
-           {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
-           {(exercise.target_weight ?? exercise.targetWeight) != null && Number(exercise.target_weight ?? exercise.targetWeight) > 0 && ` @ ${exercise.target_weight ?? exercise.targetWeight}${exercise.weight_unit ?? "kg"}`}
-        </p>
+        {setNum === 1 && <ExerciseReferenceButton exerciseName={exercise.name} targetUserId={traineeId} />}
       </div>
+
+      <ExerciseNotesPanel exercise={exercise} workoutId={workoutId} coachId={coachId} traineeId={traineeId} onRefresh={onRefresh} />
 
       {!isCardio && (
         <div className="flex items-center gap-2 px-1 text-[9px] font-bold uppercase tracking-wider text-[#888888] mb-1">
@@ -508,11 +637,13 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, onR
   )
 }
 
-function SupersetSection({ exercises, index, workoutId, workoutDate, onRefresh }: {
+function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, traineeId, onRefresh }: {
   exercises: ApiExercise[]
   index: number
   workoutId: number
   workoutDate?: string
+  coachId?: number
+  traineeId?: number
   onRefresh: () => void
 }) {
   const { t } = useT()
@@ -558,6 +689,8 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, onRefresh }
                     exercise={ex}
                     workoutId={workoutId}
                     workoutDate={workoutDate}
+                    coachId={coachId}
+                    traineeId={traineeId}
                     onRefresh={onRefresh}
                   />
                 )
@@ -572,11 +705,12 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, onRefresh }
 
 // ── Exercise set section ───────────────────────────────────────────────────
 
-function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh }: {
+function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, traineeId, onRefresh }: {
   exercise: ApiExercise
-  index: number
   workoutId: number
   workoutDate?: string
+  coachId?: number
+  traineeId?: number
   onRefresh: () => void
 }) {
   const logs = (exercise.logs ?? []).slice().sort(
@@ -586,26 +720,36 @@ function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh
   const completedCount = logs.filter(l => l.completed || l.is_completed).length
   const targetWeight = exercise.target_weight ?? exercise.targetWeight
   const isCardio = !!(exercise.is_cardio || exercise.isCardio)
-  const lastHistory = useLastSessionHistory(exercise.name, workoutDate)
+  const lastHistory = useLastSessionHistory(exercise.name, workoutDate, traineeId)
   const { t } = useT()
+  const isComplete = completedCount === rowCount && rowCount > 0
+  const progressColor = isComplete ? "#00ff88" : completedCount > 0 ? "#ffd700" : "#555555"
+  const progressPercent = rowCount > 0 ? Math.round((completedCount / rowCount) * 100) : 0
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#00ffff]/10 text-xs font-bold text-[#00ffff]">
-          {index + 1}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-white truncate">{exercise.name}</p>
-          <p className="text-xs text-[#555555]">
+      {/* Header — portrait reference thumb on the left (opens the exercise dialog) */}
+      <div className="flex items-start gap-3 border-b border-white/[0.06] py-3 pl-3 pr-4">
+        <ExerciseReferenceButton exerciseName={exercise.name} targetUserId={traineeId} variant="thumb" />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 truncate font-semibold text-white">{exercise.name}</p>
+            <span
+              className="ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums"
+              style={{ color: progressColor, borderColor: `${progressColor}55`, backgroundColor: `${progressColor}14` }}
+            >
+              {completedCount}/{rowCount}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-[#555555]">
             {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
             {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${exercise.weight_unit ?? "kg"}`}
           </p>
+          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="h-full rounded-full transition-all" style={{ width: `${progressPercent}%`, backgroundColor: progressColor }} />
+          </div>
         </div>
-        <span className="shrink-0 text-xs font-semibold" style={{ color: completedCount === rowCount && rowCount > 0 ? "#00ff88" : completedCount > 0 ? "#ffd700" : "#555555" }}>
-          {completedCount}/{rowCount}
-        </span>
       </div>
 
       {/* Column headers */}
@@ -648,30 +792,7 @@ function ExerciseSetSection({ exercise, index, workoutId, workoutDate, onRefresh
         })}
       </div>
 
-      {exercise.notes && (
-        <div className="mx-3 mb-3 flex flex-col gap-2 rounded-lg border border-white/5 bg-[#161b22] px-3 py-2">
-          {(() => {
-            try {
-              const parsed = JSON.parse(exercise.notes)
-              if (Array.isArray(parsed)) {
-                                return parsed.map((n: any, idx: number) => (
-                  <div key={idx} className="flex flex-col rounded bg-white/[0.03] p-2">
-                    <span className="text-[10px] font-bold" style={{ color: n.userName !== "Coach" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
-                    <span className="mt-1 text-xs text-[#aaa]">{n.text}</span>
-                  </div>
-                ))
-              }
-            } catch (e) {}
-            // Fallback for old plain text
-            return (
-              <div className="flex flex-col rounded bg-yellow-500/5 border border-yellow-500/20 p-2">
-                <span className="text-[10px] font-bold text-[#ffd700]">Coach</span>
-                <span className="mt-1 text-xs text-[#aaa]">{exercise.notes}</span>
-              </div>
-            )
-          })()}
-        </div>
-      )}
+      <ExerciseNotesPanel exercise={exercise} workoutId={workoutId} coachId={coachId} traineeId={traineeId} onRefresh={onRefresh} />
     </div>
   )
 }
@@ -818,9 +939,10 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                       <ExerciseSetSection
                         key={group.exercise.id}
                         exercise={group.exercise}
-                        index={idx}
                         workoutId={workout.id}
                         workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
+                        coachId={rawDetail?.coach_id ?? rawDetail?.coachId}
+                        traineeId={rawDetail?.trainee_id ?? rawDetail?.traineeId}
                         onRefresh={() => fetchDetail(workout.id, true)}
                       />
                     )
@@ -832,6 +954,8 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                         index={idx}
                         workoutId={workout.id}
                         workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
+                        coachId={rawDetail?.coach_id ?? rawDetail?.coachId}
+                        traineeId={rawDetail?.trainee_id ?? rawDetail?.traineeId}
                         onRefresh={() => fetchDetail(workout.id, true)}
                       />
                     )
@@ -860,223 +984,6 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   )
 }
 
-// ── Exercise search hook ──────────────────────────────────────────────────
-
-function useExerciseSuggestions(query: string) {
-  const [suggestions, setSuggestions] = useState<ExerciseSuggestion[]>([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (query.length < 2) { setSuggestions([]); return }
-    const timer = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const data = await apiFetch<ExerciseSuggestion[] | { exercises: ExerciseSuggestion[] }>(`/exercises?search=${encodeURIComponent(query)}`)
-        const list = Array.isArray(data) ? data : (data as { exercises: ExerciseSuggestion[] }).exercises ?? []
-        setSuggestions(list.slice(0, 8))
-      } catch { setSuggestions([]) }
-      finally { setLoading(false) }
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [query])
-
-  return { suggestions, loading }
-}
-
-// ── Exercise Picker Modal ─────────────────────────────────────────────────
-
-function isCardioExercise(ex: ExerciseSuggestion): boolean {
-  const cat = (ex.muscle_category ?? ex.muscle_group ?? "").toLowerCase()
-  const name = (ex.name ?? "").toLowerCase()
-  return !!(
-    ex.is_cardio ||
-    cat.includes("cardio") || cat.includes("aerobic") ||
-    name.includes("treadmill") || name.includes("cycling") ||
-    name.includes("running") || name.includes("correr") ||
-    name.includes("bici") || name.includes("caminadora") ||
-    name.includes("elíptica") || name.includes("eliptica")
-  )
-}
-
-function ExercisePickerPanel({ open, onClose, onSelect, onDone }: {
-  open: boolean
-  onClose: () => void
-  onSelect: (ex: { name: string; isCardio: boolean }) => void
-  onDone: () => void
-}) {
-  const [mode, setMode] = useState<"categories" | "exercises" | "search">("categories")
-  const [categories, setCategories] = useState<string[]>([])
-  const [catsLoading, setCatsLoading] = useState(false)
-  const [selectedCat, setSelectedCat] = useState<string | null>(null)
-  const [catExercises, setCatExercises] = useState<ExerciseSuggestion[]>([])
-  const [catLoading, setCatLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const { suggestions: searchResults, loading: searchLoading } = useExerciseSuggestions(searchQuery)
-
-  useEffect(() => {
-    if (!open) return
-    setMode("categories")
-    setSelectedCat(null)
-    setSearchQuery("")
-    setCatsLoading(true)
-    apiFetch<string[] | { categories: string[] }>("/exercises/categories")
-      .then((data) => setCategories(Array.isArray(data) ? data : (data as { categories: string[] }).categories ?? []))
-      .catch(() => setCategories([]))
-      .finally(() => setCatsLoading(false))
-  }, [open])
-
-  const selectCategory = async (cat: string) => {
-    setSelectedCat(cat)
-    setMode("exercises")
-    setCatLoading(true)
-    try {
-      const data = await apiFetch<ExerciseSuggestion[] | { exercises: ExerciseSuggestion[] }>(`/exercises?category=${encodeURIComponent(cat)}`)
-      setCatExercises(Array.isArray(data) ? data : (data as { exercises: ExerciseSuggestion[] }).exercises ?? [])
-    } catch { setCatExercises([]) }
-    finally { setCatLoading(false) }
-  }
-
-  const pick = (ex: ExerciseSuggestion) => {
-    onSelect({ name: ex.name, isCardio: isCardioExercise(ex) })
-    // Reset to categories so user can immediately pick the next exercise
-    setMode("categories")
-    setSelectedCat(null)
-    setSearchQuery("")
-    onDone()
-  }
-
-  if (typeof window === "undefined") return null
-
-  return createPortal(
-    <div
-      className="fixed top-0 flex h-screen w-full max-w-full sm:max-w-xs flex-col border-l border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
-      style={{
-        zIndex: 220,
-        right: 0,
-        transform: open ? "translateX(0)" : "translateX(100%)",
-        pointerEvents: open ? "auto" : "none",
-      }}
-      onPointerDown={e => e.stopPropagation()}
-      onMouseDown={e => e.stopPropagation()}
-      onTouchStart={e => e.stopPropagation()}
-    >
-      {/* Header */}
-      <div className="flex h-20 items-center justify-between border-b border-white/[0.08] px-5">
-        <div className="flex items-center gap-2">
-          {mode === "exercises" ? (
-            <button
-              onClick={() => setMode("categories")}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00ffff]/10">
-              <Dumbbell className="h-4 w-4 text-[#00ffff]" />
-            </div>
-          )}
-          <span className="font-bold text-white text-sm">
-            {mode === "search" ? "Search" : mode === "exercises" ? selectedCat : "Muscle Group"}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setMode(mode === "search" ? "categories" : "search")}
-            className={cn("flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] transition-colors",
-              mode === "search" ? "bg-[#00ffff]/10 text-[#00ffff]" : "text-[#888888] hover:text-white")}
-          >
-            <Search className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Search input */}
-      {mode === "search" && (
-        <div className="px-4 pt-3 pb-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#555555]" />
-            <input
-              autoFocus
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search exercises..."
-              className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] py-2 pl-9 pr-3 text-sm text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* List */}
-      <div className="flex-1 overflow-y-auto py-1">
-        {mode === "search" ? (
-          searchLoading ? (
-            <div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-[#555555]" /></div>
-          ) : searchQuery.length < 2 ? (
-            <p className="py-8 text-center text-xs text-[#555555]">Type to search…</p>
-          ) : searchResults.length === 0 ? (
-            <p className="py-8 text-center text-xs text-[#555555]">No exercises found</p>
-          ) : (
-            searchResults.map((ex) => (
-              <button key={ex.id} onClick={() => pick(ex)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04]">
-                <Dumbbell className="h-3.5 w-3.5 shrink-0 text-[#555555]" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">{ex.name}</p>
-                  {(ex.muscle_category ?? ex.muscle_group) && (
-                    <p className="text-[10px] text-[#555555]">{ex.muscle_category ?? ex.muscle_group}</p>
-                  )}
-                </div>
-              </button>
-            ))
-          )
-        ) : mode === "categories" ? (
-          catsLoading ? (
-            <div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-[#555555]" /></div>
-          ) : (
-            categories.map((cat, i) => (
-              <button key={i} onClick={() => selectCategory(cat)}
-                className="flex w-full items-center justify-between px-4 py-3.5 text-left hover:bg-white/[0.04]">
-                <span className="text-sm font-medium text-white">{cat}</span>
-                <ChevronRight className="h-4 w-4 text-[#555555]" />
-              </button>
-            ))
-          )
-        ) : catLoading ? (
-          <div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-[#555555]" /></div>
-        ) : catExercises.length === 0 ? (
-          <p className="py-8 text-center text-xs text-[#555555]">No exercises found</p>
-        ) : (
-          catExercises.map((ex) => (
-            <button key={ex.id} onClick={() => pick(ex)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04]">
-              <Dumbbell className="h-3.5 w-3.5 shrink-0 text-[#555555]" />
-              <span className="truncate text-sm font-medium text-white">{ex.name}</span>
-            </button>
-          ))
-        )}
-      </div>
-
-      {/* Done footer */}
-      <div className="border-t border-white/[0.08] p-3">
-        <button
-          onClick={onDone}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#00ffff] py-2.5 text-sm font-bold text-black hover:bg-[#00e5e5]"
-        >
-          <Check className="h-4 w-4" /> Done
-        </button>
-      </div>
-    </div>,
-    document.body
-  )
-}
-
 // ── Workout Builder Sheet ─────────────────────────────────────────────────
 
 interface BuilderExercise {
@@ -1097,6 +1004,7 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive }
   onPickExercise: (id: string) => void
   isActive?: boolean
 }) {
+  const { t } = useT()
   const lastHistory = useLastSessionHistory(ex.name)
   const historyEntries = Object.entries(lastHistory).sort((a, b) => Number(a[0]) - Number(b[0]))
 
@@ -1159,9 +1067,14 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive }
         </div>
       )}
 
-      <input type="text" value={ex.notes} onChange={(e) => onChange(ex.id, "notes", e.target.value)}
-        placeholder="Notes (optional)"
-        className="mt-2 w-full rounded-lg border border-white/[0.06] bg-transparent px-3 py-1.5 text-xs text-[#888888] placeholder:text-[#333] focus:outline-none" />
+      <label className="mt-2 block text-[10px] text-[#555555]">{t.workouts.coachNote}</label>
+      <textarea
+        value={ex.notes}
+        onChange={(e) => onChange(ex.id, "notes", e.target.value)}
+        placeholder={t.workouts.coachNotePlaceholder}
+        rows={2}
+        className="mt-1 w-full resize-y rounded-lg border border-white/[0.06] bg-transparent px-3 py-1.5 text-xs text-white placeholder:text-[#555] focus:border-[#00ffff]/40 focus:outline-none"
+      />
     </div>
   )
 }
@@ -1192,13 +1105,8 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
 
   const handlePickExercise = ({ name: exName, isCardio }: { name: string; isCardio: boolean }) => {
     if (!pickerTargetId) return
-    // Fill current row, then auto-add a new empty row and target it (panel stays open)
-    const newId = `ex-${Date.now()}`
-    setExercises(prev => [
-      ...prev.map(ex => ex.id === pickerTargetId ? { ...ex, name: exName, isCardio } : ex),
-      { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false },
-    ])
-    setPickerTargetId(newId)
+    // The picker closes itself after a pick, so just fill the row that opened it.
+    setExercises(prev => prev.map(ex => ex.id === pickerTargetId ? { ...ex, name: exName, isCardio } : ex))
   }
 
   const handlePickerDone = () => {
@@ -1298,11 +1206,10 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
       </SheetContent>
     </Sheet>
 
-    <ExercisePickerPanel
+    <ExercisePickerSheet
       open={pickerTargetId !== null}
-      onClose={handlePickerDone}
+      onOpenChange={next => { if (!next) handlePickerDone() }}
       onSelect={handlePickExercise}
-      onDone={handlePickerDone}
     />
   </>
   )
@@ -1422,7 +1329,7 @@ export function WorkoutsView() {
           targetWeight: ex.weight,
           weightUnit: "kg",
           restTime: 60,
-          notes: ex.notes,
+          notes: serializeCoachNote(ex.notes, user),
           exerciseOrder: i,
           track_rpe: 0,
           track_rir: 0,

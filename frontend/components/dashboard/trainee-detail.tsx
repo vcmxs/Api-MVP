@@ -13,6 +13,8 @@ import { ManageSubscriptionModal } from "./manage-subscription-modal"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { cn, getLocalISOString } from "@/lib/utils"
+import { parseExerciseNotes, type ExerciseNoteEntry } from "@/lib/exercise-notes"
+import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 import type { ApiTrainee } from "./trainees-view"
 
 // ── API types ─────────────────────────────────────────────────────────────
@@ -97,6 +99,122 @@ interface ApiProfile {
   coach_subscription_status?: string
   coach_subscription_end_date?: string
   status?: string
+}
+
+function ExerciseNotesEditor({ exercise, workoutId, onSaved }: {
+  exercise: ApiExercise
+  workoutId: number
+  onSaved: () => void
+}) {
+  const { t } = useT()
+  const user = getUserInfo()
+  const canAddNote = user?.role?.toLowerCase() === "coach"
+  const [entries, setEntries] = useState(() => parseExerciseNotes(exercise.notes))
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    setEntries(parseExerciseNotes(exercise.notes))
+  }, [exercise.id, exercise.notes])
+
+  const handleSave = async () => {
+    const text = draft.trim()
+    if (!text || !user?.id || !canAddNote) return
+
+    const nextNote: ExerciseNoteEntry = {
+      userId: user.id,
+      userName: "Coach",
+      authorName: user.name || undefined,
+      role: "coach",
+      text,
+      createdAt: new Date().toISOString(),
+    }
+
+    const updatedEntries = [...entries, nextNote]
+    setSaving(true)
+    setError("")
+    try {
+      await apiFetch(`/workout-plans/${workoutId}/exercises/${exercise.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ notes: JSON.stringify(updatedEntries) }),
+      })
+      setEntries(updatedEntries)
+      setDraft("")
+      setComposerOpen(false)
+      onSaved()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t.workouts.noteSaveError)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mx-3 mb-3 rounded-lg border border-white/[0.06] bg-[#0a0a0f] p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#888888]">
+          {t.workouts.exerciseNotes}{entries.length > 0 ? ` (${entries.length})` : ""}
+        </p>
+        {canAddNote && (
+          <button
+            type="button"
+            onClick={() => { setError(""); setComposerOpen(value => !value) }}
+            className="text-xs font-semibold text-[#00ffff] hover:text-white"
+          >
+            {composerOpen ? t.common.cancel : `+ ${t.workouts.addNote}`}
+          </button>
+        )}
+      </div>
+
+      {entries.length > 0 ? (
+        <div className="space-y-2">
+          {entries.map((note, index) => {
+            const isCoach = note.role?.toLowerCase() === "coach" || note.userName === "Coach"
+            const authorLabel = isCoach ? t.workouts.coach : note.role?.toLowerCase() === "trainee" ? t.workouts.trainee : note.userName || t.workouts.note
+            const authorName = note.authorName || (note.userName !== "Coach" && note.userName !== "Trainee" ? note.userName : "")
+            return (
+              <div key={`${note.userId ?? "legacy"}-${note.createdAt ?? index}-${index}`} className="rounded-md border border-white/[0.04] bg-white/[0.025] p-2">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-[10px] font-bold" style={{ color: isCoach ? "#ffd700" : "#a78bfa" }}>{authorLabel}</span>
+                  {authorName && <span className="text-[10px] text-[#777777]">{authorName}</span>}
+                  {note.createdAt && <span className="ml-auto text-[9px] text-[#555555]">{new Date(note.createdAt).toLocaleString()}</span>}
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-xs text-[#cccccc]">{note.text}</p>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-[#555555]">{t.workouts.noExerciseNotes}</p>
+      )}
+
+      {composerOpen && (
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={draft}
+            onChange={event => setDraft(event.target.value)}
+            placeholder={t.workouts.coachNotePlaceholder}
+            rows={3}
+            maxLength={2000}
+            className="w-full resize-y rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white placeholder:text-[#555555] focus:border-[#00ffff]/40 focus:outline-none"
+          />
+          {error && <p role="alert" className="text-xs text-[#ff7777]">{error}</p>}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!draft.trim() || saving}
+              className="rounded-lg bg-[#00ffff] px-3 py-1.5 text-xs font-bold text-black disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saving ? t.workouts.savingNote : t.workouts.saveNote}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Date grouping ─────────────────────────────────────────────────────────
@@ -257,6 +375,16 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
       // keep the basic workout data already set
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const refreshWorkoutDetail = async (workoutId: number) => {
+    try {
+      const full = await apiFetch<ApiWorkout>(`/workout-plans/${workoutId}`)
+      setDetailWorkout(current => current?.id === full.id ? full : current)
+      setWorkouts(current => current.map(workout => workout.id === full.id ? { ...workout, ...full } : workout))
+    } catch {
+      // The note is already saved; keep the local history visible if refresh fails.
     }
   }
 
@@ -811,7 +939,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                     }
                   }
 
-                  const renderSingle = (ex: any, idx: number | string) => {
+                  const renderSingle = (ex: any) => {
                     const targetWeight = ex.target_weight ?? ex.targetWeight
                     const isCardio = !!(ex.is_cardio || ex.isCardio)
                     const showRpe = !!(ex.track_rpe || ex.trackRpe)
@@ -822,23 +950,28 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
 
                     return (
                       <div key={ex.id} className="rounded-xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
-                        {/* Exercise header */}
-                        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#00ffff]/10 text-xs font-bold text-[#00ffff]">
-                            {idx}
-                          </div>
+                        {/* Exercise header — portrait reference thumb on the left (opens the exercise dialog) */}
+                        <div className="flex items-start gap-3 border-b border-white/[0.06] py-3 pl-3 pr-4">
+                          <ExerciseReferenceButton exerciseName={ex.name} targetUserId={trainee.id} variant="thumb" />
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-white truncate">{ex.name}</p>
-                            <p className="text-xs text-[#555555]">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-white truncate min-w-0">{ex.name}</p>
+                              {hasLogs && (
+                                <span
+                                  className="ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums"
+                                  style={completedLogs.length === logs.length
+                                    ? { color: "#00ff88", borderColor: "#00ff8855", backgroundColor: "#00ff8814" }
+                                    : { color: "#ffd700", borderColor: "#ffd70055", backgroundColor: "#ffd70014" }}
+                                >
+                                  {completedLogs.length}/{logs.length} done
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-xs text-[#555555]">
                               {t.workouts?.target || "Target:"} {ex.sets} {t.traineeDetail?.sets || "sets"} × {ex.reps} {t.traineeDetail?.reps || "reps"}
                               {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${ex.weight_unit ?? "kg"}`}
                             </p>
                           </div>
-                          {hasLogs && (
-                            <span className="shrink-0 text-xs font-semibold" style={{ color: completedLogs.length === logs.length ? "#00ff88" : "#ffd700" }}>
-                              {completedLogs.length}/{logs.length} done
-                            </span>
-                          )}
                         </div>
 
                         {/* Sets table */}
@@ -933,38 +1066,14 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                           <p className="px-4 py-3 text-xs text-[#555555]">{t.traineeDetail.noSets}</p>
                         )}
 
-                        {/* Exercise note */}
-                        {ex.notes && (
-                          <div className="mx-3 mb-3 flex flex-col gap-2 rounded-lg border border-white/5 bg-[#161b22] px-3 py-2">
-                            {(() => {
-                              try {
-                                const parsed = JSON.parse(ex.notes)
-                                if (Array.isArray(parsed)) {
-                                  return parsed.map((n: any, idx2: number) => (
-                                    <div key={idx2} className="flex flex-col rounded bg-white/[0.03] p-2">
-                                      <span className="text-[10px] font-bold" style={{ color: n.userName !== "Coach" ? "#a78bfa" : "#ffd700" }}>{n.userName}</span>
-                                      <span className="mt-1 text-xs text-[#aaa]">{n.text}</span>
-                                    </div>
-                                  ))
-                                }
-                              } catch (e) {}
-                              // Fallback for old plain text
-                              return (
-                                <div className="flex flex-col rounded bg-yellow-500/5 border border-yellow-500/20 p-2">
-                                  <span className="text-[10px] font-bold text-[#ffd700]">Coach</span>
-                                  <span className="mt-1 text-xs text-[#aaa]">{ex.notes}</span>
-                                </div>
-                              )
-                            })()}
-                          </div>
-                        )}
+                        <ExerciseNotesEditor exercise={ex} workoutId={detailWorkout?.id ?? 0} onSaved={() => { void refreshWorkoutDetail(detailWorkout?.id ?? 0) }} />
                       </div>
                     )
                   }
 
-                  return grouped.map((group, idx) => {
+                  return grouped.map(group => {
                     if (group.type === "single") {
-                      return renderSingle(group.exercise, idx + 1)
+                      return renderSingle(group.exercise)
                     }
 
                     // Render Superset
@@ -1021,6 +1130,10 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                           {(ex.target_weight ?? ex.targetWeight) != null && Number(ex.target_weight ?? ex.targetWeight) > 0 && ` @ ${ex.target_weight ?? ex.targetWeight}${ex.weight_unit ?? "kg"}`}
                                         </p>
                                       </div>
+
+                                      {setNum === 1 && <ExerciseReferenceButton exerciseName={ex.name} targetUserId={trainee.id} />}
+
+                                      {setNum === 1 && <ExerciseNotesEditor exercise={ex} workoutId={detailWorkout?.id ?? 0} onSaved={() => { void refreshWorkoutDetail(detailWorkout?.id ?? 0) }} />}
                                       
                                       {!isCardio && (
                                         <div className="flex items-center gap-2 px-1 text-[9px] font-bold uppercase tracking-wider text-[#888888] mb-1">

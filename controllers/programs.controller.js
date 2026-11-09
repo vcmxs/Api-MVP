@@ -186,6 +186,15 @@ exports.removeWorkoutFromProgram = async (req, res) => {
 exports.getWorkoutById = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Client-generated routines (the ones a coach creates inside a plan)
+        // live in localStorage with a negative id; anything that is not a
+        // positive integer cannot exist in workout_templates, so answer 404
+        // instead of letting Postgres reject the cast with a 500.
+        if (!/^\d+$/.test(String(id))) {
+            return res.status(404).json({ success: false, message: 'Workout not found' });
+        }
+
         const result = await db.query('SELECT * FROM workout_templates WHERE id = $1', [id]);
 
         if (result.rows.length === 0) {

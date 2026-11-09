@@ -28,14 +28,22 @@ export function clearAuth() {
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getToken()
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  })
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    })
+  } catch {
+    // fetch() only rejects on network-level failures (backend down, DNS, blocked
+    // by CORS) and its raw message is the unhelpful "Failed to fetch". Surface
+    // the base URL so the cause is obvious.
+    throw new Error(`Cannot reach the API at ${API_URL}. Is the backend running?`)
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }))
     throw new Error(err?.message ?? res.statusText)

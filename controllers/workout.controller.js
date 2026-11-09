@@ -498,13 +498,28 @@ exports.deleteExercise = async (req, res) => {
  */
 exports.updateExercise = async (req, res) => {
     try {
-        const { notes } = req.body;
-        const { exerciseId } = req.params;
+        const { notes, trackRpe, trackRir, track_rpe, track_rir } = req.body;
+        const { planId, exerciseId } = req.params;
+        const role = req.user?.role?.toLowerCase();
+        const userId = req.user?.id;
 
-        const exercise = await Workout.updateExercise(exerciseId, { notes });
+        if (!userId || !['admin', 'coach', 'trainee'].includes(role)) {
+            return res.status(403).json({ error: 'Forbidden', message: 'A valid account is required to update exercise details.' });
+        }
+
+        const update = {};
+        if (Object.prototype.hasOwnProperty.call(req.body, 'notes')) update.notes = notes;
+        if (trackRpe !== undefined || track_rpe !== undefined) update.trackRpe = trackRpe ?? track_rpe;
+        if (trackRir !== undefined || track_rir !== undefined) update.trackRir = trackRir ?? track_rir;
+
+        if (Object.keys(update).length === 0) {
+            return res.status(400).json({ error: 'Bad Request', message: 'No supported exercise fields were provided.' });
+        }
+
+        const exercise = await Workout.updateExercise(exerciseId, planId, { userId, role }, update);
 
         if (!exercise) {
-            return res.status(404).json({ error: 'Not Found', message: 'Exercise not found' });
+            return res.status(404).json({ error: 'Not Found', message: 'Exercise not found in a workout you can access.' });
         }
 
         res.json({ exercise });

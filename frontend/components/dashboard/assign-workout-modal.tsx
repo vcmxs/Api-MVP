@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { createPortal } from "react-dom"
 import {
   X, Search, Dumbbell, Users, CalendarDays, Check, Loader2,
   AlertCircle, Plus, ChevronRight, ArrowLeft, Link,
@@ -12,7 +11,9 @@ import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
+import { getCoachNoteDraft, serializeCoachNote } from "@/lib/exercise-notes"
 import { useT } from "@/lib/i18n"
+import { ExercisePickerSheet } from "./exercise-picker-sheet"
 
 const TIER_LIMITS: Record<string, number> = {
   starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
@@ -60,165 +61,6 @@ interface BuilderExercise {
   isSuperset?: boolean
 }
 
-interface ExSuggestion {
-  id: number
-  name: string
-  muscle_group?: string
-  muscle_category?: string
-  is_cardio?: boolean | number
-}
-
-// ── Exercise autocomplete hook ──────────────────────────────────────────────
-
-function useExSuggestions(query: string) {
-  const [suggestions, setSuggestions] = useState<ExSuggestion[]>([])
-  const [loading, setLoading] = useState(false)
-  useEffect(() => {
-    if (query.length < 2) { setSuggestions([]); return }
-    const t = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const data = await apiFetch<ExSuggestion[] | { exercises: ExSuggestion[] }>(`/exercises?search=${encodeURIComponent(query)}`)
-        const list = Array.isArray(data) ? data : (data as { exercises: ExSuggestion[] }).exercises ?? []
-        setSuggestions(list.slice(0, 6))
-      } catch { setSuggestions([]) }
-      finally { setLoading(false) }
-    }, 300)
-    return () => clearTimeout(t)
-  }, [query])
-  return { suggestions, loading }
-}
-
-// ── Exercise picker panel (portal) ─────────────────────────────────────────
-
-function isCardioEx(ex: ExSuggestion) {
-  const cat = (ex.muscle_category ?? ex.muscle_group ?? "").toLowerCase()
-  const name = (ex.name ?? "").toLowerCase()
-  return !!(ex.is_cardio || cat.includes("cardio") || cat.includes("aerobic") ||
-    name.includes("treadmill") || name.includes("cycling") || name.includes("running"))
-}
-
-function ExPickerPanel({ open, onClose, onSelect, onDone }: {
-  open: boolean
-  onClose: () => void
-  onSelect: (ex: { name: string; isCardio: boolean }) => void
-  onDone: () => void
-}) {
-  const [mode, setMode] = useState<"categories" | "exercises" | "search">("categories")
-  const [categories, setCategories] = useState<string[]>([])
-  const [catsLoading, setCatsLoading] = useState(false)
-  const [selectedCat, setSelectedCat] = useState<string | null>(null)
-  const [catExs, setCatExs] = useState<ExSuggestion[]>([])
-  const [catLoading, setCatLoading] = useState(false)
-  const [searchQ, setSearchQ] = useState("")
-  const { suggestions: searchResults, loading: searchLoading } = useExSuggestions(searchQ)
-
-  useEffect(() => {
-    if (!open) return
-    setMode("categories"); setSelectedCat(null); setSearchQ("")
-    setCatsLoading(true)
-    apiFetch<string[] | { categories: string[] }>("/exercises/categories")
-      .then((d) => setCategories(Array.isArray(d) ? d : (d as { categories: string[] }).categories ?? []))
-      .catch(() => setCategories([]))
-      .finally(() => setCatsLoading(false))
-  }, [open])
-
-  const selectCat = async (cat: string) => {
-    setSelectedCat(cat); setMode("exercises"); setCatLoading(true)
-    try {
-      const d = await apiFetch<ExSuggestion[] | { exercises: ExSuggestion[] }>(`/exercises?category=${encodeURIComponent(cat)}`)
-      setCatExs(Array.isArray(d) ? d : (d as { exercises: ExSuggestion[] }).exercises ?? [])
-    } catch { setCatExs([]) }
-    finally { setCatLoading(false) }
-  }
-
-  const pick = (ex: ExSuggestion) => {
-    onSelect({ name: ex.name, isCardio: isCardioEx(ex) })
-    setMode("categories"); setSelectedCat(null); setSearchQ("")
-    onDone()
-  }
-
-  if (typeof window === "undefined") return null
-  return createPortal(
-    <div
-      className="fixed top-0 flex h-screen w-full max-w-full sm:max-w-xs flex-col border-l border-white/[0.08] bg-[#0f1117] shadow-2xl transition-transform duration-300 ease-in-out"
-      style={{ zIndex: 220, right: 0, transform: open ? "translateX(0)" : "translateX(100%)", pointerEvents: open ? "auto" : "none" }}
-      onPointerDown={e => e.stopPropagation()}
-      onMouseDown={e => e.stopPropagation()}
-      onTouchStart={e => e.stopPropagation()}
-    >
-      <div className="flex h-16 items-center justify-between border-b border-white/[0.08] px-4">
-        <div className="flex items-center gap-2">
-          {mode === "exercises" ? (
-            <button onClick={() => setMode("categories")} className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white">
-              <ArrowLeft className="h-3.5 w-3.5" />
-            </button>
-          ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00ffff]/10">
-              <Dumbbell className="h-3.5 w-3.5 text-[#00ffff]" />
-            </div>
-          )}
-          <span className="text-sm font-bold text-white">{mode === "search" ? "Search" : mode === "exercises" ? selectedCat : "Muscle Group"}</span>
-        </div>
-        <div className="flex gap-1">
-          <button onClick={() => setMode(mode === "search" ? "categories" : "search")}
-            className={cn("flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08]", mode === "search" ? "bg-[#00ffff]/10 text-[#00ffff]" : "text-[#888888] hover:text-white")}>
-            <Search className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] text-[#888888] hover:text-white">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {mode === "search" && (
-        <div className="px-3 pt-3 pb-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#555555]" />
-            <input autoFocus type="text" value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
-              placeholder="Search exercises..." className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] py-2 pl-9 pr-3 text-sm text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none" />
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto py-1">
-        {mode === "search" ? (
-          searchLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-          : searchQ.length < 2 ? <p className="py-8 text-center text-xs text-[#555555]">Type to search…</p>
-          : searchResults.length === 0 ? <p className="py-8 text-center text-xs text-[#555555]">No results</p>
-          : searchResults.map((ex) => (
-            <button key={ex.id} onClick={() => pick(ex)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-white/[0.04]">
-              <Dumbbell className="h-3 w-3 shrink-0 text-[#555555]" />
-              <span className="truncate text-sm text-white">{ex.name}</span>
-            </button>
-          ))
-        ) : mode === "categories" ? (
-          catsLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-          : categories.map((cat, i) => (
-            <button key={i} onClick={() => selectCat(cat)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-white/[0.04]">
-              <span className="text-sm font-medium text-white">{cat}</span>
-              <ChevronRight className="h-3.5 w-3.5 text-[#555555]" />
-            </button>
-          ))
-        ) : catLoading ? <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-[#555555]" /></div>
-        : catExs.map((ex) => (
-          <button key={ex.id} onClick={() => pick(ex)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-white/[0.04]">
-            <Dumbbell className="h-3 w-3 shrink-0 text-[#555555]" />
-            <span className="truncate text-sm text-white">{ex.name}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="border-t border-white/[0.08] p-3">
-        <button onClick={onDone} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#00ffff] py-2 text-sm font-bold text-black hover:bg-[#00e5e5]">
-          <Check className="h-3.5 w-3.5" /> Done
-        </button>
-      </div>
-    </div>,
-    document.body
-  )
-}
-
 // ── Mini exercise row for the builder ─────────────────────────────────────
 
 function BuilderRow({ ex, index, onChange, onRemove, onPick, lastHistory }: {
@@ -229,6 +71,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, lastHistory }: {
   onPick: (id: string) => void
   lastHistory?: Record<number, string>
 }) {
+  const { t } = useT()
   const historyEntries = lastHistory ? Object.entries(lastHistory).sort((a, b) => Number(a[0]) - Number(b[0])) : []
 
   return (
@@ -278,6 +121,16 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, lastHistory }: {
             </div>
           </>
         )}
+      </div>
+      <div className="mt-2">
+        <label className="mb-1 block text-[10px] text-[#555555]">{t.workouts.coachNote}</label>
+        <textarea
+          value={ex.notes}
+          onChange={(e) => onChange(ex.id, "notes", e.target.value)}
+          placeholder={t.workouts.coachNotePlaceholder}
+          rows={2}
+          className="w-full resize-y rounded-lg border border-white/[0.08] bg-[#161b22] px-2 py-1.5 text-xs text-white placeholder:text-[#555555] focus:border-[#00ffff]/40 focus:outline-none"
+        />
       </div>
     </div>
   )
@@ -393,7 +246,7 @@ export function AssignWorkoutModal({
       sets: ex.sets,
       reps: ex.reps,
       weight: ex.targetWeight ?? (ex as any).target_weight ?? 0,
-      notes: ex.notes ?? "",
+      notes: getCoachNoteDraft(ex.notes, user?.id),
       isCardio: !!ex.is_cardio,
       isSuperset: ex.restTime === -1 || (ex as any).rest_time === -1,
     })))
@@ -448,12 +301,8 @@ export function AssignWorkoutModal({
 
   const handlePickEx = ({ name: exName, isCardio }: { name: string; isCardio: boolean }) => {
     if (!pickerTargetId) return
-    const newId = `ex-${Date.now()}`
-    setBuildExercises(prev => [
-      ...prev.map(ex => ex.id === pickerTargetId ? { ...ex, name: exName, isCardio } : ex),
-      { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false },
-    ])
-    setPickerTargetId(newId)
+    // The picker closes itself after a pick, so just fill the row that opened it.
+    setBuildExercises(prev => prev.map(ex => ex.id === pickerTargetId ? { ...ex, name: exName, isCardio } : ex))
   }
 
   const handlePickerDone = () => {
@@ -502,7 +351,7 @@ export function AssignWorkoutModal({
       const exercises = buildExercises.filter(ex => ex.name.trim()).map((ex, i) => ({
         name: ex.name, sets: ex.sets, reps: ex.reps,
         targetWeight: ex.weight, weightUnit: "kg",
-        restTime: ex.isSuperset ? -1 : 60, notes: ex.notes, exerciseOrder: i,
+        restTime: ex.isSuperset ? -1 : 60, notes: serializeCoachNote(ex.notes, user), exerciseOrder: i,
         track_rpe: 0, track_rir: 0, is_cardio: ex.isCardio ? 1 : 0,
       }))
 
@@ -893,11 +742,12 @@ export function AssignWorkoutModal({
         </DialogContent>
       </Dialog>
 
-      <ExPickerPanel
+      <ExercisePickerSheet
         open={pickerTargetId !== null}
-        onClose={handlePickerDone}
+        onOpenChange={next => { if (!next) handlePickerDone() }}
         onSelect={handlePickEx}
-        onDone={handlePickerDone}
+        targetUserId={selectedTrainee?.id ?? preselectedTraineeId}
+        subjectName={selectedTrainee?.name ?? null}
       />
     </>
   )

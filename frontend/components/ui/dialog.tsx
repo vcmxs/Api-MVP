@@ -50,13 +50,19 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  overlayZIndex,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /**
+   * Raise the backdrop along with the panel. Needed when a dialog is opened on
+   * top of a sheet that sets its own (higher than `z-50`) inline z-index.
+   */
+  overlayZIndex?: number
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay style={overlayZIndex === undefined ? undefined : { zIndex: overlayZIndex }} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
@@ -64,6 +70,7 @@ function DialogContent({
           className,
         )}
         {...props}
+        style={overlayZIndex === undefined ? props.style : { zIndex: overlayZIndex, ...props.style }}
       >
         {children}
         {showCloseButton && (

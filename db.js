@@ -125,14 +125,36 @@ const createTables = async () => {
     `);
 
     // Exercise Library table (Static list of exercises)
+    // `source` splits the original coach-facing catalog ('catalog') from the
+    // imported exercises-dataset rows ('dataset'). The dataset columns mirror
+    // migrations/009_exercise_dataset.sql so a fresh database is created with
+    // the same shape the import expects.
     await client.query(`
       CREATE TABLE IF NOT EXISTS exercise_library (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) UNIQUE NOT NULL,
+        name_norm TEXT,
         muscle_category VARCHAR(50) NOT NULL,
         description TEXT,
+        source VARCHAR(16) DEFAULT 'catalog',
+        dataset_id VARCHAR(8),
+        body_part VARCHAR(40),
+        equipment VARCHAR(80),
+        target_muscle VARCHAR(80),
+        muscle_group VARCHAR(80),
+        secondary_muscles JSONB DEFAULT '[]'::jsonb,
+        gif_file TEXT,
+        thumb_file TEXT,
+        instructions_es TEXT,
+        instructions_en TEXT,
+        instruction_steps_es JSONB DEFAULT '[]'::jsonb,
+        media_attribution VARCHAR(160),
+        is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS exercise_library_source_idx ON exercise_library (source)
     `);
 
     // Workout Templates table
@@ -247,31 +269,31 @@ const createTables = async () => {
     if (parseInt(exerciseCount.rows[0].count) === 0) {
       console.log('Seeding exercise library...');
       await client.query(`
-        INSERT INTO exercise_library (name, muscle_category, description) VALUES
-        ('Bench Press', 'Chest', 'Barbell bench press for chest development'),
-        ('Incline Dumbbell Press', 'Chest', 'Upper chest isolation'),
-        ('Push Ups', 'Chest', 'Bodyweight chest exercise'),
-        ('Squat', 'Legs', 'Compound leg exercise'),
-        ('Leg Press', 'Legs', 'Machine leg press'),
-        ('Deadlift', 'Back', 'Compound back and posterior chain exercise'),
-        ('Pull Ups', 'Back', 'Upper back bodyweight exercise'),
-        ('Dumbbell Row', 'Back', 'Unilateral back exercise'),
-        ('Overhead Press', 'Shoulders', 'Compound shoulder exercise'),
-        ('Lateral Raises', 'Shoulders', 'Shoulder isolation'),
-        ('Bicep Curls', 'Arms', 'Bicep isolation'),
-        ('Tricep Extensions', 'Arms', 'Tricep isolation'),
-        ('Plank', 'Core', 'Isometric core exercise'),
-        ('Crunches', 'Core', 'Abdominal isolation')
+        INSERT INTO exercise_library (name, muscle_category) VALUES
+        ('Bench Press', 'Chest'),
+        ('Incline Dumbbell Press', 'Chest'),
+        ('Push Ups', 'Chest'),
+        ('Squat', 'Legs'),
+        ('Leg Press', 'Legs'),
+        ('Deadlift', 'Back'),
+        ('Pull Ups', 'Back'),
+        ('Dumbbell Row', 'Back'),
+        ('Overhead Press', 'Shoulders'),
+        ('Lateral Raises', 'Shoulders'),
+        ('Bicep Curls', 'Arms'),
+        ('Tricep Extensions', 'Arms'),
+        ('Plank', 'Core'),
+        ('Crunches', 'Core')
       `);
     }
 
     // Insert default users
     await client.query(`
-      INSERT INTO users (id, name, email, password, role, status, subscription_status)
+      INSERT INTO users (id, name, email, password, role, status, subscription_status, is_verified)
       VALUES 
-        (1, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach', 'active', 'active'),
-        (2, 'John Trainee', 'john@gym.com', 'john123', 'trainee', 'active', 'inactive'),
-        (3, 'Super Admin', 'admin@gymtrainer.com', 'admin123', 'admin', 'active', 'active')
+        (1, 'Coach Mike', 'coach@gym.com', 'coach123', 'coach', 'active', 'active', TRUE),
+        (2, 'John Trainee', 'john@gym.com', 'john123', 'trainee', 'active', 'inactive', TRUE),
+        (3, 'Super Admin', 'admin@gymtrainer.com', 'admin123', 'admin', 'active', 'active', TRUE)
       ON CONFLICT (email) DO NOTHING
     `);
 

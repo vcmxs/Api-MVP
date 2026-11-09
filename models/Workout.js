@@ -317,14 +317,38 @@ class Workout {
     /**
      * Update exercise (e.g. notes)
      */
-    static async updateExercise(exerciseId, data) {
-        const { notes } = data;
+    static async updateExercise(exerciseId, planId, actor, data) {
+        const columns = [];
+        const values = [];
+        const addField = (column, value) => {
+            values.push(value);
+            columns.push(`${column} = $${values.length}`);
+        };
+
+        if (Object.prototype.hasOwnProperty.call(data, 'notes')) addField('notes', data.notes);
+        if (Object.prototype.hasOwnProperty.call(data, 'trackRpe')) addField('track_rpe', data.trackRpe);
+        if (Object.prototype.hasOwnProperty.call(data, 'trackRir')) addField('track_rir', data.trackRir);
+        if (!columns.length) return null;
+
+        const where = [];
+        values.push(exerciseId, planId);
+        where.push(`e.id = $${values.length - 1}`, `e.workout_plan_id = $${values.length}`);
+        if (actor.role === 'coach') {
+            values.push(actor.userId);
+            where.push(`wp.coach_id = $${values.length}`);
+        } else if (actor.role === 'trainee') {
+            values.push(actor.userId);
+            where.push(`wp.trainee_id = $${values.length}`);
+        }
+
         const result = await pool.query(
-            `UPDATE exercises 
-             SET notes = $1
-             WHERE id = $2
-             RETURNING *`,
-            [notes, exerciseId]
+            `UPDATE exercises AS e
+             SET ${columns.join(', ')}
+             FROM workout_plans AS wp
+             WHERE ${where.join(' AND ')}
+               AND wp.id = e.workout_plan_id
+             RETURNING e.*`,
+            values
         );
         return result.rows[0];
     }

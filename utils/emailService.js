@@ -1,10 +1,41 @@
 const { Resend } = require('resend');
 
-// Initialize Resend with the API key
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // Use our new verified custom domain!
 const FROM_EMAIL = 'no-reply@duplapp.win';
+
+let resend = null;
+
+/**
+ * Lazily create the Resend client.
+ *
+ * The Resend constructor throws when it has no API key, and this module is
+ * required by the auth controller while the server boots. Building the client at
+ * import time therefore crashed the whole API whenever `RESEND_API_KEY` was
+ * missing, which the browser could only report as "Failed to fetch" on every
+ * request (dashboard included).
+ */
+const getResend = () => {
+    if (!resend) resend = new Resend(process.env.RESEND_API_KEY);
+    return resend;
+};
+
+/**
+ * Sends a payload through Resend, or logs it in local development when no
+ * `RESEND_API_KEY` is configured so signup/reset flows stay testable offline.
+ * Production without a key still fails loudly.
+ */
+const sendWithFallback = async (payload) => {
+    if (!process.env.RESEND_API_KEY) {
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('RESEND_API_KEY is not configured on the server');
+        }
+        console.warn(
+            `[emailService] RESEND_API_KEY is not set — "${payload.subject}" to ${payload.to} was NOT sent. Payload:\n${payload.html}`
+        );
+        return { data: { id: 'not-sent-dev' }, error: null };
+    }
+    return getResend().emails.send(payload);
+};
 
 /**
  * Sends a 6-digit verification code to the registered email address.
@@ -13,7 +44,7 @@ const FROM_EMAIL = 'no-reply@duplapp.win';
  */
 const sendVerificationEmail = async (toEmail, pin) => {
     try {
-        const { data, error } = await resend.emails.send({
+        const { data, error } = await sendWithFallback({
             from: FROM_EMAIL,
             to: toEmail,
             subject: 'Verify your Dupla Account',
@@ -35,7 +66,7 @@ const sendVerificationEmail = async (toEmail, pin) => {
             throw error;
         }
 
-        console.log(`Verification email sent to ${toEmail} via Resend. ID:`, data?.id);
+        console.log(`Verification email handled for ${toEmail}. ID:`, data?.id);
     } catch (err) {
         console.error('Error sending verification email with Resend:', err);
         throw err;
@@ -49,7 +80,7 @@ const sendVerificationEmail = async (toEmail, pin) => {
  */
 const sendPasswordResetEmail = async (toEmail, pin) => {
     try {
-        const { data, error } = await resend.emails.send({
+        const { data, error } = await sendWithFallback({
             from: FROM_EMAIL,
             to: toEmail,
             subject: 'Reset your Dupla Password',
@@ -70,7 +101,7 @@ const sendPasswordResetEmail = async (toEmail, pin) => {
             throw error;
         }
 
-        console.log(`Password reset email sent to ${toEmail} via Resend. ID:`, data?.id);
+        console.log(`Password reset email handled for ${toEmail}. ID:`, data?.id);
     } catch (err) {
         console.error('Error sending password reset email with Resend:', err);
         throw err;
@@ -84,7 +115,7 @@ const sendPasswordResetEmail = async (toEmail, pin) => {
  */
 const sendDeleteAccountEmail = async (toEmail, pin) => {
     try {
-        const { data, error } = await resend.emails.send({
+        const { data, error } = await sendWithFallback({
             from: FROM_EMAIL,
             to: toEmail,
             subject: 'Confirm Account Deletion – Dupla',
@@ -106,7 +137,7 @@ const sendDeleteAccountEmail = async (toEmail, pin) => {
             throw error;
         }
 
-        console.log(`Delete account email sent to ${toEmail} via Resend. ID:`, data?.id);
+        console.log(`Delete account email handled for ${toEmail}. ID:`, data?.id);
     } catch (err) {
         console.error('Error sending delete account email with Resend:', err);
         throw err;
