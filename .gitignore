@@ -31,3 +31,8 @@ frontend/Id Credentials web app OAuth.json
 gym-training-fronten old
 temp_landing
 backups
+
+# Throwaway scripts/logs used while deploying (never committed)
+.tmp-*
+.msg.tmp
+

@@ -167,6 +167,16 @@ contains and what is still manual.
   is what to do whenever the media repo or the CDN changes.
 
 
+**Verified after the deploy of `e1a721f`**
+
+- `GET /api/v1/exercises` → `200` with `source`, `dataset_id`, `gif_file`, `thumb_file`, `gif_url`,
+  `thumb_url`; `?source=dataset&limit=5` returns 5 rows, all with `gif_url`.
+- `/api/v1/exercises/lookup?name=caminadora` → `CAMINADORA`, dataset 3666, treadmill GIF
+  (`206 image/gif` on jsDelivr); `?name=ESCALADORA` → dataset 2311.
+- `?search=curl barra` → `CURL DE BÍCEPS CON BARRA Z`; categories → 19.
+- Vercel serves a build whose `/dashboard` chunk contains the pinned media base, so web and mobile
+  consume the same enriched endpoint.
+
 **Code**
 
 - Push to `main` redeploys Railway (API) and Vercel (web). The push must always come **after**

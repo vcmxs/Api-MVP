@@ -146,6 +146,17 @@ code before migrating makes that endpoint return 500 for both the web and the mo
    `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` (Vercel, fallback only) whenever the CDN or the commit changes.
 6. Push to `main`; Railway and Vercel redeploy automatically.
 
+Verified live on 2026-11-09 after the push of `e1a721f`:
+
+- `GET /api/v1/exercises/lookup?name=caminadora` → `200`, dataset `3666`, `gif_url`
+  `…@d3e64b9…/gif/3666-rjiM4L3.gif` and `thumb_url` `…/thumb/3666-rjiM4L3.jpg`; both URLs answer
+  `206` (`image/gif`, `image/jpeg`) through jsDelivr.
+- `GET /api/v1/exercises/lookup?name=ESCALADORA` → dataset `2311` (the stair-climber record).
+- `GET /api/v1/exercises?source=dataset&limit=5` → 5 rows, all with `gif_url`;
+  `?search=curl barra` → `CURL DE BÍCEPS CON BARRA Z`; `/api/v1/exercises/categories` → 19 buckets.
+- The Vercel bundle for `/dashboard` carries `NEXT_PUBLIC_EXERCISE_MEDIA_BASE || "…Dupla-exercises-media@d3e64b9…"`,
+  so the deployed web build includes the media changes.
+
 
 Rollback: inside the database
 `DELETE FROM exercise_library; INSERT INTO exercise_library SELECT * FROM exercise_library_backup_20261106;`
