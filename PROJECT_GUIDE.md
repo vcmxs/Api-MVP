@@ -108,8 +108,8 @@ The shared `exercise_library` table now mixes the original coach rows (`source =
 - `node run-migration-010.js` applies `migrations/010_caminadora_escaladora.sql`, the cardio label repair: the matcher used to send `CAMINADORA` to dataset 2311 ("walking on stepmill"), so the treadmill showed a stair-climber GIF and `ESCALADORA` did not exist. The migration creates `ESCALADORA` from 2311 and re-points `CAMINADORA` at dataset 3666 ("walking on incline treadmill"). It only touches those two rows and is idempotent.
 - The movement rules now separate the two machines (`caminadora|trotadora|cinta de correr → treadmill`, `escaladora|escalador|escalones|stepmill → stepmill`) and the import still skips a dataset record that a catalog row already owns by `dataset_id`, so re-running `--apply` will not add English duplicates of them.
 - `node scripts/exercise-dataset/sync-media.js` verifies the dataset media and writes `manifest.json` + `README.md` into the separate media repository; add `--copy` to copy the GIFs (≈123 MB) and thumbnails (≈9 MB).
-- The API serves media through `EXERCISE_MEDIA_BASE` (server) and `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` (web fallback). Both point at the public media repository through jsDelivr, pinned to a commit SHA: `https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@<sha>`.
-- While the media repository is unpublished (or for local work), the API can serve the dataset folders straight from disk: set `EXERCISE_DATASET_DIR` (e.g. `C:/Users/admin/Documents/GitHub/exercises-dataset-main`) and `EXERCISE_MEDIA_BASE=http://localhost:3001/media`. `server.js` mounts `<dir>/videos` as `/media/gif` and `<dir>/images` as `/media/thumb` before the rate limiter, so `gif_url`/`thumb_url` resolve locally without any upload.
+- The API serves media through `EXERCISE_MEDIA_BASE` (server) and `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` (web fallback). Both point at the public media repository through jsDelivr, pinned to commit `d3e64b9f1e1dab64150e81b845f0e30e88dd719a`: `https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@d3e64b9f1e1dab64150e81b845f0e30e88dd719a`. `raw.githubusercontent.com/vcmxs/Dupla-exercises-media/<sha>/<path>` is the equivalent hot-link fallback.
+- For local work the API can also serve the dataset folders straight from disk: set `EXERCISE_DATASET_DIR` (e.g. `C:/Users/admin/Documents/GitHub/exercises-dataset-main`) and `EXERCISE_MEDIA_BASE=http://localhost:3001/media`. `server.js` mounts `<dir>/videos` as `/media/gif` and `<dir>/images` as `/media/thumb` before the rate limiter, so `gif_url`/`thumb_url` resolve locally without any upload.
 - The web app keeps the GIF for the exercise dialog and uses the lighter JPG still for the card thumbnails and the picker lists (`ExerciseReferenceButton` `thumb`/`compact` variants and the shared `ExerciseThumb` component). Each `ExerciseReferenceButton` loads its `/exercises/lookup` record on mount (cached per name), so the card already shows the dataset still before the dialog is opened.
 - The dialog does not embed YouTube any more: the media panel plays the dataset GIF (square 240 px frame) and the `YouTube` chip opens the reference video in a new tab. Exercises with neither GIF nor still show the "no reference image" message plus a YouTube search link.
 - `GET /api/v1/exercises` returns a light list with real server-side search (`?search=`, accent-insensitive AND tokens), optional `?category=`, `?source=`, `?limit=`, `?offset=`; `GET /api/v1/exercises/lookup?name=` returns the full record for the exercise dialog.
@@ -131,11 +131,20 @@ code before migrating makes that endpoint return 500 for both the web and the mo
 3. `CONFIRM_PROD_MIGRATION=YES node run-migration-010.js --production` — `CAMINADORA` (id 142) →
    dataset 3666, `ESCALADORA` created as id 1417 from dataset 2311.
 4. Media: `node scripts/exercise-dataset/sync-media.js --copy` writes `gif/`, `thumb/`,
-   `manifest.json` and `README.md` into the public `vcmxs/Dupla-exercises-media` repository
-   (1324 GIFs + 1324 thumbnails, 131 MB). Pin that commit SHA in `EXERCISE_MEDIA_BASE` (Railway)
-   and `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` (Vercel):
-   `https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@<sha>`.
-5. Push to `main`; Railway and Vercel redeploy automatically.
+   `manifest.json` and `README.md` into `C:\Users\admin\Documents\GitHub\Dupla-exercises-media`
+   (1324 GIFs + 1324 thumbnails, 131 MB), published as the public repo
+   `https://github.com/vcmxs/Dupla-exercises-media` (commit
+   `d3e64b9f1e1dab64150e81b845f0e30e88dd719a`). The single 131 MB pack was rejected by GitHub
+   ("remote end hung up"), so the history is eleven ~250-file commits pushed one by one; the final
+   commit holds the complete tree. Both CDNs were verified against that SHA:
+   `https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@d3e64b9f1e1dab64150e81b845f0e30e88dd719a/gif/0001-2gPfomN.gif`
+   (206 `image/gif`) and `https://raw.githubusercontent.com/vcmxs/Dupla-exercises-media/d3e64b9/gif/0001-2gPfomN.gif`.
+5. `EXERCISE_MEDIA_BASE` must be set on Railway to that jsDelivr URL; it is what turns the stored
+   `gif_file`/`thumb_file` into the absolute `gif_url`/`thumb_url` that both the web dialog and the
+   picker consume. `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` on Vercel is only the fallback used when the
+   API returns bare file names, so it is recommended but not required.
+6. Push to `main`; Railway and Vercel redeploy automatically.
+
 
 Rollback: inside the database
 `DELETE FROM exercise_library; INSERT INTO exercise_library SELECT * FROM exercise_library_backup_20261106;`

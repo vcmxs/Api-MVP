@@ -155,11 +155,16 @@ contains and what is still manual.
 
 - `node scripts/exercise-dataset/sync-media.js --copy` filled
   `C:\Users\admin\Documents\GitHub\Dupla-exercises-media` (1324 GIFs + 1324 thumbnails, 131 MB),
-  now published as the public GitHub repo `vcmxs/Dupla-exercises-media`.
-- Both deployments must pin that commit in `EXERCISE_MEDIA_BASE` (Railway) and
-  `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` (Vercel):
-  `https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@<sha>`. Without them the API returns
-  `gif_url: null` and the web falls back to the YouTube thumbnail.
+  now published as the public GitHub repo `vcmxs/Dupla-exercises-media` at commit
+  `d3e64b9f1e1dab64150e81b845f0e30e88dd719a`. A single 131 MB pack was rejected by GitHub, so the
+  history is eleven ~250-file commits pushed one by one.
+- `EXERCISE_MEDIA_BASE` (Railway) is still **unset**, so the API currently returns
+  `gif_url: null`. Set it to
+  `https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@d3e64b9f1e1dab64150e81b845f0e30e88dd719a`
+  and Railway redeploys; `/api/v1/exercises/lookup?name=caminadora` should then return a `gif_url`.
+  Both that URL and `https://raw.githubusercontent.com/vcmxs/Dupla-exercises-media/d3e64b9/...` were
+  verified with HTTP 206. `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` (Vercel) mirrors it as a fallback only.
+
 
 **Code**
 
