@@ -44,9 +44,14 @@ export function getExerciseGifUrl(exerciseName: string): string | null {
  *
  * The API already returns absolute `gif_url`/`thumb_url` built from the
  * backend's `EXERCISE_MEDIA_BASE`; this constant is only the fallback for
- * deployments that expose bare file names.
+ * deployments that expose bare file names. The default is the pinned jsDelivr
+ * mirror of the public `Dupla-exercises-media` repository, so the web works
+ * even when `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` is not configured.
  */
-const DATASET_MEDIA_BASE = (process.env.NEXT_PUBLIC_EXERCISE_MEDIA_BASE || "").replace(/\/+$/, "")
+const DATASET_MEDIA_FALLBACK_BASE =
+  "https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@d3e64b9f1e1dab64150e81b845f0e30e88dd719a"
+
+const DATASET_MEDIA_BASE = (process.env.NEXT_PUBLIC_EXERCISE_MEDIA_BASE || DATASET_MEDIA_FALLBACK_BASE).replace(/\/+$/, "")
 
 /** Builds a public URL for a dataset media file name (`0001-2gPfomN.gif`). */
 export function datasetMediaUrl(file: string | null | undefined, kind: "gif" | "thumb" = "gif"): string | null {

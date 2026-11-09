@@ -166,7 +166,15 @@ app.get('/api/v1/exercises/video', videoLookupLimiter, async (req, res) => {
 // stays light so the pickers can search/filter server side; the full record
 // (muscles, instructions, media) comes from /exercises/lookup.
 
-const EXERCISE_MEDIA_BASE = String(process.env.EXERCISE_MEDIA_BASE || '').replace(/\/+$/, '');
+// Pinned jsDelivr mirror of the public `Dupla-exercises-media` repository. It is
+// only the default, so a fresh deploy serves media without any dashboard setup:
+// `EXERCISE_MEDIA_BASE` overrides it (production may point at its own CDN and
+// local development uses `http://localhost:3001/media` with `EXERCISE_DATASET_DIR`).
+const EXERCISE_MEDIA_FALLBACK_BASE =
+  'https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@d3e64b9f1e1dab64150e81b845f0e30e88dd719a';
+
+const EXERCISE_MEDIA_BASE = String(process.env.EXERCISE_MEDIA_BASE || EXERCISE_MEDIA_FALLBACK_BASE)
+  .replace(/\/+$/, '');
 
 const EXERCISE_LIST_COLUMNS = `
   id, name, muscle_category, body_part, target_muscle, muscle_group, equipment,

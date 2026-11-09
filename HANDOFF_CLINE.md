@@ -158,12 +158,13 @@ contains and what is still manual.
   now published as the public GitHub repo `vcmxs/Dupla-exercises-media` at commit
   `d3e64b9f1e1dab64150e81b845f0e30e88dd719a`. A single 131 MB pack was rejected by GitHub, so the
   history is eleven ~250-file commits pushed one by one.
-- `EXERCISE_MEDIA_BASE` (Railway) is still **unset**, so the API currently returns
-  `gif_url: null`. Set it to
+- `EXERCISE_MEDIA_BASE` is optional from now on: `server.js` and
+  `frontend/lib/exercise-media.ts` default to the pinned jsDelivr URL
   `https://cdn.jsdelivr.net/gh/vcmxs/Dupla-exercises-media@d3e64b9f1e1dab64150e81b845f0e30e88dd719a`
-  and Railway redeploys; `/api/v1/exercises/lookup?name=caminadora` should then return a `gif_url`.
-  Both that URL and `https://raw.githubusercontent.com/vcmxs/Dupla-exercises-media/d3e64b9/...` were
-  verified with HTTP 206. `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` (Vercel) mirrors it as a fallback only.
+  (also verified with HTTP 206, as was
+  `https://raw.githubusercontent.com/vcmxs/Dupla-exercises-media/d3e64b9/...`). Setting
+  `EXERCISE_MEDIA_BASE` on Railway / `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` on Vercel still overrides it and
+  is what to do whenever the media repo or the CDN changes.
 
 
 **Code**
@@ -176,7 +177,9 @@ contains and what is still manual.
 
 **Still manual / pending**
 
-- The two media environment variables above (no Railway/Vercel CLI is installed in this workspace).
+- Optional: set `EXERCISE_MEDIA_BASE` / `NEXT_PUBLIC_EXERCISE_MEDIA_BASE` in the Railway and Vercel
+  dashboards (no CLI is installed in this workspace). The code already defaults to the pinned
+  jsDelivr URL, so this is only needed to move media to another CDN or commit.
 - Browser QA of the five fixes listed in the previous section (assignment with plan-internal
   routines, delete-plan confirmation, GIF from the catalog, Spanish strings).
 - Phase 2 for plan-internal routines (server-side persistence via `POST /workout-templates`) is
