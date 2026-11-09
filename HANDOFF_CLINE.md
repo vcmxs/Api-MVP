@@ -174,6 +174,7 @@ contains and what is still manual.
 - `/api/v1/exercises/lookup?name=caminadora` → `CAMINADORA`, dataset 3666, treadmill GIF
   (`206 image/gif` on jsDelivr); `?name=ESCALADORA` → dataset 2311.
 - `?search=curl barra` → `CURL DE BÍCEPS CON BARRA Z`; categories → 19.
+- Media coverage: 165 catalog rows (79 with a GIF) + 1238 dataset rows (all with a GIF) = 1403 rows.
 - Vercel serves a build whose `/dashboard` chunk contains the pinned media base, so web and mobile
   consume the same enriched endpoint.
 

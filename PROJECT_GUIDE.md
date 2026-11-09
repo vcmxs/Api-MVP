@@ -156,6 +156,9 @@ Verified live on 2026-11-09 after the push of `e1a721f`:
   `?search=curl barra` → `CURL DE BÍCEPS CON BARRA Z`; `/api/v1/exercises/categories` → 19 buckets.
 - The Vercel bundle for `/dashboard` carries `NEXT_PUBLIC_EXERCISE_MEDIA_BASE || "…Dupla-exercises-media@d3e64b9…"`,
   so the deployed web build includes the media changes.
+- Media coverage of the live table: 165 catalog rows (79 with a GIF — the 78 enriched matches plus
+  `ESCALADORA`) and 1238 dataset rows (all with a GIF), 1403 in total. The remaining catalog rows keep
+  the YouTube reference fallback.
 
 
 Rollback: inside the database
