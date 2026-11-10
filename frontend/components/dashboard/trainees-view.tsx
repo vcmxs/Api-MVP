@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Search, UserPlus, Users, Loader2, AlertCircle, RefreshCw } from "lucide-react"
+import { Search, UserPlus, Users, Loader2, AlertCircle, RefreshCw, Copy, Check, Share2, Link2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { apiFetch, getUserInfo } from "@/lib/api"
+import type { CoachInvite } from "@/lib/coach-invite"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
@@ -105,6 +106,11 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
   const [newTraineeEmail, setNewTraineeEmail] = useState("")
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState("")
+  const [invite, setInvite] = useState<CoachInvite | null>(null)
+  const [inviteError, setInviteError] = useState("")
+  const [copied, setCopied] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [rotating, setRotating] = useState(false)
 
   const fetchTrainees = useCallback(async () => {
     if (!user?.id) return
@@ -123,6 +129,81 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
   useEffect(() => {
     fetchTrainees()
   }, [fetchTrainees])
+
+  // Shareable invite link (coach → trainee). Separate from the Win-Win code.
+  const fetchInvite = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      const data = await apiFetch<CoachInvite>(`/coaches/${user.id}/invite`)
+      setInvite(data)
+      setInviteError("")
+    } catch (e: unknown) {
+      setInviteError(e instanceof Error ? e.message : "Failed to load invite link")
+    }
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchInvite()
+  }, [fetchInvite])
+
+  const handleCopyInvite = async () => {
+    if (!invite?.url) return
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(invite.url)
+      } else {
+        // Older browsers / non-secure contexts
+        const area = document.createElement("textarea")
+        area.value = invite.url
+        area.style.position = "fixed"
+        area.style.opacity = "0"
+        document.body.appendChild(area)
+        area.select()
+        document.execCommand("copy")
+        document.body.removeChild(area)
+      }
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setInviteError(t.trainees.shareError)
+    }
+  }
+
+  const handleShareInvite = async () => {
+    if (!invite?.url) return
+    setSharing(true)
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: t.trainees.shareTitle, text: t.trainees.shareHint, url: invite.url })
+      } else {
+        window.open(
+          `https://wa.me/?text=${encodeURIComponent(`${t.trainees.shareHint} ${invite.url}`)}`,
+          "_blank",
+          "noopener,noreferrer"
+        )
+      }
+    } catch {
+      // The user dismissed the native share sheet — nothing to do.
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const handleRotateInvite = async () => {
+    if (!user?.id) return
+    if (typeof window !== "undefined" && !window.confirm(t.trainees.shareRotateConfirm)) return
+    setRotating(true)
+    try {
+      const data = await apiFetch<CoachInvite>(`/coaches/${user.id}/invite/rotate`, { method: "POST" })
+      setInvite(data)
+      setCopied(false)
+      setInviteError("")
+    } catch (e: unknown) {
+      setInviteError(e instanceof Error ? e.message : "Failed to generate a new invite link")
+    } finally {
+      setRotating(false)
+    }
+  }
 
   const endDate = user?.subscription_end_date ?? user?.subscriptionEndDate ?? user?.subscriptionExpiry ?? user?.coachSubscriptionEndDate ?? user?.coach_subscription_end_date
   const isSubExpired = endDate ? new Date(endDate).getTime() < Date.now() : false
@@ -214,6 +295,65 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
             <span className="whitespace-nowrap">{t.trainees.addTrainee}</span>
           </button>
         </div>
+      </div>
+
+      {/* Shareable invite link */}
+      <div className="rounded-2xl border border-[#00ffff]/20 bg-[#161b22] p-4 sm:p-5">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 shrink-0 text-[#00ffff]" />
+          <h3 className="text-sm font-semibold text-white">{t.trainees.shareTitle}</h3>
+        </div>
+        <p className="mt-1 text-xs text-[#888888]">{t.trainees.shareHint}</p>
+
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <code className="min-w-0 flex-1 truncate rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-3 py-2.5 text-xs text-[#00ffff]">
+            {invite?.url ?? "…"}
+          </code>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyInvite}
+              disabled={!invite}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#00ffff] px-3 py-2.5 text-xs font-semibold text-black transition-all hover:bg-[#00ffff]/90 disabled:opacity-50 sm:flex-initial"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              <span className="whitespace-nowrap">{copied ? t.trainees.shareCopied : t.trainees.shareCopy}</span>
+            </button>
+            <button
+              onClick={handleShareInvite}
+              disabled={!invite || sharing}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#0a0a0f] px-3 py-2.5 text-xs font-medium text-white transition-colors hover:bg-[#1c222b] disabled:opacity-50 sm:flex-initial"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              <span className="whitespace-nowrap">{t.trainees.shareShare}</span>
+            </button>
+            <button
+              onClick={handleRotateInvite}
+              disabled={!invite || rotating}
+              title={t.trainees.shareRegenerate}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-[#0a0a0f] text-[#888888] transition-colors hover:text-white disabled:opacity-50"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", rotating && "animate-spin")} />
+            </button>
+          </div>
+        </div>
+
+        {invite && (
+          <p className="mt-2 text-[11px] text-[#555555]">
+            <span className="text-[#888888]">{invite.code}</span>
+            {" · "}
+            {invite.uses} {t.trainees.shareUses}
+            {" · "}
+            {invite.slotsAvailable === 0 ? (
+              <span className="text-[#ffb020]">{t.trainees.shareFull}</span>
+            ) : (
+              <span>
+                {invite.slotsAvailable ?? 0} {t.trainees.shareSlots}
+              </span>
+            )}
+          </p>
+        )}
+
+        {inviteError && <p className="mt-2 text-[11px] text-[#ff4444]">{inviteError}</p>}
       </div>
 
       {/* Error */}

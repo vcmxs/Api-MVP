@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import {
   Plus, ClipboardList, Dumbbell, X,
   FolderOpen, Folder, Trash2, Pencil,
   ArrowLeft, Search, ChevronRight, Loader2, AlertCircle, Check,
-  CalendarDays, Users, LayoutList, Link,
+  CalendarDays, Users, LayoutList,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
@@ -15,6 +15,10 @@ import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { AssignWorkoutModal } from "./assign-workout-modal"
+import {
+  DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
+} from "./exercise-reorder"
+
 
 // ── API Types ─────────────────────────────────────────────────────────────
 
@@ -317,7 +321,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
   }
 
   const addCreateEx = () => {
-    const id = `ex-${Date.now()}`
+    const id = newExerciseRowId()
     setCreateExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }])
     setExPickerTarget(id)
   }
@@ -327,6 +331,9 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
 
   const removeCreateEx = (id: string) =>
     setCreateExercises(p => p.filter(e => e.id !== id))
+
+  const createReorder = useExerciseReorder((from, to) =>
+    setCreateExercises(p => moveItem(p, from, to)))
 
   const handlePickEx = ({ name: n, isCardio }: { name: string; isCardio: boolean }) => {
     if (!exPickerTarget) return
@@ -354,7 +361,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
             userId: user.id, name: createName.trim(), programId: programFolderId,
             exercises: validEx.map((e, i) => ({
               name: e.name.trim(), sets: e.sets, reps: e.reps, targetWeight: e.weight,
-              weightUnit: "kg", restTime: e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
+              weightUnit: "kg", restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
               trackRpe: false, trackRir: false, isCardio: e.isCardio,
             })),
           }),
@@ -475,19 +482,19 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                     </button>
                   : <div className="space-y-2">
                       {createExercises.map((e, i) => (
-                        <div key={e.id}>
+                        <div key={e.id} {...createReorder.rowProps(i)}
+                          className={cn("rounded-xl transition-colors", createReorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60")}>
                           {i > 0 && (
-                            <div className="relative -my-2 z-10 flex justify-center">
-                              <button onClick={() => updateCreateEx(e.id, "isSuperset", !e.isSuperset)} 
-                                className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", e.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
-                                <Link className="h-3 w-3" />
-                                {e.isSuperset ? t.programs.biSerie : t.programs.link}
-                              </button>
+                            <div className="-my-2">
+                              <SupersetToggle active={!!e.isSuperset}
+                                onToggle={() => updateCreateEx(e.id, "isSuperset", !e.isSuperset)} />
                             </div>
                           )}
                           <BuilderRow ex={e} index={i}
                             onChange={updateCreateEx} onRemove={removeCreateEx}
-                            onPick={id => setExPickerTarget(id)} userId={user?.id} />
+                            onPick={id => setExPickerTarget(id)} userId={user?.id}
+                            dragHandle={<DragHandle index={i} reorder={createReorder} />}
+                            reorderArrows={<ReorderArrows index={i} total={createExercises.length} reorder={createReorder} />} />
                         </div>
                       ))}
                       <button onClick={addCreateEx}
@@ -547,11 +554,13 @@ const mapLocalWorkoutExercise = (exercise: any, index: number): BuilderEx => ({
   isSuperset: Boolean(exercise.isSuperset) || exercise.restTime === -1 || exercise.rest_time === -1,
 })
 
-function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
+function BuilderRow({ ex, index, onChange, onRemove, onPick, userId, dragHandle, reorderArrows }: {
   ex: BuilderEx; index: number
   onChange: (id: string, field: keyof BuilderEx, value: string | number) => void
   onRemove: (id: string) => void; onPick: (id: string) => void
   userId?: number
+  dragHandle?: ReactNode
+  reorderArrows?: ReactNode
 }) {
   const { t } = useT()
   const [rawSets, setRawSets] = useState(String(ex.sets))
@@ -606,7 +615,8 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-3">
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-1.5">
+        {dragHandle}
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold text-[#555555]">{index + 1}</span>
         <button onClick={() => onPick(ex.id)}
           className={cn("flex flex-1 items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors hover:border-[#a78bfa]/40",
@@ -615,6 +625,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId }: {
           <span className="flex-1 truncate">{ex.name || t.programs.selectExercise}</span>
           {ex.isCardio && <span className="shrink-0 rounded px-1 text-[9px] font-bold uppercase" style={{ backgroundColor: "rgba(167,139,250,0.15)", color: "#a78bfa" }}>{t.programs.cardio}</span>}
         </button>
+        {reorderArrows}
         <button onClick={() => onRemove(ex.id)} className="text-[#555555] hover:text-[#ff4444]"><X className="h-3.5 w-3.5" /></button>
       </div>
       {historyEntries.length > 0 && (
@@ -700,9 +711,11 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
     }
   }, [open, editWorkoutId, editWorkoutName, editWorkoutDesc, editWorkoutExercises])
 
-  const addEx = () => { const id = `ex-${Date.now()}`; setExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }]); setPickerTargetId(id) }
+  const addEx = () => { const id = newExerciseRowId(); setExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }]); setPickerTargetId(id) }
   const updateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) => setExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
   const removeEx = (id: string) => setExercises(p => p.filter(e => e.id !== id))
+  const reorder = useExerciseReorder((from, to) => setExercises(p => moveItem(p, from, to)))
+
   const handlePickEx = ({ name: n, isCardio }: { name: string; isCardio: boolean }) => {
     if (!pickerTargetId) return
     // The picker closes itself after a pick, so just fill the row that opened it.
@@ -741,7 +754,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
             userId: user.id, name: name.trim(), description: description.trim() || undefined, programId,
             exercises: savedExercises.map((e, i) => ({
               name: e.name, sets: e.sets, reps: e.reps, targetWeight: e.weight,
-              weightUnit: "kg", restTime: e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
+              weightUnit: "kg", restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
               trackRpe: false, trackRir: false, isCardio: e.isCardio,
             })),
           }),
@@ -788,17 +801,18 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
                 ? <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.10] py-8 text-sm text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> {t.programs.addFirstExercise}</button>
                 : <div className="space-y-3">
                     {exercises.map((e, i) => (
-                      <div key={e.id}>
+                      <div key={e.id} {...reorder.rowProps(i)}
+                        className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60")}>
                         {i > 0 && (
-                          <div className="relative -my-2 z-10 flex justify-center">
-                            <button onClick={() => updateEx(e.id, "isSuperset", !e.isSuperset)} 
-                              className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", e.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
-                              <Link className="h-3 w-3" />
-                              {e.isSuperset ? t.programs.biSerie : t.programs.link}
-                            </button>
+                          <div className="-my-2">
+                            <SupersetToggle active={!!e.isSuperset}
+                              onToggle={() => updateEx(e.id, "isSuperset", !e.isSuperset)} />
                           </div>
                         )}
-                        <BuilderRow ex={e} index={i} onChange={updateEx} onRemove={removeEx} onPick={id => setPickerTargetId(id)} />
+                        <BuilderRow ex={e} index={i} onChange={updateEx} onRemove={removeEx}
+                          onPick={id => setPickerTargetId(id)}
+                          dragHandle={<DragHandle index={i} reorder={reorder} />}
+                          reorderArrows={<ReorderArrows index={i} total={exercises.length} reorder={reorder} />} />
                       </div>
                     ))}
                     <button onClick={addEx} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"><Plus className="h-4 w-4" /> {t.programs.addExercise}</button>
@@ -1188,6 +1202,144 @@ const TIER_LIMITS: Record<string, number> = {
   starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
 }
 
+// ── Plan Day Exercise Editor ──────────────────────────────────────────────
+//
+// Extracted from AssignPlanModal so the list can own its reorder/biserie state
+// (hooks cannot be called inside the conditional render block it used to live in).
+
+interface PlanDayExercise extends ProgramExercise { weightIncrement?: number }
+
+/** Backend convention: the exercise hanging from the previous one carries rest = -1. */
+const isLinkedExercise = (ex: PlanDayExercise) => (ex.restTime ?? ex.rest_time) === -1
+
+function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee, lastLogs, historyLoading, pickerOpen, onPickerOpenChange, onAddExercise }: {
+  open: boolean
+  title: string
+  exercises: PlanDayExercise[]
+  onChange: (updated: PlanDayExercise[]) => void
+  onClose: () => void
+  trainee: AssignTrainee | null
+  lastLogs: Record<string, Record<number, string>>
+  historyLoading: boolean
+  pickerOpen: boolean
+  onPickerOpenChange: (open: boolean) => void
+  onAddExercise: (picked: { name: string; isCardio: boolean }) => void
+}) {
+  const { t } = useT()
+  const reorder = useExerciseReorder((from, to) => onChange(moveItem(exercises, from, to)))
+
+  const toggleSuperset = (index: number) =>
+    onChange(exercises.map((ex, i) => {
+      if (i !== index) return ex
+      const restTime = isLinkedExercise(ex) ? 60 : -1
+      return { ...ex, restTime, rest_time: restTime }
+    }))
+
+  const updateField = (index: number, field: "sets" | "reps" | "targetWeight" | "weightIncrement", value: number) =>
+    onChange(exercises.map((ex, i) => i === index ? { ...ex, [field]: value } : ex))
+
+  const removeAt = (index: number) => onChange(exercises.filter((_, i) => i !== index))
+
+  // Index is part of the key on purpose: the numeric inputs are uncontrolled, so
+  // remounting the row after a move keeps them in sync with the new position.
+  const rowKey = (ex: PlanDayExercise, index: number) => `${ex.id ?? "ex"}:${ex.name ?? ""}:${index}`
+
+  return (
+    <Sheet open={open} onOpenChange={next => { if (!next) onClose() }}>
+      <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}
+        onInteractOutside={e => e.preventDefault()}>
+        <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0a0a0f]">
+          <div>
+            <h3 className="text-base font-bold text-white">{t.programs.customize}: {title}</h3>
+            <p className="text-xs text-[#a78bfa]">{t.programs.customizeHint}</p>
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {exercises.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 opacity-50">
+              <Dumbbell className="h-8 w-8 mb-2 text-[#555]" />
+              <p className="text-sm text-[#888]">{t.programs.noExercisesFound}</p>
+            </div>
+          )}
+          {exercises.map((ex, i) => (
+            <div key={rowKey(ex, i)} {...reorder.rowProps(i)}>
+              {i > 0 && (
+                <div className="-my-2">
+                  <SupersetToggle active={isLinkedExercise(ex)} onToggle={() => toggleSuperset(i)} />
+                </div>
+              )}
+              <div className={cn("rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4 transition-all",
+                reorder.isDropTarget(i) && "border-[#00ffff]/60 bg-[#00ffff]/5",
+                reorder.isDragging(i) && "opacity-60")}>
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-1.5">
+                    <DragHandle index={i} reorder={reorder} className="mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-white">{ex.name}</p>
+                      {trainee && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">{t.programs.last}</span>
+                          {historyLoading ? (
+                            <span className="text-[9px] italic text-[#555]">{t.common.loading}</span>
+                          ) : lastLogs[ex.name] && Object.keys(lastLogs[ex.name]).length > 0 ? (
+                            Object.entries(lastLogs[ex.name]).sort((a, b) => Number(a[0]) - Number(b[0])).map(([setNum, val]) => (
+                              <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#a78bfa]" style={{ backgroundColor: "rgba(167,139,250,0.1)" }}>{val}</span>
+                            ))
+                          ) : (
+                            <span className="text-[9px] font-medium text-[#555]">{t.programs.none}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <ReorderArrows index={i} total={exercises.length} reorder={reorder} />
+                    <button onClick={() => removeAt(i)} className="text-[#555555] hover:text-[#ff4444]"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  {[
+                    { label: t.programs.sets, field: "sets" as const, value: ex.sets },
+                    { label: t.programs.reps, field: "reps" as const, value: ex.reps },
+                    { label: t.programs.weightKg, field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
+                    { label: "+ / " + t.programs.week.slice(0, 2).toUpperCase(), field: "weightIncrement" as const, value: ex.weightIncrement ?? 0 },
+                  ].map(({ label, field, value }) => (
+                    <div key={field}>
+                      <label className="mb-1 block text-[10px] uppercase text-[#555555] truncate">{label}</label>
+                      <input type="number" defaultValue={value as number} min={0}
+                        onChange={e => updateField(i, field, parseFloat(e.target.value) || 0)}
+                        className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+
+
+          <button onClick={() => onPickerOpenChange(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#888888] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]">
+            <Plus className="h-4 w-4" /> {t.programs.addExercise}
+          </button>
+        </div>
+        <div className="border-t border-white/[0.08] bg-[#0a0a0f] p-5">
+          <button onClick={onClose} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">{t.programs.doneEditing}</button>
+        </div>
+        <ExercisePickerSheet
+          open={pickerOpen}
+          onOpenChange={onPickerOpenChange}
+          targetUserId={trainee?.id}
+          subjectName={trainee?.name}
+          onSelect={onAddExercise}
+        />
+      </SheetContent>
+    </Sheet>
+  )
+}
+
 function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   plan: TrainingPlan; open: boolean; onOpenChange: (v: boolean) => void; onAssigned: () => void
 }) {
@@ -1374,7 +1526,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
 
           return {
             name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: baseWeight + (increment * weekIndex),
-            weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: ex.restTime ?? ex.rest_time ?? 60, notes: ex.notes ?? "", exerciseOrder: i,
+            weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: i > 0 ? (ex.restTime ?? ex.rest_time ?? 60) : 60, notes: ex.notes ?? "", exerciseOrder: i,
             track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
           };
         })
@@ -1546,107 +1698,37 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         const tid = getSlotWorkoutId(slot)
         const workout = resolveWorkout(tid)
         const rawExList = editedExercises.get(expandedDay) || workout?.exercises || slot.exercises || (slot as any).Exercises || (slot as any).workout_exercises || []
-        const exList = (rawExList as (ProgramExercise & { weightIncrement?: number })[])
+        const exList = (rawExList as PlanDayExercise[])
         return (
-          <Sheet open={true} onOpenChange={() => setExpandedDay(null)}>
-            <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#161b22] p-0 sm:max-w-md" style={{ zIndex: 210 }}
-              onInteractOutside={e => e.preventDefault()}>
-              <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0a0a0f]">
-                <div>
-                  <h3 className="text-base font-bold text-white">{t.programs.customize}: {getSlotName(slot)}</h3>
-                  <p className="text-xs text-[#a78bfa]">{t.programs.customizeHint}</p>
-                </div>
-                <button onClick={() => setExpandedDay(null)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {exList.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-10 opacity-50">
-                        <Dumbbell className="h-8 w-8 mb-2 text-[#555]" />
-                        <p className="text-sm text-[#888]">{t.programs.noExercisesFound}</p>
-                    </div>
-                )}
-                {exList.map((ex: any, i: number) => (
-                  <div key={i} className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-white">{ex.name}</p>
-                        {selectedTrainee && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#555]">{t.programs.last}</span>
-                            {historyLoading ? (
-                              <span className="text-[9px] italic text-[#555]">{t.common.loading}</span>
-                            ) : lastLogsMap[ex.name] && Object.keys(lastLogsMap[ex.name]).length > 0 ? (
-                              Object.entries(lastLogsMap[ex.name]).sort((a, b) => Number(a[0]) - Number(b[0])).map(([setNum, val]) => (
-                                <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#a78bfa]" style={{ backgroundColor: "rgba(167,139,250,0.1)" }}>{val}</span>
-                              ))
-                            ) : (
-                              <span className="text-[9px] font-medium text-[#555]">{t.programs.none}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <button onClick={() => {
-                        const updated = exList.filter((_, xi) => xi !== i)
-                        setEditedExercises(m => { const n = new Map(m); n.set(expandedDay, updated); return n })
-                      }} className="text-[#555555] hover:text-[#ff4444]"><Trash2 className="h-4 w-4" /></button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-3">
-                      {[
-                        { label: t.programs.sets, field: "sets" as const, value: ex.sets },
-                        { label: t.programs.reps, field: "reps" as const, value: ex.reps },
-                        { label: t.programs.weightKg, field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
-                        { label: "+ / " + t.programs.week.slice(0, 2).toUpperCase(), field: "weightIncrement" as const, value: (ex as any).weightIncrement ?? 0 },
-                      ].map(({ label, field, value }) => (
-                        <div key={field}>
-                          <label className="mb-1 block text-[10px] uppercase text-[#555555] truncate">{label}</label>
-                          <input type="number" defaultValue={value as number} min={0}
-                            onChange={e => {
-                              const updated = exList.map((x, xi) => xi === i ? { ...x, [field]: parseFloat(e.target.value) || 0 } : x)
-                              setEditedExercises(m => { const n = new Map(m); n.set(expandedDay, updated); return n })
-                            }}
-                            className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <button onClick={() => setPickerForCustomDay(expandedDay)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#888888] hover:border-[#a78bfa]/30 hover:text-[#a78bfa] transition-colors"
-                >
-                  <Plus className="h-4 w-4" /> {t.programs.addExercise}
-                </button>
-              </div>
-              <div className="border-t border-white/[0.08] p-5 bg-[#0a0a0f]">
-                <button onClick={() => setExpandedDay(null)} className="w-full rounded-xl bg-[#a78bfa] py-3 font-bold text-black hover:opacity-90">{t.programs.doneEditing}</button>
-              </div>
-              <ExercisePickerSheet
-                open={pickerForCustomDay === expandedDay}
-                onOpenChange={next => { if (!next) setPickerForCustomDay(null) }}
-                targetUserId={selectedTrainee?.id}
-                subjectName={selectedTrainee?.name}
-                onSelect={({ name, isCardio }) => {
-                  const newEx = {
-                    id: Date.now() + Math.random(),
-                    name,
-                    sets: 3,
-                    reps: 10,
-                    targetWeight: 0,
-                    target_weight: 0,
-                    isCardio,
-                    weightIncrement: 0
-                  }
-                  const updated = [...exList, newEx]
-                  setEditedExercises(m => {
-                    const n = new Map(m)
-                    n.set(expandedDay, updated)
-                    return n
-                  })
-                }}
-              />
-            </SheetContent>
-          </Sheet>
+          <PlanDayEditorSheet
+            open
+            title={getSlotName(slot)}
+            exercises={exList}
+            onChange={updated => setEditedExercises(m => { const n = new Map(m); n.set(expandedDay, updated); return n })}
+            onClose={() => setExpandedDay(null)}
+            trainee={selectedTrainee}
+            lastLogs={lastLogsMap}
+            historyLoading={historyLoading}
+            pickerOpen={pickerForCustomDay === expandedDay}
+            onPickerOpenChange={next => setPickerForCustomDay(next ? expandedDay : null)}
+            onAddExercise={({ name, isCardio }) => {
+              const newEx: PlanDayExercise = {
+                id: Date.now() + Math.random(),
+                name,
+                sets: 3,
+                reps: 10,
+                targetWeight: 0,
+                target_weight: 0,
+                isCardio,
+                weightIncrement: 0,
+              }
+              setEditedExercises(m => {
+                const n = new Map(m)
+                n.set(expandedDay, [...exList, newEx])
+                return n
+              })
+            }}
+          />
         )
       })()}
     </>

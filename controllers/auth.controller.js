@@ -2,6 +2,8 @@
 const User = require('../models/User');
 const pool = require('../config/database');
 const { sendVerificationEmail, sendPasswordResetEmail, sendDeleteAccountEmail } = require('../utils/emailService');
+const { consumeInvite } = require('../services/coachInviteService');
+const { CoachLinkError } = require('../services/coachLinkService');
 
 /**
  * Register a new user
@@ -87,6 +89,22 @@ exports.register = async (req, res) => {
             pin_expires_at
         });
 
+        // Link the new account to a coach when the signup came from an invite
+        // link (/join/<code> → /register?coach=<code>). Never blocks signup:
+        // a failure is reported back as a soft warning.
+        let inviteWarning = null;
+        if (req.body.coachInviteCode) {
+            try {
+                await consumeInvite({ code: String(req.body.coachInviteCode), userId: user.id });
+                console.log(`User ${user.id} linked to their coach via invite ${req.body.coachInviteCode}`);
+            } catch (inviteError) {
+                inviteWarning = inviteError instanceof CoachLinkError
+                    ? inviteError.message
+                    : 'We could not link your coach invite. Please try again from your dashboard.';
+                console.error('Coach invite link failed during registration:', inviteError.message);
+            }
+        }
+
         // Send the verification email using Nodemailer
         try {
             await sendVerificationEmail(email, verification_pin);
@@ -100,6 +118,7 @@ exports.register = async (req, res) => {
         res.status(201).json({
             message: 'User registered successfully. Please verify your email.',
             requiresVerification: true,
+            inviteWarning,
             user: {
                 id: user.id.toString(),
                 name: user.name,
@@ -327,6 +346,21 @@ exports.googleLogin = async (req, res) => {
             console.log('Existing user logging in via Google');
         }
 
+        // Optional: link the account to a coach when the user arrived through a
+        // coach invite link (/join/<code>). Soft failure — Google login must work.
+        let inviteWarning = null;
+        if (req.body.coachInviteCode) {
+            try {
+                await consumeInvite({ code: String(req.body.coachInviteCode), userId: user.id });
+                console.log(`Google user ${user.id} linked via invite ${req.body.coachInviteCode}`);
+            } catch (inviteError) {
+                inviteWarning = inviteError instanceof CoachLinkError
+                    ? inviteError.message
+                    : 'We could not link your coach invite.';
+                console.error('Coach invite link failed during Google login:', inviteError.message);
+            }
+        }
+
         // Generate JWT token
         const jwt = require('jsonwebtoken');
         const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_change_in_production';
@@ -368,6 +402,7 @@ exports.googleLogin = async (req, res) => {
 
         res.json({
             token,
+            inviteWarning,
             user: {
                 id: user.id.toString(),
                 name: user.name,

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { setAuth, API_URL } from '@/lib/api';
+import { fetchInvitePreview, readInviteCode, type CoachInvitePreview } from '@/lib/coach-invite';
 
 const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "").trim();
 
@@ -24,6 +25,19 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [coachInviteCode, setCoachInviteCode] = useState('');
+  const [coachInvitePreview, setCoachInvitePreview] = useState<CoachInvitePreview | null>(null);
+  const [inviteWarning, setInviteWarning] = useState('');
+
+  // Coach invite link: /join/<code> sends the trainee here with ?coach=<code>.
+  useEffect(() => {
+    const code = readInviteCode();
+    if (!code) return;
+    setCoachInviteCode(code);
+    fetchInvitePreview(code)
+      .then((preview) => setCoachInvitePreview(preview))
+      .catch(() => { /* the banner falls back to showing just the code */ });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -64,6 +78,7 @@ export default function RegisterPage() {
       const data = new FormData();
       Object.entries(formData).forEach(([k, v]) => data.append(k, v));
       if (profilePic) data.append('profilePic', profilePic);
+      if (coachInviteCode) data.append('coachInviteCode', coachInviteCode);
 
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -76,8 +91,20 @@ export default function RegisterPage() {
         throw new Error(resData.message || t('registerPage.errorGeneric'));
       }
 
-      setAuth(resData.token, resData.user);
-      router.push('/dashboard');
+      // The API links the account to the coach, but never blocks the signup:
+      // a failed link comes back as a soft warning.
+      if (resData.inviteWarning) {
+        setInviteWarning(resData.inviteWarning);
+        console.warn('Coach invite warning:', resData.inviteWarning);
+      }
+
+      if (resData.token) {
+        setAuth(resData.token, resData.user);
+        router.push('/dashboard');
+      } else {
+        // Registration now requires email verification before a token is issued.
+        router.push('/login');
+      }
     } catch (err: any) {
       setError(err.message || t('registerPage.errorGeneric'));
     } finally {
@@ -92,10 +119,14 @@ export default function RegisterPage() {
       const res = await fetch(`${API_URL}/auth/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: response.credential }),
+        body: JSON.stringify({
+          idToken: response.credential,
+          ...(coachInviteCode ? { coachInviteCode } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message ?? 'Google sign-in failed');
+      if (data.inviteWarning) setInviteWarning(data.inviteWarning);
       setAuth(data.token, data.user);
       router.push('/dashboard');
     } catch (err: any) {
@@ -103,7 +134,7 @@ export default function RegisterPage() {
     } finally {
       setGoogleLoading(false);
     }
-  }, [router]);
+  }, [router, coachInviteCode]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
@@ -203,6 +234,44 @@ export default function RegisterPage() {
           <h2 style={{ color: '#EDF2F7', fontSize: '22px', fontWeight: '900', letterSpacing: '3px', margin: '0 0 6px' }}>DUPLA</h2>
           <p style={{ color: '#8892A4', fontSize: '14px', margin: 0, fontWeight: '500' }}>{t('registerPage.subtitle')}</p>
         </div>
+
+        {/* Coach invite banner (arrives from /join/<code> as ?coach=<code>) */}
+        {coachInviteCode && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '14px 16px',
+            borderRadius: '12px',
+            background: 'rgba(0,196,255,0.08)',
+            border: '1px solid rgba(0,196,255,0.25)',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: 0, color: '#00C4FF', fontSize: '14px', fontWeight: '700', lineHeight: '1.4' }}>
+              {coachInvitePreview?.coachName
+                ? t('registerPage.invitedBy').replace('{coach}', coachInvitePreview.coachName)
+                : t('registerPage.inviteCodeNote').replace('{code}', coachInviteCode)}
+            </p>
+            {coachInvitePreview && !coachInvitePreview.valid && (
+              <p style={{ margin: '6px 0 0', color: '#F87171', fontSize: '12px', lineHeight: '1.4' }}>
+                {coachInvitePreview.message}
+              </p>
+            )}
+          </div>
+        )}
+
+        {inviteWarning && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            background: 'rgba(255,176,32,0.08)',
+            border: '1px solid rgba(255,176,32,0.25)',
+            color: '#FFB020',
+            fontSize: '13px',
+            lineHeight: '1.5'
+          }}>
+            {t('registerPage.inviteWarning')} {inviteWarning}
+          </div>
+        )}
 
         {/* Role selector — first */}
         <div style={{ marginBottom: '20px' }}>

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
 import { useT } from "@/lib/i18n"
 import { setAuth, getToken, getUserInfo, API_URL } from "@/lib/api"
+import { applyInviteCode, fetchInvitePreview, readInviteCode, type CoachInvitePreview } from "@/lib/coach-invite"
 
 const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "").trim()
 
@@ -21,6 +22,8 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [isMounted, setIsMounted] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [coachInviteCode, setCoachInviteCode] = useState("")
+  const [coachInvitePreview, setCoachInvitePreview] = useState<CoachInvitePreview | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
@@ -31,10 +34,32 @@ export default function LoginPage() {
     }
   }, [])
 
-  // Already logged in → go to correct dashboard
+  // Coach invite link: /join/<code> sends the trainee here with ?coach=<code>.
+  useEffect(() => {
+    const code = readInviteCode()
+    if (!code) return
+    setCoachInviteCode(code)
+    fetchInvitePreview(code)
+      .then((preview) => setCoachInvitePreview(preview))
+      .catch(() => { /* banner falls back to the generic copy */ })
+  }, [])
+
+  const linkPendingInvite = useCallback(async () => {
+    if (!coachInviteCode) return
+    try {
+      await applyInviteCode(coachInviteCode)
+    } catch (err) {
+      // Never block the login because of the invite (e.g. already linked).
+      console.warn("Could not link coach invite:", err)
+    }
+  }, [coachInviteCode])
+
+  // Already logged in → apply any pending coach invite, then go to the dashboard
   useEffect(() => {
     if (!isMounted) return
-    if (getToken()) {
+    if (!getToken()) return
+
+    const redirect = () => {
       const user = getUserInfo()
       if (user?.role?.toLowerCase() === "admin") {
         router.replace("/admin")
@@ -42,6 +67,16 @@ export default function LoginPage() {
         router.replace("/dashboard")
       }
     }
+
+    const pendingCode = readInviteCode()
+    if (!pendingCode) {
+      redirect()
+      return
+    }
+
+    applyInviteCode(pendingCode)
+      .catch((err) => console.warn("Could not link coach invite:", err))
+      .finally(redirect)
   }, [isMounted, router])
 
   const handleGoogleCredential = useCallback(async (response: any) => {
@@ -56,6 +91,7 @@ export default function LoginPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data?.message ?? "Google sign-in failed")
       setAuth(data.token, data.user)
+      await linkPendingInvite()
       if (data.user?.role?.toLowerCase() === "admin") {
         router.push("/admin")
       } else {
@@ -66,7 +102,7 @@ export default function LoginPage() {
     } finally {
       setGoogleLoading(false)
     }
-  }, [router])
+  }, [router, linkPendingInvite])
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return
@@ -118,6 +154,7 @@ export default function LoginPage() {
       }
 
       setAuth(data.token, data.user)
+      await linkPendingInvite()
       if (data.user?.role?.toLowerCase() === "admin") {
         router.push("/admin")
       } else {
@@ -226,6 +263,29 @@ export default function LoginPage() {
             boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
           }}
         >
+          {coachInviteCode && (
+            <div style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+              marginBottom: "16px",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              background: "rgba(0,196,255,0.08)",
+              border: "1px solid rgba(0,196,255,0.25)",
+              color: "#00C4FF",
+              fontSize: "13px",
+              lineHeight: "1.5",
+            }}>
+              <span aria-hidden>🔗</span>
+              <span>
+                {coachInvitePreview?.coachName
+                  ? t("loginPage.inviteBanner").replace("{coach}", coachInvitePreview.coachName)
+                  : t("loginPage.inviteBannerFallback")}
+              </span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             <div>
               <label style={labelStyle}>{t("loginPage.emailLabel")}</label>

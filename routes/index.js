@@ -26,7 +26,7 @@ router.use('/nutrition', nutritionRoutes);
 router.use('/programs', require('./programs.routes'));
 router.use('/training-plans', require('./training_plans.routes'));
 router.use('/referrals', require('./referral.routes'));
-router.use('/referrals', require('./referral.routes'));
+router.use('/coach-invites', require('./coach_invite.routes'));
 router.use('/notifications', require('./notification.routes'));
 router.use('/social', require('./social.routes'));
 // TEMPORARILY DISABLED: Uncomment after Railway cache clears

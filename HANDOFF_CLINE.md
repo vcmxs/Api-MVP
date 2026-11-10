@@ -195,3 +195,139 @@ contains and what is still manual.
   routines, delete-plan confirmation, GIF from the catalog, Spanish strings).
 - Phase 2 for plan-internal routines (server-side persistence via `POST /workout-templates`) is
   still deferred; they remain in `localStorage` (`dupla_local_workouts`).
+
+## Follow-up session 2026-11-09 — Bi-serie + exercise reordering in every routine builder
+
+**Goal:** every screen where a coach builds or customises a routine can (a) link an exercise to the previous one as a bi-serie and (b) reorder the exercises, using only the platform's native HTML5 drag-and-drop plus ▲/▼ buttons (no new dependency; `GripVertical`, `ChevronUp`, `ChevronDown` already exist in `lucide-react@0.564.0`).
+
+**New shared module `frontend/components/dashboard/exercise-reorder.tsx`:**
+
+- `useExerciseReorder(onMove)` returns `{ isDragging, isDropTarget, rowProps, handleProps, moveUp, moveDown }`. Tracking is **index based**, which is what lets it serve builders with local ids and the plan-day list, whose rows may have no stable `id` at all.
+- `DragHandle` is the only `draggable` element, so the exercise-picker button, the number inputs and the delete button keep working normally; `ArrowUp`/`ArrowDown` while it is focused moves the row (keyboard access).
+- `ReorderArrows` (▲/▼, disabled at both ends) is the touch-friendly path, `SupersetToggle` renders the `BI-SERIE` / `Link` pill (i18n via `t.programs.*`), and `moveItem` / `newExerciseRowId` are the small helpers used by every caller.
+- Feedback: the dragged row dims (`opacity-60`) and the row under the pointer is highlighted with the page accent; `draggedId` is always cleared on drop/`dragend`.
+
+**Integrated in all four builders:**
+
+- `programs-view.tsx` → `WorkoutPickerPanel` create mode, `WorkoutBuilderSheet` (program workouts, create **and** edit) and the plan-day editor.
+- `workouts-view.tsx` → `WorkoutBuilderSheet` (`ExerciseRow` list).
+- `assign-workout-modal.tsx` → `build` step.
+- The plan-day editor was extracted from `AssignPlanModal` into a new `PlanDayEditorSheet` component: it lived inside a conditional IIFE, which cannot host hooks. Its numeric inputs are uncontrolled, so the row key includes the index to force a remount after a move and keep the displayed values aligned with the new position.
+
+**Bi-serie persistence (existing backend convention, untouched):** the linked exercise is stored with `rest_time = -1` and the previous one keeps its normal rest; order is the array index sent as `exerciseOrder` (`models/Workout.js` keeps `-1` because it uses `ex.restTime || 60`). Payload builders now guard `i > 0` so a leading exercise can never carry `-1` (nothing above it to link to), and the plan-day editor toggles `restTime`/`rest_time` on the row itself so the flag travels with the exercise when it is reordered.
+
+## Follow-up session 2026-11-09 — Coach invite link (`/join/<code>`)
+
+**Goal:** a coach can share ONE link and any trainee who opens it ends up linked to that coach
+automatically on signup (or after logging in). Before this, the only way to link a trainee was
+`POST /coaches/:coachId/trainees` with the trainee's **email**, and that required the trainee to
+already have an account.
+
+**Deliberately NOT the Win-Win code.** `users.referral_code` is the coach→coach commission program
+(`controllers/referral.controller.js`, `referral_earnings`, 20% discount). Mixing "give me money" with
+"link this account to me" would make the commission rules ambiguous, so the invite lives in its own
+table and service.
+
+**Schema — `migrations/011_coach_invites.sql` (`run-migration-011.js`)**
+
+- `coach_invites(id, code UNIQUE, coach_id FK→users ON DELETE CASCADE, created_at, expires_at,
+  max_uses, uses DEFAULT 0, revoked DEFAULT FALSE)`, index on `coach_id` + unique index on `code`.
+- Idempotent (`CREATE TABLE/INDEX IF NOT EXISTS`), so it is also safe inside `db.js`
+  (`createTables()` now creates it next to `coach_trainee`).
+- Applied to **staging** with `node run-migration-011.js` (freshly created, 0 rows). Production still
+  pending: `CONFIRM_PROD_MIGRATION=YES node run-migration-011.js --production`.
+
+**Rule reuse — `services/coachLinkService.js` (new)**
+
+- `linkTraineeToCoach({ coachId, traineeId, trainee })` is now the ONLY place that applies the
+  linking rules: coach tier limit (`getTraineeLimit`), peer-coaching slot on the coach being trained,
+  role check (trainee|coach only), self-assignment, "one active coach per trainee" (`409`), the
+  `coach_trainee` insert and the `friendships` auto-accept.
+- Failures are typed `CoachLinkError` (`LIMIT_REACHED` 403, `PEER_LIMIT_REACHED` 403,
+  `ALREADY_ASSIGNED` 409, `INVALID_ROLE`/`SELF_ASSIGN` 400, `TRAINEE_NOT_FOUND`/`COACH_NOT_FOUND`/
+  `INVALID_INVITE` 404) and serialized by `err.toJSON()` (`{ error, code, message, ...meta }`).
+- `assignTrainee` (`controllers/user.controller.js`) was refactored to look the trainee up by email
+  and delegate everything else to the service, so the manual path and the invite path can never
+  diverge. `getAvailableSlots(coachId)` powers the "X/Y" counter.
+
+**Invites — `services/coachInviteService.js` (new)**
+
+- `generateCode()` = 6 chars `[A-Z0-9]` from `Math.random().toString(36)` (same alphabet as referral
+  codes, shorter for WhatsApp links); `createInvite()` retries on `23505` (unique violation).
+- `getOrCreateInvite(coachId)` reuses the coach's active, non-revoked, non-expired, non-exhausted
+  invite (lazy creation, same pattern as `GET /referrals/stats`).
+- `rotateInvite(coachId)` revokes every active invite and mints a new one.
+- `findInviteByCode(code)` is case-insensitive and returns `invalid_reason`
+  (`revoked` | `expired` | `exhausted`); `consumeInvite({ code, userId })` validates the code, calls
+  `linkTraineeToCoach` and only then bumps `uses`.
+- `buildInviteUrl(code, req)` = `WEB_APP_URL` → request `Origin` (keeps localhost links local) →
+  `https://duplagym.vercel.app`. `.env` has a new empty `WEB_APP_URL=` entry documenting this.
+
+**API**
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| `GET` | `/api/v1/coaches/:coachId/invite` | yes (self or admin) | `{ code, url, uses, maxUses, expiresAt, tier, maxTrainees, currentCount, slotsAvailable }` |
+| `POST` | `/api/v1/coaches/:coachId/invite/rotate` | yes (self or admin) | revokes + reissues |
+| `GET` | `/api/v1/coach-invites/:code` | **no** | always 200: `{ valid, reason?, coachName?, slotsAvailable?, tier? }`, rate-limited 120/15 min |
+| `POST` | `/api/v1/coach-invites/apply` | yes | `{ code }` → links `req.user`, returns `{ success, coachId, coachName }` |
+
+**Registration / login wiring**
+
+- `controllers/auth.controller.js`: `register` accepts `coachInviteCode` (multipart field) and
+  `googleLogin` accepts it in the JSON body. Both call `consumeInvite` right after the user exists and
+  return `inviteWarning` instead of failing — a broken invite must never block a signup.
+- `frontend/app/register/page.tsx` reads `?coach=CODE` with `readInviteCode()` (no `useSearchParams`,
+  therefore no `<Suspense>` requirement), shows a "You're joining X's team" banner, appends
+  `coachInviteCode` to the `FormData` and forwards the code to `google-login`. On success it only
+  redirects to `/dashboard` when the API actually returned a token; otherwise it goes to `/login`
+  (registration requires email verification — pre-existing behaviour, keep it in mind).
+- `frontend/app/login/page.tsx` reads the same `?coach=`, shows a banner, calls
+  `POST /coach-invites/apply` after a successful password **or** Google login, and also applies a
+  pending code when the visitor is already logged in before redirecting. Failures are logged
+  (`console.warn`) and never block the login.
+
+**Frontend**
+
+- `frontend/lib/coach-invite.ts` (new): `readInviteCode`, `fetchInvitePreview`, `applyInviteCode`,
+  plus the `CoachInvite` / `CoachInvitePreview` types.
+- `frontend/app/join/[code]/page.tsx` (new, client component, `useParams`): loading → coach name +
+  "N spots available"; when logged in it offers **Link my account**, otherwise it deep-links to
+  `/register?coach=CODE` and `/login?coach=CODE`. Invalid/revoked/expired/exhausted codes get their own
+  message. A coach with no free slots shows a "plan is full" note instead of the CTAs.
+- `frontend/components/dashboard/trainees-view.tsx`: new share card in "My Trainees" — the URL, Copy
+  (with a `document.execCommand` fallback), Share (`navigator.share`, WhatsApp `wa.me` fallback),
+  Regenerate (with confirm) and a `code · uses · slots` line. The email dialog is untouched.
+- i18n: `trainees.share*`, `joinPage.*`, `registerPage.invitedBy|inviteCodeNote|inviteWarning`,
+  `loginPage.inviteBanner|inviteBannerFallback` in both `en.ts` and `es.ts`.
+
+**Validation run**
+
+- `node --check` on every new/edited backend file — clean.
+- Temporary unit smoke test with a stubbed `pool.query` (deleted afterwards): 12 assertions covering
+  `LIMIT_REACHED`, happy-path insert, `ALREADY_ASSIGNED` (other coach / same coach), `PEER_LIMIT_REACHED`,
+  `INVALID_ROLE`, `SELF_ASSIGN`, slot math, code format, unknown/revoked/exhausted codes and `uses + 1`.
+- Temporary HTTP wiring test against the **staging** DB (deleted afterwards): `GET
+  /coach-invites/NOPE12` → `200 {valid:false,reason:"not_found"}`; `POST /coach-invites/apply` and
+  `GET /coaches/1/invite` without a token → `401`; a real invite created for coach #1 (gold) previews
+  as `{valid:true,coachName:"Coach Mike",slotsAvailable:24,maxTrainees:25}`; `getOrCreateInvite` reuses
+  the same code; the throwaway row was deleted.
+- `cd frontend && npx tsc --noEmit` → clean; `npm run build` → compiled, `/join/[code]` listed as
+  `ƒ (Dynamic)`.
+
+**Still manual / pending**
+
+- Browser QA: starter coach at 1/1 (limit copy), trainee already linked (409 copy), rotated link (the
+  old one must stop working), peer coaching, `/join/<code>` incognito **and** logged in, the deep links
+  on `/register` and `/login`, and the WhatsApp fallback on desktop.
+- Production migration + redeploy (Railway API, Vercel web). Register `WEB_APP_URL` in Railway/Vercel if
+  the invite links should not rely on the request `Origin` header.
+
+
+
+**Also fixed:** builder row ids were `ex-${Date.now()}`, so two rows created in the same millisecond collided and broke the React keys used as drag identity → `newExerciseRowId()` = `ex-<ts>-<rand>`. The `assign-workout-modal` pill labels were hardcoded English → `t.programs.biSerie` / `t.programs.link`. New locale keys `dragToReorder`, `moveUp`, `moveDown` in `frontend/locales/{en,es}.ts`.
+
+**Validation run:** `npx tsc --noEmit` and `npm run build` inside `frontend` both pass (Next 16 / Turbopack, 14 static routes). ESLint still cannot run here (no `eslint.config.*`, installed ESLint is v10).
+
+**Pending manual QA:** drag and ▲/▼ in each of the four builders in ES and EN; confirm the bi-serie survives save + reload and that the trainee/trainee-session view shows the linked pair; check the 380 px layout (arrows instead of dragging) and that reordering does not disturb the exercise picker, the "?" reference dialog or the last-session chips in the plan-day editor.
+

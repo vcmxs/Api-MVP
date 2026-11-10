@@ -64,6 +64,23 @@ const createTables = async () => {
       )
     `);
 
+    // Coach invite links (shareable trainee signup links, UNRELATED to referral_code)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS coach_invites (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(12) UNIQUE NOT NULL,
+        coach_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
+        max_uses INTEGER,
+        uses INTEGER NOT NULL DEFAULT 0,
+        revoked BOOLEAN NOT NULL DEFAULT FALSE
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_coach_invites_coach ON coach_invites(coach_id)
+    `);
+
     // Shared Sessions table (Co-op Workouts)
     await client.query(`
       CREATE TABLE IF NOT EXISTS shared_sessions (

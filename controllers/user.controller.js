@@ -1,7 +1,7 @@
 // controllers/user.controller.js
 const User = require('../models/User');
 const pool = require('../config/database');
-const { getTraineeLimit, getTierInfo } = require('../config/subscriptionTiers');
+const { linkTraineeToCoach, CoachLinkError } = require('../services/coachLinkService');
 
 /**
  * Get user details
@@ -81,41 +81,8 @@ exports.assignTrainee = async (req, res) => {
     }
 
     try {
-        // 1. Check Coach's Subscription Limit
-        const coachProfile = await pool.query(
-            'SELECT subscription_status, subscription_tier FROM users WHERE id = $1',
-            [coachId]
-        );
-
-        if (coachProfile.rows.length === 0) {
-            return res.status(404).json({ error: 'Not Found', message: 'Coach not found' });
-        }
-
-        const { subscription_status, subscription_tier } = coachProfile.rows[0];
-
-        // Only enforce limits if subscription is 'active' (or we can enforce for all, assuming free is restricted)
-        // Default to 'starter' if no tier set
-        const currentTier = subscription_tier || 'starter';
-        const maxTrainees = getTraineeLimit(currentTier);
-
-        const currentTraineeCountResult = await pool.query(
-            'SELECT COUNT(*) FROM coach_trainee WHERE coach_id = $1',
-            [coachId]
-        );
-        const currentCount = parseInt(currentTraineeCountResult.rows[0].count);
-
-        if (currentCount >= maxTrainees) {
-            const tierInfo = getTierInfo(currentTier);
-            return res.status(403).json({
-                error: 'Limit Reached',
-                message: `Your ${tierInfo?.name || currentTier} plan is limited to ${maxTrainees} trainee${maxTrainees > 1 ? 's' : ''}. Upgrade your subscription to add more.`,
-                currentCount,
-                maxAllowed: maxTrainees,
-                tier: currentTier
-            });
-        }
-
-        // 2. Find trainee by email
+        // Resolve the trainee first: invite links cover the signup path, so the
+        // manual flow only has to look the account up by email.
         const trainee = await User.findByEmail(email);
 
         if (!trainee) {
@@ -125,78 +92,10 @@ exports.assignTrainee = async (req, res) => {
             });
         }
 
-        if (trainee.role !== 'trainee' && trainee.role !== 'coach') {
-            return res.status(400).json({
-                error: 'Bad Request',
-                message: 'User must be a trainee or a coach to be assigned.'
-            });
-        }
-
-        // [PEER COACHING LOGIC] If the person being assigned is ALSO a coach...
-        if (trainee.role === 'coach') {
-            // Check their limit as well (Peer Coaching consumes a slot on BOTH sides)
-            // They are taking up 1 slot of their own business to be trained
-            const traineeCoachProfile = await pool.query(
-                'SELECT subscription_status, subscription_tier FROM users WHERE id = $1',
-                [trainee.id]
-            );
-
-            const pTier = traineeCoachProfile.rows[0]?.subscription_tier || 'starter';
-            const pMaxTrainees = getTraineeLimit(pTier);
-
-            const pCurrentTraineeCountResult = await pool.query(
-                'SELECT COUNT(*) FROM coach_trainee WHERE coach_id = $1',
-                [trainee.id]
-            );
-            const pCurrentCount = parseInt(pCurrentTraineeCountResult.rows[0].count);
-
-            if (pCurrentCount >= pMaxTrainees) {
-                const tierInfo = getTierInfo(pTier);
-                return res.status(403).json({
-                    error: 'Limit Reached',
-                    message: `The coach you are trying to add has reached their trainee limit (${pMaxTrainees}) on their ${tierInfo?.name || pTier} plan, so they cannot allocate a slot to be trained right now.`
-                });
-            }
-        }
-
-        // Check if trainee is already assigned to ANY coach (this coach OR another coach)
-        // For peer coaches, we might allow multiple coaches in the future, but standardizing to 1 active assigned coach for now.
-        const existingResult = await pool.query(
-            'SELECT id FROM coach_trainee WHERE trainee_id = $1',
-            [trainee.id]
-        );
-
-        if (existingResult.rows.length > 0) {
-            return res.status(409).json({
-                error: 'Conflict',
-                message: 'This user is already assigned to a coach. They must leave their current coach before you can add them.'
-            });
-        }
-
-        // Assign trainee to coach
-        await pool.query(
-            'INSERT INTO coach_trainee (coach_id, trainee_id) VALUES ($1, $2)',
-            [coachId, trainee.id]
-        );
-
-        // Auto-friend logic: Create 'accepted' friendship
-        // Standardize IDs: internal logic usually puts smaller ID first for the unique constraint
-        const u1 = Math.min(coachId, trainee.id);
-        const u2 = Math.max(coachId, trainee.id);
-
-        try {
-            await pool.query(
-                `INSERT INTO friendships (user_id_1, user_id_2, status, action_user_id) 
-                 VALUES ($1, $2, 'accepted', $3)
-                 ON CONFLICT (user_id_1, user_id_2) 
-                 DO UPDATE SET status = 'accepted', action_user_id = $3`,
-                [u1, u2, coachId]
-            );
-            console.log(`Auto-fiended Coach ${coachId} and Trainee ${trainee.id}`);
-        } catch (friendErr) {
-            console.error('Auto-friend error (ignoring to prevent failure of main task):', friendErr);
-            // We don't fail the request if this fails, as it's a secondary feature
-        }
+        // Every rule (tier limit, peer-coaching slot, "one active coach") plus the
+        // coach_trainee insert and the auto-friendship live in coachLinkService,
+        // so this manual path and the invite-link path can never drift apart.
+        await linkTraineeToCoach({ coachId, traineeId: trainee.id, trainee });
 
         res.status(201).json({
             id: trainee.id,
@@ -204,6 +103,9 @@ exports.assignTrainee = async (req, res) => {
             email: trainee.email
         });
     } catch (err) {
+        if (err instanceof CoachLinkError) {
+            return res.status(err.status).json(err.toJSON());
+        }
         console.error('Assign trainee error:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }

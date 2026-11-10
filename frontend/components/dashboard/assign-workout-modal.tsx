@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, type ReactNode } from "react"
 import {
   X, Search, Dumbbell, Users, CalendarDays, Check, Loader2,
-  AlertCircle, Plus, ChevronRight, ArrowLeft, Link,
+  AlertCircle, Plus, ChevronRight, ArrowLeft,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -14,6 +14,10 @@ import { apiFetch, getUserInfo } from "@/lib/api"
 import { getCoachNoteDraft, serializeCoachNote } from "@/lib/exercise-notes"
 import { useT } from "@/lib/i18n"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
+import {
+  DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
+} from "./exercise-reorder"
+
 
 const TIER_LIMITS: Record<string, number> = {
   starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
@@ -63,20 +67,23 @@ interface BuilderExercise {
 
 // ── Mini exercise row for the builder ─────────────────────────────────────
 
-function BuilderRow({ ex, index, onChange, onRemove, onPick, lastHistory }: {
+function BuilderRow({ ex, index, onChange, onRemove, onPick, lastHistory, dragHandle, reorderArrows }: {
   ex: BuilderExercise
   index: number
   onChange: (id: string, field: keyof BuilderExercise, value: string | number) => void
   onRemove: (id: string) => void
   onPick: (id: string) => void
   lastHistory?: Record<number, string>
+  dragHandle?: ReactNode
+  reorderArrows?: ReactNode
 }) {
   const { t } = useT()
   const historyEntries = lastHistory ? Object.entries(lastHistory).sort((a, b) => Number(a[0]) - Number(b[0])) : []
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-3">
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-1.5">
+        {dragHandle}
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold text-[#555555]">{index + 1}</span>
         <button onClick={() => onPick(ex.id)}
           className={cn("flex flex-1 items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors hover:border-[#00ffff]/40",
@@ -85,6 +92,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, lastHistory }: {
           <span className="flex-1 truncate">{ex.name || "Select exercise…"}</span>
           {ex.isCardio && <span className="shrink-0 rounded px-1 text-[9px] font-bold uppercase" style={{ backgroundColor: "rgba(0,255,255,0.12)", color: "#00ffff" }}>Cardio</span>}
         </button>
+        {reorderArrows}
         <button onClick={() => onRemove(ex.id)} className="text-[#555555] hover:text-[#ff4444]"><X className="h-3.5 w-3.5" /></button>
       </div>
       {historyEntries.length > 0 && (
@@ -288,7 +296,7 @@ export function AssignWorkoutModal({
   // ── Builder helpers ────────────────────────────────────────────────────
 
   const addBuilderEx = () => {
-    const newId = `ex-${Date.now()}`
+    const newId = newExerciseRowId()
     setBuildExercises(prev => [...prev, { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false }])
     setPickerTargetId(newId)
   }
@@ -298,6 +306,10 @@ export function AssignWorkoutModal({
 
   const removeBuilderEx = (id: string) =>
     setBuildExercises(prev => prev.filter(ex => ex.id !== id))
+
+  const reorder = useExerciseReorder((from, to) =>
+    setBuildExercises(prev => moveItem(prev, from, to)))
+
 
   const handlePickEx = ({ name: exName, isCardio }: { name: string; isCardio: boolean }) => {
     if (!pickerTargetId) return
@@ -351,7 +363,7 @@ export function AssignWorkoutModal({
       const exercises = buildExercises.filter(ex => ex.name.trim()).map((ex, i) => ({
         name: ex.name, sets: ex.sets, reps: ex.reps,
         targetWeight: ex.weight, weightUnit: "kg",
-        restTime: ex.isSuperset ? -1 : 60, notes: serializeCoachNote(ex.notes, user), exerciseOrder: i,
+        restTime: i > 0 && ex.isSuperset ? -1 : 60, notes: serializeCoachNote(ex.notes, user), exerciseOrder: i,
         track_rpe: 0, track_rir: 0, is_cardio: ex.isCardio ? 1 : 0,
       }))
 
@@ -613,20 +625,20 @@ export function AssignWorkoutModal({
                   ) : (
                     <div className="space-y-2">
                       {buildExercises.map((ex, i) => (
-                        <div key={ex.id}>
+                        <div key={ex.id} {...reorder.rowProps(i)}
+                          className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60")}>
                           {i > 0 && (
-                            <div className="relative -my-2 z-10 flex justify-center">
-                              <button onClick={() => updateBuilderEx(ex.id, "isSuperset", !ex.isSuperset)} 
-                                className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors", ex.isSuperset ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]" : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50")}>
-                                <Link className="h-3 w-3" />
-                                {ex.isSuperset ? "BI-SERIE" : "Link"}
-                              </button>
+                            <div className="-my-2">
+                              <SupersetToggle active={!!ex.isSuperset}
+                                onToggle={() => updateBuilderEx(ex.id, "isSuperset", !ex.isSuperset)} />
                             </div>
                           )}
                           <BuilderRow ex={ex} index={i}
                             onChange={updateBuilderEx} onRemove={removeBuilderEx}
                             onPick={(id) => setPickerTargetId(id)}
-                            lastHistory={lastSessionLogs[ex.id]} />
+                            lastHistory={lastSessionLogs[ex.id]}
+                            dragHandle={<DragHandle index={i} reorder={reorder} />}
+                            reorderArrows={<ReorderArrows index={i} total={buildExercises.length} reorder={reorder} />} />
                         </div>
                       ))}
                     </div>

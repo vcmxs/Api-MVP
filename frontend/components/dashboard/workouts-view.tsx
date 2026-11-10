@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
 import {
   Plus, Trash2, Dumbbell, X, UserPlus,
   CheckCircle2, Clock, ClipboardList,
@@ -19,6 +19,10 @@ import { ExerciseNoteEntry, parseExerciseNotes, serializeCoachNote } from "@/lib
 import { useT } from "@/lib/i18n"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
+import {
+  DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
+} from "./exercise-reorder"
+
 
 // ── API types ─────────────────────────────────────────────────────────────
 
@@ -994,15 +998,18 @@ interface BuilderExercise {
   weight: number
   notes: string
   isCardio?: boolean
+  isSuperset?: boolean
 }
 
-function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive }: {
+function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive, dragHandle, reorderArrows }: {
   ex: BuilderExercise
   index: number
-  onChange: (id: string, field: keyof BuilderExercise, value: string | number) => void
+  onChange: (id: string, field: keyof BuilderExercise, value: string | number | boolean) => void
   onRemove: (id: string) => void
   onPickExercise: (id: string) => void
   isActive?: boolean
+  dragHandle?: ReactNode
+  reorderArrows?: ReactNode
 }) {
   const { t } = useT()
   const lastHistory = useLastSessionHistory(ex.name)
@@ -1010,7 +1017,8 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive }
 
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-[#161b22] p-4">
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-1.5">
+        {dragHandle}
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#0a0a0f] text-xs font-bold text-[#555555]">{index + 1}</span>
         <button
           onClick={() => onPickExercise(ex.id)}
@@ -1028,6 +1036,7 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive }
             <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ backgroundColor: "rgba(0,255,255,0.12)", color: "#00ffff" }}>Cardio</span>
           )}
         </button>
+        {reorderArrows}
         <button onClick={() => onRemove(ex.id)} className="text-[#555555] hover:text-[#ff4444]"><X className="h-4 w-4" /></button>
       </div>
 
@@ -1093,13 +1102,15 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
   const [pickerTargetId, setPickerTargetId] = useState<string | null>(null)
 
   const addExercise = () =>
-    setExercises([...exercises, { id: `ex-${Date.now()}`, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }])
+    setExercises(prev => [...prev, { id: newExerciseRowId(), name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false }])
 
-  const updateExercise = (id: string, field: keyof BuilderExercise, value: string | number) =>
-    setExercises(exercises.map((ex) => ex.id === id ? { ...ex, [field]: value } : ex))
+  const updateExercise = (id: string, field: keyof BuilderExercise, value: string | number | boolean) =>
+    setExercises(prev => prev.map((ex) => ex.id === id ? { ...ex, [field]: value } : ex))
 
   const removeExercise = (id: string) =>
-    setExercises(exercises.filter((ex) => ex.id !== id))
+    setExercises(prev => prev.filter((ex) => ex.id !== id))
+
+  const reorder = useExerciseReorder((from, to) => setExercises(prev => moveItem(prev, from, to)))
 
   const openPicker = (id: string) => setPickerTargetId(id)
 
@@ -1185,7 +1196,18 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
               ) : (
                 <div className="space-y-3">
                   {exercises.map((ex, i) => (
-                    <ExerciseRow key={ex.id} ex={ex} index={i} onChange={updateExercise} onRemove={removeExercise} onPickExercise={openPicker} isActive={pickerTargetId === ex.id} />
+                    <div key={ex.id} {...reorder.rowProps(i)}
+                      className={cn("rounded-2xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60")}>
+                      {i > 0 && (
+                        <div className="-my-2">
+                          <SupersetToggle active={!!ex.isSuperset}
+                            onToggle={() => updateExercise(ex.id, "isSuperset", !ex.isSuperset)} />
+                        </div>
+                      )}
+                      <ExerciseRow ex={ex} index={i} onChange={updateExercise} onRemove={removeExercise} onPickExercise={openPicker} isActive={pickerTargetId === ex.id}
+                        dragHandle={<DragHandle index={i} reorder={reorder} />}
+                        reorderArrows={<ReorderArrows index={i} total={exercises.length} reorder={reorder} />} />
+                    </div>
                   ))}
                   <button onClick={addExercise} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#00ffff]/30 hover:text-[#00ffff]">
                     <Plus className="h-4 w-4" /> Add Exercise
@@ -1328,7 +1350,8 @@ export function WorkoutsView() {
           reps: ex.reps,
           targetWeight: ex.weight,
           weightUnit: "kg",
-          restTime: 60,
+          // Bi-serie convention: the linked exercise rests 0 s (backend stores -1)
+          restTime: i > 0 && ex.isSuperset ? -1 : 60,
           notes: serializeCoachNote(ex.notes, user),
           exerciseOrder: i,
           track_rpe: 0,
