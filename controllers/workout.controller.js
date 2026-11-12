@@ -51,10 +51,12 @@ exports.createWorkoutPlan = async (req, res) => {
             const coachResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [coachId]);
             const coachName = coachResult.rows[0]?.name || 'Coach';
 
+            const params = JSON.stringify({ name: coachName, workoutName: workoutPlan.name });
+
             await NotificationController.createNotification(
                 workoutPlan.trainee_id,
-                'New Workout Assigned',
-                JSON.stringify({ name: coachName, workoutName: workoutPlan.name }),
+                params,
+                params,
                 'workout_assigned',
                 workoutPlan.id,
                 true // sendPush = true for workout assignments
@@ -96,10 +98,12 @@ exports.createSharedWorkoutSession = async (req, res) => {
             const coachResult = await require('../config/database').query('SELECT name FROM users WHERE id = $1', [coachId]);
             const coachName = coachResult.rows[0]?.name || 'Coach';
 
+            const params = JSON.stringify({ name: coachName, workoutName: name, kind: 'coop' });
+
             await NotificationController.createNotification(
                 traineeId,
-                'New Co-Op Workout Assigned',
-                JSON.stringify({ name: coachName, workoutName: name }),
+                params,
+                params,
                 'workout_assigned',
                 plans.find(p => String(p.trainee_id) === String(traineeId))?.id,
                 true // sendPush
@@ -441,10 +445,12 @@ const notifyCoachOnCompletion = async (workoutId) => {
 
             // Only notify if coach is not the trainee (prevent self-notification)
             if (workout.coach_id !== workout.trainee_id) {
+                const params = JSON.stringify({ name: traineeName, workoutName: workout.name });
+
                 await NotificationController.createNotification(
                     workout.coach_id,
-                    'Workout Completed',
-                    JSON.stringify({ name: traineeName, workoutName: workout.name }),
+                    params,
+                    params,
                     'workout_completed',
                     workout.id,
                     true // sendPush = true (will add config option to disable in future)

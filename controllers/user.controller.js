@@ -231,6 +231,45 @@ exports.updateUserProfile = async (req, res) => {
 };
 
 /**
+ * Update the user's notification language.
+ * Push notifications are rendered server-side, so this must be persisted.
+ * Body: { language: 'es' | 'en' }
+ */
+exports.updateLanguage = async (req, res) => {
+    const userId = parseInt(req.params.userId, 10);
+    const language = String(req.body?.language || '').toLowerCase();
+
+    if (!Number.isInteger(userId)) {
+        return res.status(400).json({ error: 'Bad Request', message: 'Invalid user id' });
+    }
+    if (language !== 'es' && language !== 'en') {
+        return res.status(400).json({ error: 'Bad Request', message: "language must be 'es' or 'en'" });
+    }
+
+    const requesterId = Number(req.user?.id);
+    const requesterRole = String(req.user?.role || '').toLowerCase();
+    if (requesterId !== userId && requesterRole !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden', message: 'Not your account' });
+    }
+
+    try {
+        const result = await pool.query(
+            `UPDATE users SET language = $1 WHERE id = $2 RETURNING id, language`,
+            [language, userId]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Not Found', message: 'User not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Update language error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+};
+
+/**
  * Update profile picture
  */
 exports.updateProfilePicture = async (req, res) => {
@@ -506,35 +545,120 @@ exports.getCoachTraineeHistory = async (req, res) => {
 
 /**
  * Remove coach-trainee connection
+ *
+ * Can be triggered by the coach (from their trainees list) or by the trainee
+ * (from their own settings). Removes the coach_trainee row in either direction,
+ * drops the auto-created friendship and notifies both parties.
  */
 exports.removeConnection = async (req, res) => {
-    const { userId, targetId } = req.params; // Get both from params now
+    const userId = parseInt(req.params.userId, 10);
+    const targetId = parseInt(req.params.targetId, 10);
 
-    console.log('Remove Connection Request (Params):', { userId, targetId });
+    if (!Number.isInteger(userId) || !Number.isInteger(targetId)) {
+        return res.status(400).json({ error: 'Bad Request', message: 'Invalid user ids' });
+    }
+
+    // Authorization: only the two parties involved (or an admin) can unlink
+    const requesterId = req.user?.id;
+    const isParty = requesterId === userId || requesterId === targetId;
+    const isAdmin = req.user?.role === 'admin';
+
+    if (!isParty && !isAdmin) {
+        return res.status(403).json({ error: 'Forbidden', message: 'Not allowed to remove this connection' });
+    }
+
+    console.log('Remove Connection Request (Params):', { userId, targetId, requesterId });
+
+    let client;
+    let coachId, traineeId, coachName, traineeName;
 
     try {
-        // We need to know who is who.
-        // If userId is coach, targetId is trainee.
-        // If userId is trainee, targetId is coach (or implied if they only have one).
+        client = await pool.connect();
+        await client.query('BEGIN');
 
-        // Perform deletion matching either combination
-        const result = await pool.query(
+        // Perform deletion matching either combination (coach -> trainee or trainee -> coach)
+        const result = await client.query(
             `DELETE FROM coach_trainee 
              WHERE (coach_id = $1 AND trainee_id = $2) 
                 OR (coach_id = $2 AND trainee_id = $1)
-             RETURNING id`,
+             RETURNING coach_id, trainee_id`,
             [userId, targetId]
         );
 
         if (result.rowCount === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
         }
 
-        res.json({ message: 'Connection removed successfully' });
+        coachId = result.rows[0].coach_id;
+        traineeId = result.rows[0].trainee_id;
+
+        // Names are needed for the notifications (and for the client to update its state)
+        const names = await client.query(
+            'SELECT id, name FROM users WHERE id = ANY($1::int[])',
+            [[coachId, traineeId]]
+        );
+        coachName = names.rows.find((row) => Number(row.id) === Number(coachId))?.name || 'Coach';
+        traineeName = names.rows.find((row) => Number(row.id) === Number(traineeId))?.name || 'Trainee';
+
+        // Drop the friendship auto-created by linkTraineeToCoach.
+        // Secondary feature: never fail the unlink because of it.
+        try {
+            await client.query(
+                `DELETE FROM friendships
+                 WHERE user_id_1 = $1 AND user_id_2 = $2
+                   AND status = 'accepted' AND action_user_id = $3`,
+                [Math.min(coachId, traineeId), Math.max(coachId, traineeId), coachId]
+            );
+        } catch (friendErr) {
+            console.error('Friendship cleanup skipped:', friendErr.message);
+        }
+
+        await client.query('COMMIT');
     } catch (err) {
+        if (client) {
+            try { await client.query('ROLLBACK'); } catch (_) { /* ignore */ }
+        }
         console.error('Remove connection error:', err);
-        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+        return res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    } finally {
+        if (client) client.release();
     }
+
+    // Notify both sides. Params are stored as JSON so the web/mobile clients
+    // can localize the copy with their own templates.
+    try {
+        const { createNotification } = require('./notification.controller');
+
+        await Promise.all([
+            createNotification(
+                coachId,
+                JSON.stringify({ name: traineeName }),
+                JSON.stringify({ name: traineeName }),
+                'trainee_unlinked',
+                traineeId
+            ),
+            createNotification(
+                traineeId,
+                JSON.stringify({ name: coachName }),
+                JSON.stringify({ name: coachName }),
+                'coach_unlinked',
+                coachId
+            )
+        ]);
+    } catch (notifErr) {
+        console.error('Unlink notification error:', notifErr.message);
+    }
+
+    res.json({
+        success: true,
+        message: 'Connection removed successfully',
+        coachId,
+        coachName,
+        traineeId,
+        traineeName,
+        unlinkedBy: requesterId === coachId ? 'coach' : requesterId === traineeId ? 'trainee' : 'admin'
+    });
 };
 
 /**

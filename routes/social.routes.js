@@ -224,6 +224,69 @@ router.get('/conversations', auth, async (req, res) => {
     }
 });
 
+// Get Contacts
+// Linked users (coach <-> trainee and accepted friendships) whether or not a
+// conversation exists yet. The messages view uses this for its Contacts tab so
+// a brand new trainee can be messaged without waiting for a first message.
+router.get('/contacts', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const result = await pool.query(
+            `WITH linked AS (
+                 SELECT trainee_id AS contact_id FROM coach_trainee WHERE coach_id = $1
+                 UNION
+                 SELECT coach_id AS contact_id FROM coach_trainee WHERE trainee_id = $1
+                 UNION
+                 SELECT CASE WHEN user_id_1 = $1 THEN user_id_2 ELSE user_id_1 END AS contact_id
+                   FROM friendships
+                  WHERE status = 'accepted' AND (user_id_1 = $1 OR user_id_2 = $1)
+             )
+             SELECT u.id,
+                    u.name,
+                    u.role,
+                    u.profile_pic_url,
+                    lm.content AS last_message,
+                    lm.created_at AS last_message_date,
+                    COALESCE(uc.unread_count, 0) AS unread_count
+               FROM linked l
+               JOIN users u ON u.id = l.contact_id
+               LEFT JOIN LATERAL (
+                   SELECT content, created_at
+                     FROM messages
+                    WHERE (sender_id = $1 AND receiver_id = l.contact_id)
+                       OR (sender_id = l.contact_id AND receiver_id = $1)
+                    ORDER BY created_at DESC
+                    LIMIT 1
+               ) lm ON TRUE
+               LEFT JOIN LATERAL (
+                   SELECT COUNT(*)::int AS unread_count
+                     FROM messages
+                    WHERE receiver_id = $1 AND sender_id = l.contact_id AND is_read = FALSE
+               ) uc ON TRUE
+              WHERE u.id <> $1
+              ORDER BY lm.created_at DESC NULLS LAST, u.name ASC`,
+            [userId]
+        );
+
+        const contacts = result.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            role: row.role,
+            profile_pic_url: row.profile_pic_url,
+            lastMessage: row.last_message,
+            lastMessageDate: row.last_message_date,
+            unreadCount: parseInt(row.unread_count, 10) || 0,
+            hasConversation: Boolean(row.last_message)
+        }));
+
+        res.json({ contacts });
+    } catch (err) {
+        console.error('Error fetching contacts:', err);
+        res.status(500).json({ message: 'Server error fetching contacts' });
+    }
+});
+
 // Get Messages
 router.get('/messages/:friendId', auth, async (req, res) => {
     try {
@@ -247,7 +310,14 @@ router.get('/messages/:friendId', auth, async (req, res) => {
         pool.query(
             'UPDATE messages SET is_read = TRUE WHERE receiver_id = $1 AND sender_id = $2 AND is_read = FALSE',
             [userId, friendId]
-        );
+        ).catch(markErr => console.error('Error marking messages as read:', markErr));
+
+        // Opening the chat also clears that sender's message notifications
+        pool.query(
+            `UPDATE notifications SET is_read = TRUE
+              WHERE user_id = $1 AND type = 'direct_message' AND related_id = $2 AND is_read = FALSE`,
+            [userId, friendId]
+        ).catch(markErr => console.error('Error marking message notifications as read:', markErr));
 
         res.json({ messages: result.rows.reverse() }); // Return chronological order
 
@@ -262,10 +332,21 @@ router.post('/messages', auth, async (req, res) => {
     try {
         const { friendId, content, type = 'text' } = req.body;
         const userId = req.user.id;
+        const receiverId = parseInt(friendId, 10);
+
+        if (!Number.isInteger(receiverId)) {
+            return res.status(400).json({ message: 'friendId is required' });
+        }
+        if (receiverId === userId) {
+            return res.status(400).json({ message: 'You cannot message yourself' });
+        }
+        if (typeof content !== 'string' || !content.trim()) {
+            return res.status(400).json({ message: 'Message content is required' });
+        }
 
         const result = await pool.query(
             'INSERT INTO messages (sender_id, receiver_id, content, message_type) VALUES ($1, $2, $3, $4) RETURNING *',
-            [userId, friendId, content, type]
+            [userId, receiverId, content, type]
         );
 
         const message = result.rows[0];
@@ -282,15 +363,32 @@ router.post('/messages', auth, async (req, res) => {
         // Emit Socket Event
         if (req.io) {
             // Emitting to receiver's room
-            req.io.to(`user_${friendId}`).emit('new_message', message);
+            req.io.to(`user_${receiverId}`).emit('new_message', message);
             // Also emit to sender (for multiple devices or confirmation)
             req.io.to(`user_${userId}`).emit('message_sent', message);
+        }
+
+        // In-app notification for the bell / notifications tab.
+        // Only the latest unread message notification per sender is kept so a
+        // burst of messages does not flood the list. Push is sent below with the
+        // payload the mobile app already expects.
+        try {
+            const { createNotification } = require('../controllers/notification.controller');
+            const params = JSON.stringify({ name: senderName, preview: String(content).slice(0, 120) });
+            await pool.query(
+                `DELETE FROM notifications
+                  WHERE user_id = $1 AND type = 'direct_message' AND related_id = $2 AND is_read = FALSE`,
+                [receiverId, userId]
+            );
+            await createNotification(receiverId, params, params, 'direct_message', userId, false);
+        } catch (notifErr) {
+            console.error('Error creating message notification:', notifErr);
         }
 
         // Trigger Expo Push Notification to make it urgent outside app
         try {
             const { sendPushNotification } = require('../controllers/notification.controller');
-            await sendPushNotification(friendId, `New message from ${senderName}`, content, {
+            await sendPushNotification(receiverId, `New message from ${senderName}`, content, {
                 type: 'direct_message',
                 senderId: userId,
                 conversationId: userId.toString()

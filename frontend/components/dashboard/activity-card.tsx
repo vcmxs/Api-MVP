@@ -22,8 +22,8 @@ export function ActivityCard({ title, description, time, accentColor, icon }: Ac
       
       {/* Content - title colored by type */}
       <div className="min-w-0 flex-1">
-        <p className="font-medium" style={{ color: accentColor }}>{title}</p>
-        <p className="mt-0.5 truncate text-sm text-[#888888]">{description}</p>
+        <p className="text-[15px] font-semibold leading-snug" style={{ color: accentColor }}>{title}</p>
+        <p className="mt-1 break-words text-sm leading-relaxed text-[#888888]">{description}</p>
       </div>
       
       {/* Timestamp on right */}

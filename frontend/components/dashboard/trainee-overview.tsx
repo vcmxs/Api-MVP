@@ -140,7 +140,18 @@ export function TraineeOverview({ onChangeTab }: { onChangeTab: (tab: string, op
           </div>
           <div>
             <h3 className="text-base font-bold text-white">{profile?.subscriptionTier || 'Standard Plan'}</h3>
-            <p className="text-sm text-[#888888]">Coach: <span className="text-[#00ffff]">{profile?.assigned_coach || 'None'}</span></p>
+            <p className="text-sm text-[#888888]">
+              Coach: <span className="text-[#00ffff]">{profile?.assigned_coach || 'None'}</span>
+              {profile?.assigned_coach && (
+                <button
+                  type="button"
+                  onClick={() => onChangeTab("settings")}
+                  className="ml-2 text-xs font-semibold text-[#888888] underline underline-offset-2 transition-colors hover:text-white"
+                >
+                  {t.traineeOverview.manageCoach}
+                </button>
+              )}
+            </p>
           </div>
         </div>
         <div className="text-right">

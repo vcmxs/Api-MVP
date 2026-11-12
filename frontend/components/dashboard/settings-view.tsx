@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Bell, Shield, Globe, Trash2, Save, Eye, EyeOff, Loader2 } from "lucide-react"
-import { apiFetch, getUserInfo, clearAuth } from "@/lib/api"
+import { User, Bell, Shield, Globe, Trash2, Save, Eye, EyeOff, Loader2, UserMinus } from "lucide-react"
+import { apiFetch, getUserInfo, clearAuth, getToken, setAuth } from "@/lib/api"
+import { isNotificationSoundEnabled, playNotificationSound, setNotificationSoundEnabled } from "@/lib/notification-sound"
 import { useT, useLanguage } from "@/lib/i18n"
 import { useRouter } from "next/navigation"
 
@@ -109,6 +110,9 @@ export function SettingsView() {
   // Preferences (local only — no dedicated API endpoint)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [workoutStatusNotif, setWorkoutStatusNotif] = useState(true)
+  // Mirrors the localStorage flag read by lib/notification-sound.ts. Start as
+  // `true` (the default) and hydrate on mount to avoid a server/client mismatch.
+  const [soundEnabled, setSoundEnabled] = useState(true)
 
   // Delete account
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -116,7 +120,26 @@ export function SettingsView() {
   const [showPin, setShowPin] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // My coach (trainee only)
+  const [coachId, setCoachId] = useState<number | null>(null)
+  const [coachName, setCoachName] = useState("")
+  const [showLeaveCoach, setShowLeaveCoach] = useState(false)
+  const [leavingCoach, setLeavingCoach] = useState(false)
+  const [leaveCoachError, setLeaveCoachError] = useState("")
+  const [leaveCoachDone, setLeaveCoachDone] = useState("")
+
   // ── Load profile ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    setSoundEnabled(isNotificationSoundEnabled())
+  }, [])
+
+  const handleSoundToggle = (enabled: boolean) => {
+    setSoundEnabled(enabled)
+    setNotificationSoundEnabled(enabled)
+    // Preview when turning it on (this click is also the gesture that unlocks audio)
+    if (enabled) playNotificationSound("message")
+  }
 
   useEffect(() => {
     if (!user?.id) return
@@ -140,6 +163,8 @@ export function SettingsView() {
         setSubTier(String(p.subscription_tier ?? p.subscriptionTier ?? ""))
         setSubStart(String(p.subscription_start_date ?? p.subscriptionStartDate ?? ""))
         setSubEnd(String(p.subscription_end_date ?? p.subscriptionExpiry ?? p.subscriptionEndDate ?? ""))
+        setCoachId(p.coach_id != null ? Number(p.coach_id) : null)
+        setCoachName(String(p.assigned_coach ?? ""))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -188,6 +213,40 @@ export function SettingsView() {
       alert(e instanceof Error ? e.message : "Failed to delete account")
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // ── Leave coach (trainee) ────────────────────────────────────────────────
+
+  const handleLeaveCoach = async () => {
+    if (!user?.id || !coachId || leavingCoach) return
+    setLeavingCoach(true)
+    setLeaveCoachError("")
+    try {
+      const res = await apiFetch<{ coachName?: string }>(`/users/${user.id}/connection/${coachId}`, { method: "DELETE" })
+      const formerCoach = res?.coachName || coachName
+      setLeaveCoachDone(formerCoach)
+      setCoachName("")
+      setCoachId(null)
+      setShowLeaveCoach(false)
+
+      // Keep the cached session in sync so the rest of the dashboard stops
+      // showing the old coach without forcing a re-login.
+      const token = getToken()
+      if (token) {
+        setAuth(token, {
+          ...user,
+          coachId: null,
+          coachName: null,
+          assigned_coach: null,
+          coachSubscriptionEndDate: null,
+          coach_subscription_end_date: null,
+        })
+      }
+    } catch (e) {
+      setLeaveCoachError(e instanceof Error ? e.message : t.settings.leaveCoachError)
+    } finally {
+      setLeavingCoach(false)
     }
   }
 
@@ -371,6 +430,14 @@ export function SettingsView() {
             </div>
             <Toggle enabled={workoutStatusNotif} onChange={setWorkoutStatusNotif} />
           </div>
+          <div className="h-px bg-white/[0.06]" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-white">{t.settings.notificationSound}</p>
+              <p className="text-sm text-[#888888]">{t.settings.notificationSoundDesc}</p>
+            </div>
+            <Toggle enabled={soundEnabled} onChange={handleSoundToggle} />
+          </div>
         </div>
       </Section>
 
@@ -394,6 +461,65 @@ export function SettingsView() {
           ))}
         </div>
       </Section>
+
+      {/* My Coach (trainees only) */}
+      {user?.role?.toLowerCase() === "trainee" && (
+        <Section title={t.settings.myCoach} icon={<UserMinus className="h-4 w-4" />}>
+          {coachName ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/[0.06] bg-[#0a0a0f] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-white">{coachName}</p>
+                  <p className="text-xs text-[#888888]">{t.settings.leaveCoachDesc}</p>
+                </div>
+                {!showLeaveCoach && (
+                  <button
+                    onClick={() => { setLeaveCoachError(""); setShowLeaveCoach(true) }}
+                    className="flex shrink-0 items-center gap-2 rounded-xl border border-[#ff4444]/40 bg-[#ff4444]/10 px-4 py-2.5 text-sm font-medium text-[#ff4444] transition-colors hover:bg-[#ff4444]/20"
+                  >
+                    <UserMinus className="h-4 w-4" />
+                    {t.settings.leaveCoach}
+                  </button>
+                )}
+              </div>
+
+              {showLeaveCoach && (
+                <div className="space-y-4 rounded-xl border border-[#ff4444]/30 bg-[#ff4444]/5 p-4">
+                  <p className="text-sm leading-relaxed text-[#888888]">
+                    {t.settings.leaveCoachConfirm.replace("{name}", coachName)}
+                  </p>
+                  {leaveCoachError && <p role="alert" className="text-sm text-[#ff7777]">{leaveCoachError}</p>}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setShowLeaveCoach(false); setLeaveCoachError("") }}
+                      disabled={leavingCoach}
+                      className="flex-1 rounded-xl border border-white/[0.15] py-2.5 font-medium text-white transition-colors hover:bg-[#1c2128] disabled:opacity-40"
+                    >
+                      {t.common.cancel}
+                    </button>
+                    <button
+                      onClick={handleLeaveCoach}
+                      disabled={leavingCoach}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#ff4444] py-2.5 font-medium text-white transition-colors hover:bg-[#e03030] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {leavingCoach && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {t.settings.leaveCoachAction}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-[#888888]">{t.settings.noCoach}</p>
+          )}
+
+          {leaveCoachDone && (
+            <p className="mt-4 rounded-xl border border-[#00ff88]/30 bg-[#00ff88]/10 px-4 py-2.5 text-sm text-[#00ff88]">
+              {t.settings.leaveCoachSuccess.replace("{name}", leaveCoachDone)}
+            </p>
+          )}
+        </Section>
+      )}
 
       {/* Danger Zone */}
       <div className="rounded-2xl border bg-[#161b22] p-6" style={{ borderColor: "rgba(255,68,68,0.3)" }}>

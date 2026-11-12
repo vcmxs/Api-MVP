@@ -13,10 +13,11 @@ router.get('/:userId', userController.getUserById);
 router.get('/:userId/profile', userController.getUserProfile);
 router.put('/:userId/profile', userController.updateUserProfile);
 router.put('/:userId/profile-picture', upload.single('profilePic'), userController.updateProfilePicture);
+router.patch('/:userId/language', authenticateToken, userController.updateLanguage);
 router.put('/coaches/:coachId/trainees/:traineeId/subscription', userController.updateTraineeSubscription);
 router.get('/coaches/:coachId/trainees/:traineeId/history', userController.getCoachTraineeHistory);
 router.get('/:userId/notes', authenticateToken, userController.getTraineeNotes);
 router.delete('/:userId/account', authenticateToken, userController.deleteOwnAccount);
-router.delete('/:userId/connection/:targetId', userController.removeConnection);
+router.delete('/:userId/connection/:targetId', authenticateToken, userController.removeConnection);
 
 module.exports = router;

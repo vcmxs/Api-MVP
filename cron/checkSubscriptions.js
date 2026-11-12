@@ -2,6 +2,13 @@ const cron = require('node-cron');
 const pool = require('../config/database');
 const notificationController = require('../controllers/notification.controller');
 
+// Local YYYY-MM-DD (never shifts the day, unlike toISOString on a date-only value)
+const toDateOnly = (value) => {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 // Cron job to check for expired subscriptions & send reminders
 // Runs every day at midnight (00:00)
 const checkExpiredSubscriptions = () => {
@@ -30,10 +37,12 @@ const checkExpiredSubscriptions = () => {
                 console.log(`✅ Downgraded ${expiredResult.rowCount} expired subscriptions.`);
                 // Notify user they have been downgraded
                 for (const user of expiredResult.rows) {
+                    // No `name` param: clients render the "your own plan" copy
+                    const params = JSON.stringify({});
                     await notificationController.createNotification(
                         user.id,
-                        'Subscription Expired',
-                        'Your premium subscription has expired. You have been reverted to the Starter plan.',
+                        params,
+                        params,
                         'subscription_expired',
                         null
                     );
@@ -55,10 +64,14 @@ const checkExpiredSubscriptions = () => {
             if (reminder3Days.rowCount > 0) {
                 console.log(`📢 Sending 3-day reminder to ${reminder3Days.rowCount} users.`);
                 for (const user of reminder3Days.rows) {
+                    const params = JSON.stringify({
+                        days: 3,
+                        date: toDateOnly(user.subscription_end_date),
+                    });
                     await notificationController.createNotification(
                         user.id,
-                        'Subscription Ending Soon',
-                        `Your subscription expires in 3 days (${new Date(user.subscription_end_date).toLocaleDateString()}). Renew now to keep your benefits!`,
+                        params,
+                        params,
                         'subscription_reminder',
                         null
                     );
@@ -78,10 +91,14 @@ const checkExpiredSubscriptions = () => {
             if (reminder1Day.rowCount > 0) {
                 console.log(`📢 Sending 1-day reminder to ${reminder1Day.rowCount} users.`);
                 for (const user of reminder1Day.rows) {
+                    const params = JSON.stringify({
+                        days: 1,
+                        date: toDateOnly(user.subscription_end_date),
+                    });
                     await notificationController.createNotification(
                         user.id,
-                        'Subscription Expires Tomorrow',
-                        'Your subscription expires tomorrow! Renew now to avoid losing access to premium features.',
+                        params,
+                        params,
                         'subscription_reminder',
                         null
                     );

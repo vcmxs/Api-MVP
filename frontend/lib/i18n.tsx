@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import en from "@/locales/en"
 import es from "@/locales/es"
 import type { TranslationKeys } from "@/locales/en"
+import { apiFetch, getToken, getUserInfo } from "@/lib/api"
 
 type Lang = "en" | "es"
 
@@ -32,6 +33,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const setLang = (l: Lang) => {
     setLangState(l)
     localStorage.setItem("dupla_lang", l)
+
+    // Keep the server copy in sync: push notifications are rendered with it
+    // (see services/notificationI18n.js). Fire-and-forget on purpose.
+    const user = getUserInfo()
+    if (getToken() && user?.id) {
+      apiFetch(`/users/${user.id}/language`, {
+        method: "PATCH",
+        body: JSON.stringify({ language: l }),
+      }).catch(() => { /* non-critical */ })
+    }
   }
 
   return (

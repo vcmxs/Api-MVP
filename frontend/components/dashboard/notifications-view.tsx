@@ -1,15 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import {
-  Bell, CheckCircle, Dumbbell, AlertTriangle, XCircle,
-  Megaphone, Trash2, Check, Loader2, RefreshCw,
-} from "lucide-react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Bell, Trash2, Check, Loader2, RefreshCw, MessageCircle } from "lucide-react"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
 import { formatNotification } from "@/lib/notifications"
+import { formatTimeAgo, getNotificationConfig } from "@/lib/notification-display"
 import { useT } from "@/lib/i18n"
 
 // ── API types ─────────────────────────────────────────────────────────────
@@ -26,34 +24,9 @@ interface ApiNotification {
   related_id?: number
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-
-function getConfig(type: string): { accentColor: string; icon: React.ReactNode } {
-  if (type?.includes("completed")) return { accentColor: "#00ff88", icon: <CheckCircle className="h-4 w-4" /> }
-  if (type?.includes("assigned") || type?.includes("workout")) return { accentColor: "#00ffff", icon: <Dumbbell className="h-4 w-4" /> }
-  if (type?.includes("expiring")) return { accentColor: "#ffd700", icon: <AlertTriangle className="h-4 w-4" /> }
-  if (type?.includes("expired") || type?.includes("cancel")) return { accentColor: "#ff4444", icon: <XCircle className="h-4 w-4" /> }
-  if (type?.includes("blast") || type?.includes("message")) return { accentColor: "#a78bfa", icon: <Megaphone className="h-4 w-4" /> }
-  return { accentColor: "#888888", icon: <Bell className="h-4 w-4" /> }
-}
-
-function timeAgo(dateStr?: string, t?: any): string {
-  if (!dateStr) return ""
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  const nv = t?.notificationsView
-  if (m < 1) return nv?.justNow || "Just now"
-  if (m < 60) return `${m}${nv?.minutesAgo || "m ago"}`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}${nv?.hoursAgo || "h ago"}`
-  const d = Math.floor(h / 24)
-  if (d === 1) return nv?.yesterday || "Yesterday"
-  return `${d}${nv?.daysAgo || "d ago"}`
-}
-
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function NotificationsView() {
+export function NotificationsView({ onOpenMessage }: { onOpenMessage?: (userId: number) => void } = {}) {
   const { t } = useT()
   const [notifications, setNotifications] = useState<ApiNotification[]>([])
   const [loading, setLoading] = useState(false)
@@ -84,10 +57,28 @@ export function NotificationsView() {
     try { await apiFetch(`/notifications/${id}/read`, { method: "PATCH" }) } catch { /* ignore */ }
   }
 
+  // "Mark all read" never touches message notifications: those only clear when
+  // the conversation is opened (the API applies the same rule).
   const handleMarkAllRead = async () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+    setNotifications((prev) => prev.map((n) => n.type === "direct_message" ? n : { ...n, is_read: true }))
     try { await apiFetch("/notifications/read-all", { method: "PATCH" }) } catch { /* ignore */ }
   }
+
+  // Clicking a card reads it; message notifications also open the chat
+  const handleOpen = (n: ApiNotification) => {
+    if (!n.is_read) handleMarkRead(n.id)
+    if (n.type === "direct_message" && n.related_id) onOpenMessage?.(n.related_id)
+  }
+
+  // Opening this tab clears the non-message rows on its own
+  const clearedOnMountRef = useRef(false)
+  useEffect(() => {
+    if (clearedOnMountRef.current) return
+    const pending = notifications.some((n) => !n.is_read && n.type !== "direct_message")
+    if (!pending) return
+    clearedOnMountRef.current = true
+    handleMarkAllRead()
+  }, [notifications]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -153,17 +144,17 @@ export function NotificationsView() {
           <p className="text-lg font-medium text-[#888888]">{t.notificationsView?.emptyState || "No notifications yet."}</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {notifications.map((n) => {
-            const config = getConfig(n.type)
+            const config = getNotificationConfig(n.type, "h-5 w-5")
             const isHovered = hoveredId === n.id
-            const timestamp = timeAgo(n.createdAt ?? n.created_at, t)
+            const timestamp = formatTimeAgo(n.createdAt ?? n.created_at, t)
 
             const fmt = formatNotification(n, t)
             return (
               <div
                 key={n.id}
-                className="group relative flex items-start gap-4 rounded-2xl border bg-[#161b22] p-4 cursor-pointer transition-all"
+                className="group relative flex cursor-pointer items-start gap-4 rounded-2xl border bg-[#161b22] p-5 transition-all"
                 style={{
                   borderColor: "rgba(255,255,255,0.08)",
                   borderLeftWidth: "4px",
@@ -172,26 +163,41 @@ export function NotificationsView() {
                 }}
                 onMouseEnter={() => setHoveredId(n.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                onClick={() => !n.is_read && handleMarkRead(n.id)}
+                onClick={() => handleOpen(n)}
               >
                 <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
                   style={{ backgroundColor: n.is_read ? "rgba(136,136,136,0.15)" : `${config.accentColor}26` }}
                 >
                   <div style={{ color: n.is_read ? "#555555" : config.accentColor }}>{config.icon}</div>
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold" style={{ color: n.is_read ? "#888888" : config.accentColor }}>
+                  <p className="text-[17px] font-semibold leading-snug" style={{ color: n.is_read ? "#888888" : config.accentColor }}>
                     {fmt.title}
                   </p>
-                  {fmt.body && <p className="mt-1 text-sm text-[#888888]">{fmt.body}</p>}
-                  {timestamp && <p className="mt-2 text-xs text-[#555555]">{timestamp}</p>}
+                  {fmt.body && <p className="mt-2 break-words text-[15px] leading-relaxed text-[#888888]">{fmt.body}</p>}
+                  {timestamp && <p className="mt-3 text-xs text-[#555555]">{timestamp}</p>}
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {n.type === "direct_message" && (
+                    <MessageCircle
+                      className="h-4 w-4 shrink-0"
+                      style={{ color: n.is_read ? "#555555" : config.accentColor }}
+                    />
+                  )}
                   {!n.is_read && !isHovered && (
                     <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: config.accentColor }} />
+                  )}
+                  {isHovered && !n.is_read && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleMarkRead(n.id) }}
+                      title={t.notificationsView?.markRead || "Mark as read"}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00ffff]/10 text-[#00ffff] transition-colors hover:bg-[#00ffff]/20"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
                   )}
                   {isHovered && (
                     <button

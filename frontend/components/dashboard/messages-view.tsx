@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Search, Send, MessageCircle, Loader2, RefreshCw } from "lucide-react"
+import { Search, Send, MessageCircle, Users, Loader2, RefreshCw } from "lucide-react"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 
@@ -13,15 +13,27 @@ interface ApiFriend {
   username?: string
   profile_pic_url?: string
   isOnline?: boolean
+  role?: string
 }
 
 interface ApiConversation {
-  id: number
+  id: number | string
   friend: ApiFriend
   lastMessage: string
   lastMessageDate: string
   unreadCount: number
   isRead: boolean
+}
+
+interface ApiContact {
+  id: number
+  name: string
+  role?: string
+  profile_pic_url?: string
+  lastMessage?: string | null
+  lastMessageDate?: string | null
+  unreadCount: number
+  hasConversation: boolean
 }
 
 interface ApiMessage {
@@ -33,10 +45,14 @@ interface ApiMessage {
   pending?: boolean
 }
 
+type MessagesTab = "chats" | "contacts"
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function initials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+  const clean = (name || "").trim()
+  const letters = clean.split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+  return letters || "?"
 }
 
 function timeAgo(dateStr: string): string {
@@ -61,9 +77,15 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
   const { t } = useT()
   const user = getUserInfo()
 
+  const [tab, setTab] = useState<MessagesTab>("chats")
+
   const [conversations, setConversations] = useState<ApiConversation[]>([])
   const [convLoading, setConvLoading] = useState(true)
   const [convError, setConvError] = useState("")
+
+  const [contacts, setContacts] = useState<ApiContact[]>([])
+  const [contactsLoading, setContactsLoading] = useState(true)
+  const [contactsError, setContactsError] = useState("")
 
   const [selectedFriend, setSelectedFriend] = useState<ApiFriend | null>(null)
   const [messages, setMessages] = useState<ApiMessage[]>([])
@@ -74,6 +96,9 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
   const [searchQuery, setSearchQuery] = useState("")
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  // Prevents re-opening the same target on every render (profile "Chat" button,
+  // message notification, toast…)
+  const handledTargetRef = useRef<number | null>(null)
 
   // ── Fetch conversations ──────────────────────────────────────────────────
 
@@ -90,14 +115,25 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
     }
   }, [])
 
-  useEffect(() => { fetchConversations() }, [fetchConversations])
+  // ── Fetch linked contacts (coach/trainee + accepted friends) ─────────────
 
-  // Auto-select conversation when coming from trainee profile
+  const fetchContacts = useCallback(async () => {
+    setContactsLoading(true)
+    setContactsError("")
+    try {
+      const data = await apiFetch<{ contacts: ApiContact[] }>("/social/contacts")
+      setContacts((data.contacts ?? []).map((c) => ({ ...c, unreadCount: c.unreadCount ?? 0 })))
+    } catch (e) {
+      setContactsError(e instanceof Error ? e.message : "Failed to load contacts")
+    } finally {
+      setContactsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    if (!defaultTraineeId || convLoading || conversations.length === 0) return
-    const conv = conversations.find(c => c.friend.id === defaultTraineeId)
-    if (conv && !selectedFriend) handleSelectConversation(conv)
-  }, [defaultTraineeId, convLoading, conversations]) // eslint-disable-line react-hooks/exhaustive-deps
+    fetchConversations()
+    fetchContacts()
+  }, [fetchConversations, fetchContacts])
 
   // ── Fetch messages for selected conversation ─────────────────────────────
 
@@ -117,14 +153,61 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
     }
   }, [])
 
-  const handleSelectConversation = (conv: ApiConversation) => {
-    setSelectedFriend(conv.friend)
-    fetchMessages(conv.friend.id)
+  // Opens a chat with any linked user, even before the first message exists
+  const openChat = useCallback((friend: ApiFriend) => {
+    setSelectedFriend(friend)
+    fetchMessages(friend.id)
     // Mark as read locally
     setConversations((prev) =>
-      prev.map((c) => c.friend.id === conv.friend.id ? { ...c, unreadCount: 0, isRead: true } : c)
+      prev.map((c) => c.friend.id === friend.id ? { ...c, unreadCount: 0, isRead: true } : c)
     )
+    setContacts((prev) =>
+      prev.map((c) => c.id === friend.id ? { ...c, unreadCount: 0 } : c)
+    )
+  }, [fetchMessages])
+
+  const handleSelectConversation = (conv: ApiConversation) => {
+    openChat(conv.friend)
   }
+
+  // Auto-select when coming from a trainee profile, a notification or a toast.
+  // Resolution order: existing conversation → linked contact → plain profile fetch
+  useEffect(() => {
+    if (!defaultTraineeId) {
+      handledTargetRef.current = null
+      return
+    }
+    if (handledTargetRef.current === defaultTraineeId) return
+    if (convLoading) return
+
+    const conv = conversations.find((c) => c.friend.id === defaultTraineeId)
+    if (conv) {
+      handledTargetRef.current = defaultTraineeId
+      openChat(conv.friend)
+      return
+    }
+
+    const contact = contacts.find((c) => c.id === defaultTraineeId)
+    if (contact) {
+      handledTargetRef.current = defaultTraineeId
+      openChat(contact)
+      return
+    }
+
+    // Contacts still loading: wait for the next run
+    if (contactsLoading) return
+
+    // Not linked (edge case): open the thread anyway so the button never fails
+    handledTargetRef.current = defaultTraineeId
+    openChat({ id: defaultTraineeId, name: "" })
+    apiFetch<{ id: number; name: string; role?: string }>(`/users/${defaultTraineeId}`)
+      .then((profile) => {
+        if (profile?.name) {
+          setSelectedFriend({ id: defaultTraineeId, name: profile.name, role: profile.role })
+        }
+      })
+      .catch(() => { /* keep the placeholder name */ })
+  }, [defaultTraineeId, convLoading, conversations, contacts, contactsLoading, openChat])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -151,15 +234,60 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
 
     try {
       setSending(true)
-      await apiFetch("/social/messages", {
+      const response = await apiFetch<{ message?: ApiMessage }>("/social/messages", {
         method: "POST",
         body: JSON.stringify({ friendId: selectedFriend.id, content, type: "text" }),
       })
-      // Update conversation list preview
-      setConversations((prev) =>
+
+      // Swap the optimistic row for the one the server just stored: it carries
+      // the real id and, most importantly, the real `created_at` (the naive DB
+      // timestamp comes back as an ISO string in UTC), so the bubble keeps the
+      // correct time once the thread is refreshed.
+      const saved = response?.message
+      const sentAt = saved?.created_at ? new Date(saved.created_at).toISOString() : new Date().toISOString()
+
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== tempMsg.id) return m
+          if (!saved) return { ...m, created_at: sentAt, pending: false }
+          return {
+            ...saved,
+            sender_id: saved.sender_id ?? tempMsg.sender_id,
+            content: saved.content ?? content,
+            created_at: sentAt,
+            pending: false,
+          }
+        })
+      )
+
+      // Update the conversation list preview, creating the thread if this was
+      // the first message with a contact
+      setConversations((prev) => {
+        const exists = prev.some((c) => c.friend.id === selectedFriend.id)
+        if (exists) {
+          return prev.map((c) =>
+            c.friend.id === selectedFriend.id
+              ? { ...c, lastMessage: content, lastMessageDate: sentAt, unreadCount: 0, isRead: true }
+              : c
+          )
+        }
+        return [
+          {
+            id: String(selectedFriend.id),
+            friend: selectedFriend,
+            lastMessage: content,
+            lastMessageDate: sentAt,
+            unreadCount: 0,
+            isRead: true,
+          },
+          ...prev,
+        ]
+      })
+
+      setContacts((prev) =>
         prev.map((c) =>
-          c.friend.id === selectedFriend.id
-            ? { ...c, lastMessage: content, lastMessageDate: new Date().toISOString() }
+          c.id === selectedFriend.id
+            ? { ...c, lastMessage: content, lastMessageDate: sentAt, hasConversation: true }
             : c
         )
       )
@@ -172,26 +300,27 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
     }
   }
 
-  // ── Filtered conversations ────────────────────────────────────────────────
+  // ── Filtered lists ────────────────────────────────────────────────────────
 
-  const filtered = conversations.filter((c) =>
-    c.friend.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const query = searchQuery.toLowerCase()
+  const filteredConversations = conversations.filter((c) =>
+    c.friend.name.toLowerCase().includes(query)
+  )
+  const filteredContacts = contacts.filter((c) =>
+    c.name.toLowerCase().includes(query)
   )
 
-  // ── Empty state ───────────────────────────────────────────────────────────
+  const listLoading = tab === "chats" ? convLoading : contactsLoading
+  const listError = tab === "chats" ? convError : contactsError
+  const isEmptyList = tab === "chats"
+    ? filteredConversations.length === 0
+    : filteredContacts.length === 0
 
-  if (!convLoading && conversations.length === 0 && !convError) {
-    return (
-      <div className="flex h-[calc(100vh-9rem)] items-center justify-center rounded-2xl border border-white/[0.08] bg-[#161b22]">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#00ffff]/10">
-            <MessageCircle className="h-8 w-8 text-[#00ffff]" />
-          </div>
-          <p className="text-lg font-medium text-white">{t.messages.noMessages}</p>
-          <p className="mt-1 text-sm text-[#888888]">{t.messages.noMessagesHint}</p>
-        </div>
-      </div>
-    )
+  const roleLabel = (role?: string) => {
+    const value = (role ?? "").toLowerCase()
+    if (value === "coach") return t.messages.roleCoach
+    if (value === "trainee") return t.messages.roleTrainee
+    return ""
   }
 
   // ── Main layout ───────────────────────────────────────────────────────────
@@ -199,8 +328,36 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
   return (
     <div className="flex h-[calc(100vh-9rem)] overflow-hidden rounded-2xl border border-white/[0.08]">
 
-      {/* Left — conversation list */}
-      <div className="flex w-[30%] min-w-[260px] flex-col border-r border-white/[0.08] bg-[#161b22]">
+      {/* Left — chats / contacts */}
+      <div className="flex w-[32%] min-w-[280px] flex-col border-r border-white/[0.08] bg-[#161b22]">
+
+        {/* Tabs */}
+        <div className="grid grid-cols-2 gap-1 border-b border-white/[0.08] p-2">
+          <button
+            onClick={() => { setTab("chats"); setSearchQuery("") }}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors ${
+              tab === "chats" ? "bg-[#00ffff] text-black" : "text-[#888888] hover:bg-white/[0.04] hover:text-white"
+            }`}
+          >
+            <MessageCircle className="h-4 w-4" />
+            {t.messages.chatsTab}
+            <span className={`rounded-full px-1.5 text-[11px] font-bold ${tab === "chats" ? "bg-black/10" : "bg-white/[0.06] text-[#888888]"}`}>
+              {conversations.length}
+            </span>
+          </button>
+          <button
+            onClick={() => { setTab("contacts"); setSearchQuery("") }}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors ${
+              tab === "contacts" ? "bg-[#00ffff] text-black" : "text-[#888888] hover:bg-white/[0.04] hover:text-white"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            {t.messages.contactsTab}
+            <span className={`rounded-full px-1.5 text-[11px] font-bold ${tab === "contacts" ? "bg-black/10" : "bg-white/[0.06] text-[#888888]"}`}>
+              {contacts.length}
+            </span>
+          </button>
+        </div>
 
         {/* Search + refresh */}
         <div className="flex items-center gap-2 p-4">
@@ -208,35 +365,44 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" />
             <input
               type="text"
-              placeholder={t.messages.searchConversations}
+              placeholder={tab === "chats" ? t.messages.searchConversations : t.messages.searchContacts}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-10 w-full rounded-xl border border-white/[0.08] bg-[#0a0a0f] pl-10 pr-4 text-sm text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none"
             />
           </div>
           <button
-            onClick={fetchConversations}
-            disabled={convLoading}
+            onClick={() => { fetchConversations(); fetchContacts() }}
+            disabled={listLoading}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-[#0a0a0f] text-[#888888] hover:text-white disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${convLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-4 w-4 ${listLoading ? "animate-spin" : ""}`} />
           </button>
         </div>
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">
-          {convLoading ? (
+          {listLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-[#555555]" />
             </div>
-          ) : convError ? (
-            <div className="px-4 py-8 text-center text-sm text-[#ff4444]">{convError}</div>
-          ) : filtered.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-[#555555]">{t.messages.noConversationsFound}</p>
+          ) : listError ? (
+            <div className="px-4 py-8 text-center text-sm text-[#ff4444]">{listError}</div>
+          ) : isEmptyList ? (
+            <div className="px-4 py-10 text-center">
+              <p className="text-sm font-medium text-white">
+                {searchQuery
+                  ? t.messages.noConversationsFound
+                  : tab === "chats" ? t.messages.noChats : t.messages.noContacts}
+              </p>
+              {!searchQuery && (
+                <p className="mt-1 text-xs text-[#555555]">
+                  {tab === "chats" ? t.messages.noChatsHint : t.messages.noContactsHint}
+                </p>
+              )}
             </div>
-          ) : (
-            filtered.map((conv) => {
+          ) : tab === "chats" ? (
+            filteredConversations.map((conv) => {
               const isSelected = selectedFriend?.id === conv.friend.id
               return (
                 <button
@@ -265,11 +431,48 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
                 </button>
               )
             })
+          ) : (
+            filteredContacts.map((contact) => {
+              const isSelected = selectedFriend?.id === contact.id
+              return (
+                <button
+                  key={contact.id}
+                  onClick={() => openChat({ id: contact.id, name: contact.name, role: contact.role, profile_pic_url: contact.profile_pic_url })}
+                  className={`relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.02] ${isSelected ? "bg-white/[0.04]" : ""}`}
+                  style={isSelected ? { borderLeft: "3px solid #00ffff" } : { borderLeft: "3px solid transparent" }}
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#00ffff] to-[#00ff88]">
+                    <span className="text-sm font-bold text-black">{initials(contact.name)}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate font-semibold text-white">{contact.name}</p>
+                      {contact.lastMessageDate && (
+                        <span className="shrink-0 text-xs text-[#555555]">{timeAgo(contact.lastMessageDate)}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm text-[#888888]">
+                        {contact.lastMessage || t.messages.sendFirstMessage}
+                      </p>
+                      {contact.unreadCount > 0 && (
+                        <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-[#00ffff] px-1 text-xs font-bold text-black">
+                          {contact.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    {roleLabel(contact.role) && (
+                      <span className="text-[11px] uppercase tracking-wide text-[#555555]">{roleLabel(contact.role)}</span>
+                    )}
+                  </div>
+                </button>
+              )
+            })
           )}
         </div>
       </div>
 
-      {/* Right — chat window */}
+      {/* Right — chat area */}
       <div className="flex flex-1 flex-col bg-[#0a0a0f]">
         {!selectedFriend ? (
           <div className="flex flex-1 items-center justify-center">
@@ -289,13 +492,15 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
                 <span className="text-sm font-bold text-black">{initials(selectedFriend.name)}</span>
               </div>
               <div>
-                <p className="font-semibold text-white">{selectedFriend.name}</p>
-                {selectedFriend.isOnline && (
+                <p className="font-semibold text-white">{selectedFriend.name || "…"}</p>
+                {roleLabel(selectedFriend.role) ? (
+                  <span className="text-xs uppercase tracking-wide text-[#888888]">{roleLabel(selectedFriend.role)}</span>
+                ) : selectedFriend.isOnline ? (
                   <div className="flex items-center gap-1.5">
                     <div className="h-2 w-2 rounded-full bg-[#00ff88]" />
                     <span className="text-xs text-[#00ff88]">{t.messages.active}</span>
                   </div>
-                )}
+                ) : null}
               </div>
               <button
                 onClick={() => fetchMessages(selectedFriend.id)}
@@ -370,3 +575,6 @@ export function MessagesView({ defaultTraineeId }: { defaultTraineeId?: number |
     </div>
   )
 }
+
+
+

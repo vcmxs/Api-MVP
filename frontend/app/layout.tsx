@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
+import { Toaster } from '@/components/ui/sonner'
 import Script from 'next/script'
 import './globals.css'
 
@@ -28,6 +29,17 @@ export default function RootLayout({
       <body className="font-sans antialiased bg-[#0a0a0f]">
         <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
         <Providers>{children}</Providers>
+        {/* In-app notification popups (top-right, cascading) */}
+        <Toaster
+          position="top-right"
+          theme="dark"
+          expand={false}
+          visibleToasts={4}
+          gap={10}
+          offset={16}
+          duration={6000}
+          closeButton
+        />
         {process.env.VERCEL === '1' && <Analytics />}
       </body>
     </html>

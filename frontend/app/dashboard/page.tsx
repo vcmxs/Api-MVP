@@ -25,6 +25,8 @@ import { Users, DollarSign, Bell, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getToken, getUserInfo, apiFetch } from "@/lib/api"
 import { formatNotification } from "@/lib/notifications"
+import { formatTimeAgo } from "@/lib/notification-display"
+import { NotificationPopups } from "@/components/notifications/notification-popups"
 import { useT } from "@/lib/i18n"
 
 
@@ -39,17 +41,7 @@ interface BellNotif {
   createdAt?: string
   created_at?: string
   is_read: boolean
-}
-
-function timeAgo(dateStr?: string): string {
-  if (!dateStr) return ""
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return "Just now"
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
+  related_id?: number
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -132,6 +124,13 @@ export default function Dashboard() {
     } catch { /* non-critical */ }
   }, [])
 
+  // Opening the bell clears every non-message notification; message rows stay
+  // unread until the conversation is opened (the API applies the same rule).
+  const markBellNotificationsRead = useCallback(async () => {
+    setBellNotifs((prev) => prev.map((n) => n.type === "direct_message" ? n : { ...n, is_read: true }))
+    try { await apiFetch("/notifications/read-all", { method: "PATCH" }) } catch { /* non-critical */ }
+  }, [])
+
   useEffect(() => {
     if (!isMounted) return
     fetchKPIs()
@@ -165,6 +164,29 @@ export default function Dashboard() {
   const header = selectedTrainee && activeTab === "trainees"
     ? t.header.traineeProfile
     : (t.header as Record<string, { title: string; subtitle: string }>)[activeTab] ?? t.header.overview
+
+  // Bell open: refresh, then clear the non-message rows
+  const toggleBell = async () => {
+    if (bellOpen) { setBellOpen(false); return }
+    setBellOpen(true)
+    await fetchBellNotifs()
+    markBellNotificationsRead()
+  }
+
+  // Bell row click: read it, and jump to the chat for message notifications
+  const handleBellNotifClick = async (n: BellNotif) => {
+    setBellOpen(false)
+    if (!n.is_read) {
+      setBellNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x))
+      try { await apiFetch(`/notifications/${n.id}/read`, { method: "PATCH" }) } catch { /* non-critical */ }
+    }
+    if (n.type === "direct_message" && n.related_id) {
+      setMessageTargetId(n.related_id)
+      changeTab("messages", { keep: true })
+      return
+    }
+    changeTab("notifications")
+  }
 
   const mainMargin = sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
 
@@ -204,7 +226,7 @@ export default function Dashboard() {
             {/* Notification Bell */}
             <div ref={bellRef} className="relative">
               <button
-                onClick={() => { setBellOpen(!bellOpen); if (!bellOpen) fetchBellNotifs() }}
+                onClick={toggleBell}
                 className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-[#161b22] text-[#888888] transition-colors hover:text-white"
               >
                 <Bell className="h-5 w-5" />
@@ -216,7 +238,7 @@ export default function Dashboard() {
               </button>
 
               {bellOpen && (
-                <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-white/[0.08] bg-[#161b22] shadow-2xl">
+                <div className="absolute right-0 top-12 z-50 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/[0.08] bg-[#161b22] shadow-2xl">
                   <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3">
                     <span className="text-sm font-bold text-white">{t.notifications.title}</span>
                     <button
@@ -231,18 +253,22 @@ export default function Dashboard() {
                   ) : (
                     <div className="divide-y divide-white/[0.05]">
                       {bellNotifs.map((n) => {
-                        const fmt = formatNotification(n)
+                        const fmt = formatNotification(n, t)
                         return (
-                          <div key={n.id} className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-white/[0.03]">
-                            <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${n.is_read ? "bg-[#333]" : "bg-[#00ffff]"}`} />
+                          <div
+                            key={n.id}
+                            onClick={() => handleBellNotifClick(n)}
+                            className="flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-white/[0.03]"
+                          >
+                            <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.is_read ? "bg-[#333]" : "bg-[#00ffff]"}`} />
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-white">{fmt.title}</p>
+                              <p className="text-[15px] font-semibold leading-snug text-white">{fmt.title}</p>
                               {fmt.body && (
-                                <p className="truncate text-xs text-[#888888]">{fmt.body}</p>
+                                <p className="mt-1 break-words text-[13px] leading-relaxed text-[#888888]">{fmt.body}</p>
                               )}
                             </div>
                             <span className="shrink-0 text-xs text-[#555555]">
-                              {timeAgo(n.createdAt ?? n.created_at)}
+                              {formatTimeAgo(n.createdAt ?? n.created_at, t)}
                             </span>
                           </div>
                         )
@@ -326,6 +352,7 @@ export default function Dashboard() {
                 onOpenProgression={(tr) => { setProgressionSubject(tr); changeTab("progression", { keep: true }) }}
                 onOpenMessages={(id) => { setMessageTargetId(id); changeTab("messages", { keep: true }) }}
                 onOpenNutrition={(tr) => { setNutritionSubject(tr); changeTab("nutrition", { keep: true }) }}
+                onTraineeUnlinked={() => setSelectedTrainee(null)}
               />
             )}
 
@@ -335,13 +362,31 @@ export default function Dashboard() {
             {activeTab === "progression" && <ProgressionView defaultSubject={progressionSubject} />}
             {activeTab === "revenue" && <RevenueView />}
             {activeTab === "winwin" && <WinWinView />}
-            {activeTab === "notifications" && <NotificationsView />}
+            {activeTab === "notifications" && (
+              <NotificationsView
+                onOpenMessage={(userId) => { setMessageTargetId(userId); changeTab("messages", { keep: true }) }}
+              />
+            )}
             {activeTab === "nutrition" && <NutritionView targetUser={nutritionSubject} />}
             {activeTab === "programs" && <ProgramsView />}
             {activeTab === "settings" && <SettingsView />}
           </div>
         </div>
       </main>
+
+      {/* In-app popups for new notifications (top-right, cascading) */}
+      <NotificationPopups
+        onViewAll={() => changeTab("notifications")}
+        onOpen={(n) => {
+          if (n.type === "direct_message" && n.related_id) {
+            setMessageTargetId(n.related_id)
+            changeTab("messages", { keep: true })
+          } else {
+            changeTab("notifications")
+          }
+        }}
+        onNew={fetchBellNotifs}
+      />
 
       <BlastMessageModal open={blastOpen} onOpenChange={setBlastOpen} />
     </div>
