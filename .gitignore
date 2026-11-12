@@ -36,3 +36,7 @@ backups
 .tmp-*
 .msg.tmp
 
+# Local dev server output (api.log from `node server.js`, web.log from `next start/dev`)
+api.log
+web.log
+
