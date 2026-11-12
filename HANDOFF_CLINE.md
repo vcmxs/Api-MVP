@@ -331,3 +331,21 @@ table and service.
 
 **Pending manual QA:** drag and ▲/▼ in each of the four builders in ES and EN; confirm the bi-serie survives save + reload and that the trainee/trainee-session view shows the linked pair; check the 380 px layout (arrows instead of dragging) and that reordering does not disturb the exercise picker, the "?" reference dialog or the last-session chips in the plan-day editor.
 
+**Notification localization, coach unlinking and mobile set tables (2026-11-12):** the commit log has the detail; this entry records what shipped and what is still manual.
+
+- Notifications no longer store finished English sentences. `services/notificationI18n.js` renders title and body in the recipient's language from structured params, and `users.language` (`migrations/012_add_user_language.sql`, `run-migration-012.js`) holds that preference. `PATCH /users/:userId/language` persists what the user picks in Settings.
+- In-app popups (`frontend/components/notifications/notification-popups.tsx`, `notification-toast-card.tsx`, `lib/notification-sound.ts`, Sonner `<Toaster>` in `app/layout.tsx`), a notification-sound toggle, the language picker and a "My coach" card live in `settings-view.tsx`. A trainee can now leave their coach: `DELETE /users/:userId/connection/:coachId` is bidirectional, drops the auto-created friendship and notifies the counter-party with localized copy.
+- Direct messages create a single deduplicated `direct_message` notification per sender, conversation payloads carry `unreadCount`, opening a chat clears that sender's notifications, and the push goes to `receiverId` (it went to `friendId`, i.e. the sender).
+- `db.js` reads `timestamp without time zone` as UTC and pins every pooled session to UTC; on a UTC-4 machine stored 21:35 UTC came back as 01:35 the next day.
+- The set tables in `workouts-view.tsx` and `trainee-detail.tsx` are fluid on mobile: the weight input grows, action buttons are 24px with a 48px header spacer, every row has `min-w-0`, and the `sm:` values keep the desktop table identical. Minimum row width dropped from ~388px to ~218px (single) / ~300px (superset), so 320-390px viewports no longer clip the reps box or the buttons.
+- Chore: `gym-training-fronten/` (the first CRA prototype) and the accidentally tracked `node_modules/` were removed from the repository.
+
+**Deployment record (2026-11-12):** migrations 011 and 012 were applied to the production Railway database (`coach_invites` created; `users.language` added with 45 users, all `es`), then `main` was pushed (`db26fce`, 7 commits). The Railway API redeployed from GitHub and serves the new code: `GET /api/v1/coach-invites/NOPE12` answers `200 {"valid":false,"reason":"not_found"}` (it was `404` for the whole route before) and `PATCH /api/v1/users/1/language` answers `401` instead of `404`. `GET /api/v1/notifications` without a token still answers `401`, so auth is intact.
+
+**Still manual / pending**
+
+- Confirm in the Vercel dashboard that the web deployment of the latest `main` commit finished. No web URL is checked into this repository, so it could not be probed from here.
+- Browser QA: popups and sound toggle, switching es/en (UI + newly generated notifications), message unread counts and the "opens the chat clears the badge" behavior, and the leave-coach flow from `Settings` and `TraineeOverview`.
+- Mobile QA of the set tables at 320/360/375/390px plus desktop >= 640px (must look unchanged).
+- `tsconfig.json` in the repository root is an Expo leftover (`extends: expo/tsconfig.base`). It is untracked; delete it or move it to the mobile repository.
+
