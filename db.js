@@ -4,6 +4,28 @@ const { Pool, types } = require('pg');
 // Force DATE types (OID 1082) to be returned as strings to avoid timezone conversion issues
 types.setTypeParser(1082, (str) => str);
 
+// TIMESTAMP WITHOUT TIME ZONE (OID 1114) carries no offset: the server stores
+// whatever wall-clock time the session had (we pin the session to UTC below).
+// node-postgres' default parser does `new Date(str)`, which interprets those
+// naive values with the *Node process* timezone. On a UTC-4 machine a row saved
+// as 21:35 UTC came back as 05:35Z the next day, so the app showed 1:35 AM.
+// Read them as UTC instead — that is what the column actually holds.
+const parseTimestampWithoutZone = (str) => {
+  if (!str) return null;
+  if (str === 'infinity') return Infinity;
+  if (str === '-infinity') return -Infinity;
+
+  // "2026-11-11 21:35:12.345678" -> "2026-11-11T21:35:12.345Z"
+  const iso = str.includes('T') ? str : str.replace(' ', 'T');
+  const withMillis = iso.replace(/(\.\d{3})\d+/, '$1');
+  const hasZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(withMillis);
+
+  const date = new Date(hasZone ? withMillis : `${withMillis}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+types.setTypeParser(1114, parseTimestampWithoutZone);
+
 const pool = new Pool({
   // En producción usa DATABASE_URL, en desarrollo usa tu config local
   connectionString: process.env.DATABASE_URL || undefined,
@@ -13,6 +35,19 @@ const pool = new Pool({
   password: process.env.DATABASE_URL ? undefined : '9426242801',
   database: process.env.DATABASE_URL ? undefined : 'gym_training_app',
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
+
+// Every pooled connection runs with TimeZone=UTC so that:
+//   1. CURRENT_TIMESTAMP written into `timestamp without time zone` columns is
+//      stored as UTC (Postgres converts it using the session timezone), which is
+//      exactly what the parser above assumes when reading it back.
+//   2. Comparisons like `created_at::date = CURRENT_DATE` stay stable.
+// `client.query` is queued on the connection, so this always runs before the
+// first business query of that client.
+pool.on('connect', (client) => {
+  client.query("SET TIME ZONE 'UTC'").catch((err) => {
+    console.error('Error setting session time zone to UTC:', err.message);
+  });
 });
 
 // Test connection
@@ -52,6 +87,10 @@ const createTables = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Additive upgrade for databases created before this column existed:
+    // per-user language used to render push notifications server-side.
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5) DEFAULT 'es'`);
 
     // Coach-Trainee relationship table
     await client.query(`
