@@ -13,10 +13,12 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
-import { format, parseISO } from "date-fns"
+import { format, parseISO, type Locale } from "date-fns"
+import { enUS as dateFnsEnUS, es as dateFnsEs } from "date-fns/locale"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { ExerciseNoteEntry, parseExerciseNotes, serializeCoachNote } from "@/lib/exercise-notes"
-import { useT } from "@/lib/i18n"
+import { useLanguage, useT } from "@/lib/i18n"
+import type { TranslationKeys } from "@/locales/en"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 import {
@@ -170,40 +172,50 @@ function dayStart(d: Date) {
   const c = new Date(d); c.setHours(0, 0, 0, 0); return c
 }
 
-function getDateGroup(date: Date): { label: string; sortKey: number } {
+function getDateGroup(date: Date, t: TranslationKeys, locale: Locale): { label: string; sortKey: number } {
   const today = dayStart(new Date())
   const d = dayStart(date)
   const diffDays = Math.round((today.getTime() - d.getTime()) / 86400000)
 
-  if (diffDays === -1) return { label: "Tomorrow",  sortKey: -1 }
-  if (diffDays < -1)   return { label: date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }), sortKey: diffDays }
-  if (diffDays === 0)  return { label: "Today",     sortKey: 0 }
-  if (diffDays === 1)  return { label: "Yesterday", sortKey: 1 }
-  if (diffDays < 7)    return { label: date.toLocaleDateString("en-US", { weekday: "long" }), sortKey: diffDays }
+  if (diffDays === -1) return { label: t.workouts.tomorrow, sortKey: -1 }
+  if (diffDays < -1)   return { label: format(date, "EEEE, MMM d", { locale }), sortKey: diffDays }
+  if (diffDays === 0)  return { label: t.workouts.today,     sortKey: 0 }
+  if (diffDays === 1)  return { label: t.workouts.yesterday, sortKey: 1 }
+  if (diffDays < 7)    return { label: format(date, "EEEE", { locale }), sortKey: diffDays }
   // Older than a week: actual date
   return {
-    label: date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }),
+    label: format(date, "EEEE, MMM d, yyyy", { locale }),
     sortKey: diffDays,
   }
 }
 
-function groupByDate(workouts: DisplayWorkout[]): { label: string; sortKey: number; items: DisplayWorkout[] }[] {
+function groupByDate(workouts: DisplayWorkout[], t: TranslationKeys, locale: Locale): { label: string; sortKey: number; items: DisplayWorkout[] }[] {
   const map = new Map<string, { label: string; sortKey: number; items: DisplayWorkout[] }>()
   workouts.forEach((w) => {
-    const { label, sortKey } = getDateGroup(w.scheduledDate)
+    const { label, sortKey } = getDateGroup(w.scheduledDate, t, locale)
     if (!map.has(label)) map.set(label, { label, sortKey, items: [] })
     map.get(label)!.items.push(w)
   })
   return Array.from(map.values()).sort((a, b) => a.sortKey - b.sortKey)
 }
 
-const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
-  completed: { bg: "rgba(0,255,136,0.15)", color: "#00ff88", label: "COMPLETED" },
-  assigned:  { bg: "rgba(255,215,0,0.15)",  color: "#ffd700", label: "ASSIGNED"  },
-  pending:   { bg: "rgba(136,136,136,0.15)", color: "#888888", label: "PENDING"  },
+// Locale used by every date rendered in this view (headers, cards, calendar).
+function useDateLocale(): Locale {
+  const { language } = useLanguage()
+  return language === "es" ? dateFnsEs : dateFnsEnUS
 }
 
-const fallbackStatus = { bg: "rgba(136,136,136,0.15)", color: "#888888", label: "PENDING" }
+type StatusLabelKey = "statusCompleted" | "statusAssigned" | "statusPending"
+
+const statusConfig: Record<string, { bg: string; color: string; labelKey: StatusLabelKey }> = {
+  completed: { bg: "rgba(0,255,136,0.15)", color: "#00ff88", labelKey: "statusCompleted" },
+  assigned:  { bg: "rgba(255,215,0,0.15)",  color: "#ffd700", labelKey: "statusAssigned"  },
+  pending:   { bg: "rgba(136,136,136,0.15)", color: "#888888", labelKey: "statusPending"  },
+}
+
+const fallbackStatus: { bg: string; color: string; labelKey: StatusLabelKey } = {
+  bg: "rgba(136,136,136,0.15)", color: "#888888", labelKey: "statusPending",
+}
 
 function getStatusConfig(status: string) {
   return statusConfig[status?.toLowerCase()] ?? fallbackStatus
@@ -245,6 +257,7 @@ function WorkoutCard({ workout, onClick, onDelete, onAssign, isExpired }: {
   isExpired?: boolean
 }) {
   const { t } = useT()
+  const dateLocale = useDateLocale()
   const [hovered, setHovered] = useState(false)
   const sc = getStatusConfig(workout.status)
 
@@ -275,17 +288,17 @@ function WorkoutCard({ workout, onClick, onDelete, onAssign, isExpired }: {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <h3 className="truncate font-bold text-white">{workout.name}</h3>
-          {workout.isCoOp && <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "rgba(255,68,68,0.15)", color: "#ff4444" }}>Co-Op</span>}
+          {workout.isCoOp && <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "rgba(255,68,68,0.15)", color: "#ff4444" }}>{t.workouts.coOp}</span>}
         </div>
-        <p className="mt-0.5 text-sm text-[#888888]">{format(workout.scheduledDate, "MMM d, yyyy")}</p>
-        <p className="mt-0.5 text-xs text-[#555555]">{workout.exercises.length} exercise{workout.exercises.length !== 1 ? "s" : ""}</p>
+        <p className="mt-0.5 text-sm text-[#888888]">{format(workout.scheduledDate, "MMM d, yyyy", { locale: dateLocale })}</p>
+        <p className="mt-0.5 text-xs text-[#555555]">{workout.exercises.length} {workout.exercises.length === 1 ? t.workouts.exercise : t.workouts.exercises}</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span>
+        <span className="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" style={{ backgroundColor: sc.bg, color: sc.color }}>{t.workouts[sc.labelKey]}</span>
         {hovered && (
           <>
-            <button onClick={(e) => { e.stopPropagation(); onAssign(workout.id) }} title="Assign to trainee" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00ffff]/10 text-[#00ffff] hover:bg-[#00ffff]/20"><UserPlus className="h-4 w-4" /></button>
-            <button onClick={(e) => { e.stopPropagation(); onDelete(workout.id) }} title="Delete" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff4444]/10 text-[#ff4444] hover:bg-[#ff4444]/20"><Trash2 className="h-4 w-4" /></button>
+            <button onClick={(e) => { e.stopPropagation(); onAssign(workout.id) }} title={t.workouts.assignTo} className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00ffff]/10 text-[#00ffff] hover:bg-[#00ffff]/20"><UserPlus className="h-4 w-4" /></button>
+            <button onClick={(e) => { e.stopPropagation(); onDelete(workout.id) }} title={t.common.delete} className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff4444]/10 text-[#ff4444] hover:bg-[#ff4444]/20"><Trash2 className="h-4 w-4" /></button>
           </>
         )}
         <ChevronRight className="h-4 w-4 shrink-0 text-[#555555]" />
@@ -310,6 +323,7 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   lastHistory?: string
 }) {
   const isDone = !!(log?.completed || log?.is_completed)
+  const { t } = useT()
   const [editing, setEditing] = useState(false)
   const [weight, setWeight] = useState("")
   const [reps, setReps] = useState("")
@@ -398,16 +412,16 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
     const w = log?.weight_used ?? log?.weightUsed
     const r = log?.reps_completed ?? log?.repsCompleted
     return (
-      <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: "rgba(0,255,136,0.06)" }}>
-        <span className="w-6 shrink-0 text-sm font-bold text-[#00ff88]">{setNumber}</span>
-        <span className="w-16 shrink-0 text-center text-[10px] font-bold" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
-        <span className="w-20 shrink-0 text-center text-sm font-medium text-white">{w != null ? `${w}${exercise.weight_unit ?? "kg"}` : "—"}</span>
-        <span className="w-14 shrink-0 text-center text-sm font-medium text-white">{r ?? "—"}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => setEditing(true)} className="flex h-6 w-6 items-center justify-center rounded text-[#555555] transition-colors hover:text-[#00ffff]" title="Edit set">
+      <div className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-2 sm:gap-2 sm:px-3" style={{ backgroundColor: "rgba(0,255,136,0.06)" }}>
+        <span className="w-7 shrink-0 text-sm font-bold text-[#00ff88]">{setNumber}</span>
+        <span className="w-11 shrink-0 truncate text-center text-[10px] font-bold sm:w-16" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
+        <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-white sm:w-20 sm:flex-none">{w != null ? `${w}${exercise.weight_unit ?? "kg"}` : "—"}</span>
+        <span className="w-12 shrink-0 text-center text-sm font-medium text-white sm:w-14">{r ?? "—"}</span>
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <button onClick={() => setEditing(true)} className="flex h-6 w-6 items-center justify-center rounded text-[#555555] transition-colors hover:text-[#00ffff]" title={t.workouts.editSet}>
             <Pencil className="h-3 w-3" />
           </button>
-          <button onClick={handleUncheck} disabled={saving} className="flex h-6 w-6 items-center justify-center rounded text-[#555555] transition-colors hover:text-[#ff4444]" title="Uncheck set">
+          <button onClick={handleUncheck} disabled={saving} className="flex h-6 w-6 items-center justify-center rounded text-[#555555] transition-colors hover:text-[#ff4444]" title={t.workouts.uncheckSet}>
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
           </button>
         </div>
@@ -417,34 +431,34 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
 
   // Editable row (pending or editing a completed set)
   return (
-    <div className="flex items-center gap-2 rounded-lg px-3 py-1.5" style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
-      <span className="w-6 shrink-0 text-sm font-bold text-[#888888]">{setNumber}</span>
-      <span className="w-16 shrink-0 text-center text-[10px] font-bold text-[#555555]">{lastHistory ?? "—"}</span>
+    <div className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 sm:gap-2 sm:px-3" style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
+      <span className="w-7 shrink-0 text-sm font-bold text-[#888888]">{setNumber}</span>
+      <span className="w-11 shrink-0 truncate text-center text-[10px] font-bold text-[#555555] sm:w-16">{lastHistory ?? "—"}</span>
       <input
         type="number"
         value={weight}
         onChange={(e) => { userEdited.current = true; setWeight(e.target.value) }}
         placeholder={String(exercise.target_weight ?? exercise.targetWeight ?? "0")}
-        className="w-20 min-w-0 shrink-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
+        className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none sm:w-20 sm:flex-none"
       />
       <input
         type="number"
         value={reps}
         onChange={(e) => { userEdited.current = true; setReps(e.target.value) }}
         placeholder={String(exercise.reps ?? "0")}
-        className="w-14 min-w-0 shrink-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
+        className="w-12 shrink-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none sm:w-14"
       />
-      <div className="ml-auto flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
         {editing && (
-          <button onClick={() => setEditing(false)} className="flex h-7 w-7 items-center justify-center rounded text-[#555555] hover:text-white">
+          <button onClick={() => setEditing(false)} className="flex h-6 w-6 items-center justify-center rounded text-[#555555] hover:text-white sm:h-7 sm:w-7">
             <X className="h-3.5 w-3.5" />
           </button>
         )}
         <button
           onClick={handleLog}
           disabled={saving || !weight || !reps}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#00ffff] text-black transition-opacity disabled:opacity-40"
-          title="Log set"
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#00ffff] text-black transition-opacity disabled:opacity-40 sm:h-7 sm:w-7"
+          title={t.workouts.logSet}
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
         </button>
@@ -514,7 +528,7 @@ function ExerciseNotesPanel({ exercise, workoutId, coachId, traineeId, onRefresh
   }
 
   return (
-    <div className="mx-3 mb-3 rounded-lg border border-white/[0.06] bg-[#0a0a0f] p-3">
+    <div className="mx-2 mb-3 rounded-lg border border-white/[0.06] bg-[#0a0a0f] p-3 sm:mx-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-[10px] font-bold uppercase tracking-wider text-[#888888]">
           {t.workouts.exerciseNotes}{notes.length > 0 ? ` (${notes.length})` : ""}
@@ -594,7 +608,7 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
   const { t } = useT()
 
   return (
-    <div className="space-y-1.5 rounded-lg bg-black/10 p-2">
+    <div className="min-w-0 space-y-1.5 rounded-lg bg-black/10 p-2">
       <div className="mb-2 flex items-start gap-2 px-1">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -612,20 +626,21 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
       <ExerciseNotesPanel exercise={exercise} workoutId={workoutId} coachId={coachId} traineeId={traineeId} onRefresh={onRefresh} />
 
       {!isCardio && (
-        <div className="flex items-center gap-2 px-1 text-[9px] font-bold uppercase tracking-wider text-[#888888] mb-1">
-          <span className="w-6 shrink-0">{t.workouts?.setColumn || "Set"}</span>
-          <span className="w-16 shrink-0 text-center">{t.workouts?.lastColumn || "Last"}</span>
-          <span className="w-20 shrink-0 text-center">{t.workouts?.weightColumn || "Weight"}</span>
-          <span className="w-14 shrink-0 text-center">{t.workouts?.repsColumn || "Reps"}</span>
+        <div className="mb-1 flex min-w-0 items-center gap-1.5 px-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:gap-2 sm:text-[10px] sm:tracking-wider">
+          <span className="w-7 shrink-0 truncate">{t.workouts?.setColumn || "Set"}</span>
+          <span className="w-11 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
+          <span className="min-w-0 flex-1 text-center sm:w-20 sm:flex-none">{t.workouts?.weightColumn || "Weight"}</span>
+          <span className="w-12 shrink-0 text-center sm:w-14">{t.workouts?.repsColumn || "Reps"}</span>
+          <span aria-hidden className="w-[48px] shrink-0 sm:w-[60px]" />
         </div>
       )}
 
       {isCardio ? (
-         <div className="grid grid-cols-4 items-center rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: log?.completed || log?.is_completed ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
-           <span className="font-bold text-[#888]">{setNum}</span>
-           <span className="text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
-           <span className="text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
-           <span className="text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
+         <div className="grid min-w-0 grid-cols-4 items-center gap-1 rounded-lg px-2 py-2 text-sm sm:px-3" style={{ backgroundColor: log?.completed || log?.is_completed ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+           <span className="min-w-0 truncate font-bold text-[#888]">{setNum}</span>
+           <span className="min-w-0 truncate text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
+           <span className="min-w-0 truncate text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
+           <span className="min-w-0 truncate text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
          </div>
       ) : (
          <SetLogRow
@@ -665,21 +680,21 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
   }
 
   return (
-    <div className="rounded-xl border border-[#00ffff]/20 bg-[#161b22] overflow-hidden">
-      <div className="bg-gradient-to-r from-[#00ffff]/10 to-transparent px-4 py-2 flex items-center justify-between border-b border-[#00ffff]/10">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-[#00ffff]/20 bg-[#161b22]">
+      <div className="flex items-center justify-between border-b border-[#00ffff]/10 bg-gradient-to-r from-[#00ffff]/10 to-transparent px-3 py-2 sm:px-4">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-[#00ffff]" />
-          <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">Bi-Serie</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">{t.programs.biSerie}</span>
         </div>
         <span className="shrink-0 text-xs font-semibold" style={{ color: totalCompleted === totalRows && totalRows > 0 ? "#00ff88" : totalCompleted > 0 ? "#ffd700" : "#555555" }}>
           {totalCompleted}/{totalRows}
         </span>
       </div>
 
-      <div className="p-3 space-y-4">
+      <div className="space-y-4 p-1.5 sm:p-3">
         {Array.from({ length: maxSets }, (_, i) => i + 1).map(setNum => (
-          <div key={setNum} className="rounded-xl border border-white/[0.05] bg-black/20 p-3 relative">
-            <p className="text-[10px] font-bold text-[#888] mb-2 uppercase tracking-widest">Round {setNum}</p>
+          <div key={setNum} className="relative min-w-0 rounded-xl border border-white/[0.05] bg-black/20 p-1.5 sm:p-3">
+            <p className="text-[10px] font-bold text-[#888] mb-2 uppercase tracking-widest">{t.workouts.roundLabel.replace("{round}", String(setNum))}</p>
             <div className="space-y-3 relative">
               <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px] bg-[#00ffff]/20" />
               {exercises.map((ex) => {
@@ -731,9 +746,9 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
   const progressPercent = rowCount > 0 ? Math.round((completedCount / rowCount) * 100) : 0
 
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#161b22] overflow-hidden">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-white/[0.08] bg-[#161b22]">
       {/* Header — portrait reference thumb on the left (opens the exercise dialog) */}
-      <div className="flex items-start gap-3 border-b border-white/[0.06] py-3 pl-3 pr-4">
+      <div className="flex items-start gap-3 border-b border-white/[0.06] py-3 pl-2 pr-3 sm:pl-3 sm:pr-4">
         <ExerciseReferenceButton exerciseName={exercise.name} targetUserId={traineeId} variant="thumb" />
 
         <div className="min-w-0 flex-1">
@@ -758,11 +773,12 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
 
       {/* Column headers */}
       {!isCardio && (
-        <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#888888]">
-          <span className="w-6 shrink-0">{t.workouts?.setColumn || "Set"}</span>
-          <span className="w-16 shrink-0 text-center">{t.workouts?.lastColumn || "Last"}</span>
-          <span className="w-20 shrink-0 text-center">{t.workouts?.weightColumn || "Weight"}</span>
-          <span className="w-14 shrink-0 text-center">{t.workouts?.repsColumn || "Reps"}</span>
+        <div className="flex min-w-0 items-center gap-1.5 px-3 py-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:gap-2 sm:px-4 sm:text-[10px] sm:tracking-wider">
+          <span className="w-7 shrink-0 truncate">{t.workouts?.setColumn || "Set"}</span>
+          <span className="w-11 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
+          <span className="min-w-0 flex-1 text-center sm:w-20 sm:flex-none">{t.workouts?.weightColumn || "Weight"}</span>
+          <span className="w-12 shrink-0 text-center sm:w-14">{t.workouts?.repsColumn || "Reps"}</span>
+          <span aria-hidden className="w-[48px] shrink-0 sm:w-[60px]" />
         </div>
       )}
 
@@ -774,11 +790,11 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
             // Cardio: read-only display for now
             const isDone = !!(log?.completed || log?.is_completed)
             return (
-              <div key={setNum} className="grid grid-cols-4 items-center rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
-                <span className="font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
-                <span className="text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
-                <span className="text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
-                <span className="text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
+              <div key={setNum} className="grid min-w-0 grid-cols-4 items-center gap-1 rounded-lg px-2 py-2 text-sm sm:px-3" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+                <span className="min-w-0 truncate font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
+                <span className="min-w-0 truncate text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
+                <span className="min-w-0 truncate text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
+                <span className="min-w-0 truncate text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
               </div>
             )
           }
@@ -808,9 +824,23 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   open: boolean
   onOpenChange: (v: boolean) => void
 }) {
+  const { t } = useT()
+  const dateLocale = useDateLocale()
   const [rawDetail, setRawDetail] = useState<ApiWorkout | null>(null)
   const [loading, setLoading] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Scroll progress (0 → 1 over the first 72px) is written straight into a CSS
+  // variable on the scroll container. The sticky header reads it with
+  // `opacity: var(--hp)`, so the fade/blur runs on the compositor instead of
+  // costing a React re-render on every scroll frame.
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const progress = Math.min(1, Math.max(0, el.scrollTop / 72))
+    el.style.setProperty("--hp", progress.toFixed(3))
+  }, [])
 
   const fetchDetail = useCallback(async (id: number, silent: boolean = false) => {
     if (!silent) setLoading(true)
@@ -846,10 +876,10 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
 
     if (incompleteSets > 0) {
       const confirmed = window.confirm(
-        `⚠️ Incomplete Workout\n\n` +
-        `You have ${incompleteSets} unlogged set${incompleteSets !== 1 ? 's' : ''} out of ${totalSets} total.\n\n` +
-        `If you complete now, those sets will remain unlogged.\n\n` +
-        `Complete anyway?`
+        `⚠️ ${t.workouts.incompleteTitle}\n\n` +
+        t.workouts.incompleteBody
+          .replace("{count}", String(incompleteSets))
+          .replace("{total}", String(totalSets))
       )
       if (!confirmed) return
     }
@@ -862,7 +892,7 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
       })
       fetchDetail(workout.id)
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to complete workout")
+      alert(e instanceof Error ? e.message : t.workouts.completeError)
     } finally {
       setCompleting(false)
     }
@@ -878,42 +908,70 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-md">
-        <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00ffff]/10">
-              <Dumbbell className="h-5 w-5 text-[#00ffff]" />
-            </div>
-            <div className="min-w-0">
-              <SheetTitle className="truncate text-lg font-bold text-white">{workout.name}</SheetTitle>
-              <p className="text-xs text-[#555555]">{format(workout.scheduledDate, "EEEE, MMM d yyyy")}</p>
-            </div>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 overflow-hidden border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-md [&>button]:z-40"
+      >
+        {/* One scroll container for the whole sheet: the header is sticky inside
+            it so its backdrop can fade/blur as content slides underneath, and
+            the complete button floats above it. */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+            // Leave room for the floating button; without it (completed or
+            // still loading) a small bottom padding is enough.
+            isCompleted || loading ? "pb-6" : "pb-32",
+          )}
+          style={{ "--hp": 0 } as React.CSSProperties}
+        >
+          <div className="sticky top-0 z-20">
+            {/* Fades in with scroll progress. Driven by the --hp CSS variable so
+                scrolling never triggers a React re-render. */}
+            <div
+              className="pointer-events-none absolute inset-0 border-b border-white/[0.08]"
+              style={{
+                backgroundColor: "rgba(10,10,15,0.94)",
+                opacity: "var(--hp)",
+                backdropFilter: "blur(14px)",
+                WebkitBackdropFilter: "blur(14px)",
+              }}
+            />
+            <SheetHeader className="relative flex-row items-center gap-3 px-4 py-4 pr-14 sm:px-6">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00ffff]/10">
+                <Dumbbell className="h-5 w-5 text-[#00ffff]" />
+              </div>
+              <div className="min-w-0">
+                <SheetTitle className="truncate text-lg font-bold text-white">{workout.name}</SheetTitle>
+                <p className="truncate text-xs text-[#555555]" style={{ opacity: "calc(1 - var(--hp))" }}>
+                  {format(workout.scheduledDate, "EEEE, MMM d yyyy", { locale: dateLocale })}
+                </p>
+              </div>
+            </SheetHeader>
           </div>
-          {/* No manual X button here — Sheet renders its own close button */}
-        </SheetHeader>
 
-        <div className="flex items-center gap-3 border-b border-white/[0.06] px-6 py-3">
-          <span className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider" style={{ backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span>
-          {workout.isCoachAssigned && <span className="rounded px-2 py-1 text-[10px] font-bold uppercase" style={{ backgroundColor: "rgba(255,215,0,0.12)", color: "#ffd700" }}>Coach Assigned</span>}
-          {workout.isCoOp && <span className="rounded px-2 py-1 text-[10px] font-bold uppercase" style={{ backgroundColor: "rgba(255,68,68,0.12)", color: "#ff4444" }}>Co-Op</span>}
-        </div>
-        {workout.description && <p className="border-b border-white/[0.04] px-6 py-3 text-sm text-[#888888]">{workout.description}</p>}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
+            <span className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider" style={{ backgroundColor: sc.bg, color: sc.color }}>{t.workouts[sc.labelKey]}</span>
+            {workout.isCoOp && <span className="rounded px-2 py-1 text-[10px] font-bold uppercase" style={{ backgroundColor: "rgba(255,68,68,0.12)", color: "#ff4444" }}>{t.workouts.coOp}</span>}
+          </div>
+          {workout.description && <p className="border-t border-white/[0.04] px-4 py-3 text-sm text-[#888888] sm:px-6">{workout.description}</p>}
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-[#00ffff]" />
-            </div>
-          ) : exercises.length === 0 ? (
-            <div className="flex flex-col items-center py-12 text-[#555555]">
-              <Dumbbell className="mb-2 h-8 w-8" />
-              <p className="text-sm">No exercises found</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#555555]">
-                {exercises.length} Exercise{exercises.length !== 1 ? "s" : ""}
-              </p>
+          <div className="px-4 py-4 sm:px-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-[#00ffff]" />
+              </div>
+            ) : exercises.length === 0 ? (
+              <div className="flex flex-col items-center py-12 text-[#555555]">
+                <Dumbbell className="mb-2 h-8 w-8" />
+                <p className="text-sm">{t.programs.noExercisesFound}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#555555]">
+                  {exercises.length} {exercises.length === 1 ? t.workouts.exercise : t.workouts.exercises}
+                </p>
               {(() => {
                 const groupedExercises: Array<{ type: "single", exercise: ApiExercise } | { type: "superset", exercises: ApiExercise[] }> = []
                 for (let i = 0; i < exercises.length; i++) {
@@ -966,21 +1024,38 @@ function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                   }
                 })
               })()}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Footer — Complete button (only when not already completed) */}
+        {/* Floating footer: the wrapper ignores pointer events so the content
+            behind the blur stays scrollable; only the button is interactive. */}
         {!loading && !isCompleted && (
-          <div className="border-t border-white/[0.08] px-6 py-4">
-            <button
-              onClick={handleComplete}
-              disabled={completing}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#00ff88] py-3 font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              {completing ? "Saving…" : "Complete Workout"}
-            </button>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(to top, #0a0a0f 34%, rgba(10,10,15,0.82) 64%, rgba(10,10,15,0))" }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                maskImage: "linear-gradient(to top, black 40%, transparent)",
+                WebkitMaskImage: "linear-gradient(to top, black 40%, transparent)",
+              }}
+            />
+            <div className="relative px-6 pb-5 pt-12">
+              <button
+                onClick={handleComplete}
+                disabled={completing}
+                className="pointer-events-auto flex w-full items-center justify-center gap-2 rounded-xl bg-[#00ff88] py-3 font-bold text-black shadow-lg shadow-black/40 transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                {completing ? t.common.saving : t.workouts.completeWorkout}
+              </button>
+            </div>
           </div>
         )}
       </SheetContent>
@@ -1031,9 +1106,9 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive, 
           )}
         >
           <Dumbbell className="h-3.5 w-3.5 shrink-0 text-[#555555]" />
-          <span className="flex-1 truncate">{ex.name || "Select exercise..."}</span>
+          <span className="flex-1 truncate">{ex.name || t.programs.selectExercise}</span>
           {ex.isCardio && (
-            <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ backgroundColor: "rgba(0,255,255,0.12)", color: "#00ffff" }}>Cardio</span>
+            <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ backgroundColor: "rgba(0,255,255,0.12)", color: "#00ffff" }}>{t.programs.cardio}</span>
           )}
         </button>
         {reorderArrows}
@@ -1042,7 +1117,7 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive, 
 
       {historyEntries.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[#444]">Last</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[#444]">{t.programs.last}</span>
           {historyEntries.map(([setNum, val]) => (
             <span key={setNum} className="rounded px-1.5 py-0.5 text-[9px] font-bold text-[#888888]" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
               {val}
@@ -1054,12 +1129,12 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive, 
       {ex.isCardio ? (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-[10px] text-[#555555]">Sets</label>
+            <label className="mb-1 block text-[10px] text-[#555555]">{t.programs.sets}</label>
             <input type="number" value={ex.sets} onChange={(e) => onChange(ex.id, "sets", parseFloat(e.target.value) || 0)}
               className="w-full rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-3 py-2 text-sm text-white focus:border-[#00ffff]/40 focus:outline-none" />
           </div>
           <div>
-            <label className="mb-1 block text-[10px] text-[#555555]">Duration (min)</label>
+            <label className="mb-1 block text-[10px] text-[#555555]">{t.programs.durationMin}</label>
             <input type="number" value={ex.reps} onChange={(e) => onChange(ex.id, "reps", parseFloat(e.target.value) || 0)}
               className="w-full rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-3 py-2 text-sm text-white focus:border-[#00ffff]/40 focus:outline-none" />
           </div>
@@ -1068,7 +1143,7 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive, 
         <div className="grid grid-cols-3 gap-2">
           {(["sets", "reps", "weight"] as const).map((field) => (
             <div key={field}>
-              <label className="mb-1 block text-[10px] text-[#555555] capitalize">{field === "weight" ? "Weight (kg)" : field}</label>
+              <label className="mb-1 block text-[10px] text-[#555555] capitalize">{field === "weight" ? t.programs.weightKg : field === "sets" ? t.programs.sets : t.programs.reps}</label>
               <input type="number" value={ex[field]} onChange={(e) => onChange(ex.id, field, parseFloat(e.target.value) || 0)}
                 className="w-full rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-3 py-2 text-sm text-white focus:border-[#00ffff]/40 focus:outline-none" />
             </div>
@@ -1100,6 +1175,8 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
   const [exercises, setExercises] = useState<BuilderExercise[]>([])
   const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [pickerTargetId, setPickerTargetId] = useState<string | null>(null)
+  const { t } = useT()
+  const dateLocale = useDateLocale()
 
   const addExercise = () =>
     setExercises(prev => [...prev, { id: newExerciseRowId(), name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false }])
@@ -1150,28 +1227,28 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00ffff]/10">
               <Dumbbell className="h-5 w-5 text-[#00ffff]" />
             </div>
-            <SheetTitle className="text-lg font-bold text-white">New Workout</SheetTitle>
+            <SheetTitle className="text-lg font-bold text-white">{t.programs.newWorkoutTitle}</SheetTitle>
           </div>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="space-y-5">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#888888]">Workout Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Upper Body Strength" className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none" />
+              <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.workoutName}</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.programs.placeholderWorkoutName} className="w-full rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none" />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#888888]">Description (optional)</label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description..." rows={2} className="w-full resize-none rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none" />
+              <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.programs.descriptionOpt}</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t.programs.placeholderDescWorkout} rows={2} className="w-full resize-none rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white placeholder:text-[#555555] focus:border-[#00ffff]/50 focus:outline-none" />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#888888]">Scheduled Date</label>
+              <label className="mb-1.5 block text-sm font-medium text-[#888888]">{t.workouts.scheduledDate}</label>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                 <PopoverTrigger asChild>
                   <button className="flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-[#161b22] px-4 py-3 text-white hover:border-white/[0.15]">
-                    <span>{format(scheduledDate, "PPP")}</span>
+                    <span>{format(scheduledDate, "PPP", { locale: dateLocale })}</span>
                     <CalendarDays className="h-4 w-4 text-[#888888]" />
                   </button>
                 </PopoverTrigger>
@@ -1183,15 +1260,15 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
 
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <label className="text-sm font-medium text-[#888888]">Exercises ({exercises.length})</label>
+                <label className="text-sm font-medium text-[#888888]">{t.workouts.exercisesTitle} ({exercises.length})</label>
                 <button onClick={addExercise} className="flex items-center gap-1.5 rounded-lg bg-[#00ffff]/10 px-3 py-1.5 text-xs font-medium text-[#00ffff] hover:bg-[#00ffff]/20">
-                  <Plus className="h-3.5 w-3.5" /> Add Exercise
+                  <Plus className="h-3.5 w-3.5" /> {t.programs.addExercise}
                 </button>
               </div>
 
               {exercises.length === 0 ? (
                 <button onClick={addExercise} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.12] py-8 text-sm text-[#555555] hover:border-[#00ffff]/30 hover:text-[#00ffff]">
-                  <Plus className="h-4 w-4" /> Add your first exercise
+                  <Plus className="h-4 w-4" /> {t.programs.addFirstExercise}
                 </button>
               ) : (
                 <div className="space-y-3">
@@ -1210,7 +1287,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
                     </div>
                   ))}
                   <button onClick={addExercise} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] py-3 text-sm text-[#555555] hover:border-[#00ffff]/30 hover:text-[#00ffff]">
-                    <Plus className="h-4 w-4" /> Add Exercise
+                    <Plus className="h-4 w-4" /> {t.programs.addExercise}
                   </button>
                 </div>
               )}
@@ -1219,10 +1296,10 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
         </div>
 
         <div className="flex gap-3 border-t border-white/[0.08] px-6 py-4">
-          <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-3 font-medium text-white hover:bg-[#1c2128]">Cancel</button>
+          <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-3 font-medium text-white hover:bg-[#1c2128]">{t.common.cancel}</button>
           <button onClick={handleSave} disabled={!name.trim() || saving} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#00ffff] py-3 font-bold text-black hover:bg-[#00e5e5] disabled:cursor-not-allowed disabled:opacity-50">
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save Workout
+            {t.programs.saveWorkout}
           </button>
         </div>
       </SheetContent>
@@ -1241,6 +1318,8 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
 // ── Main WorkoutsView ─────────────────────────────────────────────────────
 
 export function WorkoutsView() {
+  const { t } = useT()
+  const dateLocale = useDateLocale()
   const [workouts, setWorkouts] = useState<DisplayWorkout[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -1290,7 +1369,7 @@ export function WorkoutsView() {
   const fetchWorkouts = useCallback(async () => {
     // Read user fresh on every call — avoids stale closure from initial render
     const user = getUserInfo()
-    if (!user?.id) { setError("Not logged in"); setLoading(false); return }
+    if (!user?.id) { setError(t.workouts.notLoggedIn); setLoading(false); return }
     
     // Calculate expiry
     const endDate = user?.coachSubscriptionEndDate ?? user?.coach_subscription_end_date
@@ -1305,7 +1384,7 @@ export function WorkoutsView() {
       const plans = data.workoutPlans ?? []
       setWorkouts(plans.map((w) => apiToDisplay(w, user.id)))
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to load workouts"
+      const msg = e instanceof Error ? e.message : t.workouts.loadError
       // 404 / "not found" just means no workouts yet — show empty state
       if (msg.toLowerCase().includes("not found") || msg.includes("404")) {
         setWorkouts([])
@@ -1322,12 +1401,12 @@ export function WorkoutsView() {
   // ── Actions ───────────────────────────────────────────────────────────
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Delete this workout?")) return
+    if (!confirm(t.workouts.deleteConfirm)) return
     try {
       await apiFetch(`/workout-plans/${id}`, { method: "DELETE" })
       setWorkouts((prev) => prev.filter((w) => w.id !== id))
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Failed to delete")
+      alert(e instanceof Error ? e.message : t.workouts.deleteError)
     }
   }
 
@@ -1363,7 +1442,7 @@ export function WorkoutsView() {
       setBuilderOpen(false)
       fetchWorkouts()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Failed to create workout")
+      alert(e instanceof Error ? e.message : t.workouts.createError)
     } finally {
       setSaving(false)
     }
@@ -1375,7 +1454,7 @@ export function WorkoutsView() {
     .filter((w) => statusFilter === "all" || w.status === statusFilter)
     .filter((w) => !filterDate || w.scheduledDate.toDateString() === filterDate.toDateString())
 
-  const grouped = groupByDate(filtered)
+  const grouped = groupByDate(filtered, t, dateLocale)
 
   const total = workouts.length
   const completed = workouts.filter((w) => w.status === "completed").length
@@ -1389,10 +1468,10 @@ export function WorkoutsView() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total" value={total} icon={<ClipboardList className="h-5 w-5" />} color="#00ffff" active={statusFilter === "all"} onClick={() => setStatusFilter("all")} />
-        <StatCard label="Completed" value={completed} icon={<CheckCircle2 className="h-5 w-5" />} color="#00ff88" active={statusFilter === "completed"} onClick={() => setStatusFilter("completed")} />
-        <StatCard label="Assigned" value={assigned} icon={<Users className="h-5 w-5" />} color="#ffd700" active={statusFilter === "assigned"} onClick={() => setStatusFilter("assigned")} />
-        <StatCard label="Pending" value={pending} icon={<Clock className="h-5 w-5" />} color="#888888" active={statusFilter === "pending"} onClick={() => setStatusFilter("pending")} />
+        <StatCard label={t.workouts.statTotal} value={total} icon={<ClipboardList className="h-5 w-5" />} color="#00ffff" active={statusFilter === "all"} onClick={() => setStatusFilter("all")} />
+        <StatCard label={t.workouts.statCompleted} value={completed} icon={<CheckCircle2 className="h-5 w-5" />} color="#00ff88" active={statusFilter === "completed"} onClick={() => setStatusFilter("completed")} />
+        <StatCard label={t.workouts.statAssigned} value={assigned} icon={<Users className="h-5 w-5" />} color="#ffd700" active={statusFilter === "assigned"} onClick={() => setStatusFilter("assigned")} />
+        <StatCard label={t.workouts.statPending} value={pending} icon={<Clock className="h-5 w-5" />} color="#888888" active={statusFilter === "pending"} onClick={() => setStatusFilter("pending")} />
       </div>
 
       {/* Controls */}
@@ -1401,15 +1480,17 @@ export function WorkoutsView() {
           {/* Status pill tabs */}
           <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-[#161b22] p-1">
             {(["all", "completed", "assigned", "pending"] as const).map((s) => (
-              <button key={s} onClick={() => setStatusFilter(s)} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-all", statusFilter === s ? "bg-[#0a0a0f] text-white shadow" : "text-[#555555] hover:text-[#888888]")}>{s}</button>
+              <button key={s} onClick={() => setStatusFilter(s)} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-all", statusFilter === s ? "bg-[#0a0a0f] text-white shadow" : "text-[#555555] hover:text-[#888888]")}>
+                {s === "all" ? t.workouts.statusAll : s === "completed" ? t.workouts.statCompleted : s === "assigned" ? t.workouts.statAssigned : t.workouts.statPending}
+              </button>
             ))}
           </div>
 
           <div className="flex items-center rounded-lg border border-white/[0.08] bg-[#161b22] p-1">
-            <button onClick={() => setViewMode("list")} className={cn("rounded-md p-1.5 transition-colors", viewMode === "list" ? "bg-[#1c222b] text-white" : "text-[#555555] hover:text-white")} title="List View">
+            <button onClick={() => setViewMode("list")} className={cn("rounded-md p-1.5 transition-colors", viewMode === "list" ? "bg-[#1c222b] text-white" : "text-[#555555] hover:text-white")} title={t.workouts.listView}>
               <LayoutList className="h-4 w-4" />
             </button>
-            <button onClick={() => setViewMode("calendar")} className={cn("rounded-md p-1.5 transition-colors", viewMode === "calendar" ? "bg-[#1c222b] text-white" : "text-[#555555] hover:text-white")} title="Calendar View">
+            <button onClick={() => setViewMode("calendar")} className={cn("rounded-md p-1.5 transition-colors", viewMode === "calendar" ? "bg-[#1c222b] text-white" : "text-[#555555] hover:text-white")} title={t.workouts.calendarView}>
               <CalendarDays className="h-4 w-4" />
             </button>
           </div>
@@ -1424,21 +1505,21 @@ export function WorkoutsView() {
             <PopoverTrigger asChild>
               <button className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors", filterDate ? "border-[#00ffff]/50 bg-[#00ffff]/10 text-[#00ffff]" : "border-white/[0.15] bg-[#161b22] text-white hover:bg-[#1c2128]")}>
                 <Calendar className="h-4 w-4" />
-                {filterDate ? format(filterDate, "MMM d") : "Filter by Date"}
+                {filterDate ? format(filterDate, "MMM d", { locale: dateLocale }) : t.workouts.filterByDate}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto border-white/[0.08] bg-[#161b22] p-0" align="end">
               <CalendarPicker mode="single" selected={filterDate} onSelect={(d) => { setFilterDate(d); setDateFilterOpen(false) }} className="text-white" />
               {filterDate && (
                 <div className="border-t border-white/[0.08] p-2">
-                  <button onClick={() => { setFilterDate(undefined); setDateFilterOpen(false) }} className="w-full rounded-lg py-2 text-sm text-[#ff4444] hover:bg-[#ff4444]/10">Clear Filter</button>
+                  <button onClick={() => { setFilterDate(undefined); setDateFilterOpen(false) }} className="w-full rounded-lg py-2 text-sm text-[#ff4444] hover:bg-[#ff4444]/10">{t.workouts.clearFilter}</button>
                 </div>
               )}
             </PopoverContent>
           </Popover>
 
           <button onClick={() => setBuilderOpen(true)} className="flex items-center gap-2 rounded-xl bg-[#00ffff] px-4 py-2.5 font-medium text-black hover:bg-[#00e5e5]">
-            <Plus className="h-4 w-4" /> Create Workout
+            <Plus className="h-4 w-4" /> {t.programs.createWorkout}
           </button>
         </div>
       </div>
@@ -1453,16 +1534,16 @@ export function WorkoutsView() {
           <AlertCircle className="mb-3 h-8 w-8 text-[#ff4444]" />
           <p className="text-sm font-medium text-[#ff4444]">{error}</p>
           <button onClick={fetchWorkouts} className="mt-4 flex items-center gap-2 rounded-xl border border-[#ff4444]/30 px-4 py-2 text-sm text-[#ff4444] hover:bg-[#ff4444]/10">
-            <RefreshCw className="h-4 w-4" /> Retry
+            <RefreshCw className="h-4 w-4" /> {t.common.retry}
           </button>
         </div>
       ) : filtered.length === 0 && viewMode === "list" ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-[#161b22] py-16">
           <Dumbbell className="mb-3 h-10 w-10 text-[#333]" />
-          <p className="text-lg font-medium text-[#888888]">{workouts.length === 0 ? "No workouts yet" : `No ${statusFilter === "all" ? "" : statusFilter} workouts`}</p>
+          <p className="text-lg font-medium text-[#888888]">{workouts.length === 0 ? t.workouts.noWorkouts : t.workouts.noFilteredWorkouts}</p>
           {workouts.length === 0 && (
             <button onClick={() => setBuilderOpen(true)} className="mt-6 flex items-center gap-2 rounded-xl bg-[#00ffff] px-6 py-2.5 font-medium text-black hover:bg-[#00e5e5]">
-              <Plus className="h-4 w-4" /> Create Workout
+              <Plus className="h-4 w-4" /> {t.programs.createWorkout}
             </button>
           )}
         </div>
@@ -1473,10 +1554,10 @@ export function WorkoutsView() {
             <div className="flex items-center gap-2">
               <button onClick={() => navigateWeek(-1)} className="rounded-lg border border-white/[0.08] bg-[#0a0a0f] p-2 text-[#888888] hover:text-white hover:bg-white/[0.02]"><ChevronLeft className="h-4 w-4" /></button>
               <button onClick={() => navigateWeek(1)} className="rounded-lg border border-white/[0.08] bg-[#0a0a0f] p-2 text-[#888888] hover:text-white hover:bg-white/[0.02]"><ChevronRight className="h-4 w-4" /></button>
-              <button onClick={() => setCalendarDate(new Date())} className="ml-2 rounded-lg text-xs font-semibold text-[#888888] hover:text-white px-2 py-1">Today</button>
+              <button onClick={() => setCalendarDate(new Date())} className="ml-2 rounded-lg text-xs font-semibold text-[#888888] hover:text-white px-2 py-1">{t.workouts.today}</button>
             </div>
             <span className="text-sm font-bold text-white uppercase tracking-wider">
-              {calendarDays[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {calendarDays[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              {format(calendarDays[0], "MMM d", { locale: dateLocale })} - {format(calendarDays[6], "MMM d, yyyy", { locale: dateLocale })}
             </span>
           </div>
 
@@ -1501,7 +1582,7 @@ export function WorkoutsView() {
                     isDayToday && !isSelected && "border-[#a78bfa]/30"
                   )}>
                     <span className={cn("text-[10px] font-bold uppercase", isSelected ? "text-[#00ffff]" : isDayToday ? "text-[#a78bfa]" : "text-[#555555]")}>
-                      {d.toLocaleDateString("en-US", { weekday: "short" })}
+                      {format(d, "EEE", { locale: dateLocale })}
                     </span>
                     <span className={cn("text-lg font-bold", isSelected ? "text-white" : isDayToday ? "text-[#a78bfa]" : "text-white")}>
                       {d.getDate()}
@@ -1528,8 +1609,8 @@ export function WorkoutsView() {
               if (selectedWorkouts.length === 0) {
                 return (
                   <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <span className="text-sm font-medium text-white">{calendarDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
-                    <p className="mt-1 text-xs text-[#555555]">No workouts</p>
+                    <span className="text-sm font-medium text-white">{format(calendarDate, "EEEE, MMM d", { locale: dateLocale })}</span>
+                    <p className="mt-1 text-xs text-[#555555]">{t.workouts.noDayWorkouts}</p>
                   </div>
                 )
               }
@@ -1537,7 +1618,7 @@ export function WorkoutsView() {
               return (
                 <div className="space-y-3">
                   <p className="mb-3 text-xs font-bold uppercase tracking-wider text-[#555555]">
-                    {isToday(calendarDate) ? "Today" : calendarDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                    {isToday(calendarDate) ? t.workouts.today : format(calendarDate, "EEEE, MMM d", { locale: dateLocale })}
                   </p>
                   {selectedWorkouts.map((workout) => (
                     <WorkoutCard key={workout.id} workout={workout} onClick={() => setDetailWorkout(workout)} onDelete={handleDelete} onAssign={handleAssign} isExpired={isExpired} />

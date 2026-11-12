@@ -5,7 +5,7 @@ import {
   ArrowLeft, BarChart3, Apple, MessageCircle, CreditCard, Plus,
   ChevronDown, ChevronUp, Dumbbell, Calendar, Mail, Phone,
   Building, User, Loader2, X, ChevronRight, ChevronLeft,
-  LayoutList, CalendarDays, Zap,
+  LayoutList, CalendarDays, Zap, UserMinus,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { AssignWorkoutModal } from "./assign-workout-modal"
@@ -285,10 +285,12 @@ interface TraineeDetailProps {
   onOpenProgression?: (trainee: { id: number; name: string }) => void
   onOpenMessages?: (traineeId: number) => void
   onOpenNutrition?: (trainee: { id: number; name: string }) => void
+  onTraineeUnlinked?: () => void
 }
 
-export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessages, onOpenNutrition }: TraineeDetailProps) {
+export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessages, onOpenNutrition, onTraineeUnlinked }: TraineeDetailProps) {
   const { t } = useT()
+  const user = getUserInfo()
   const [profile, setProfile] = useState<ApiProfile | null>(null)
   const [workouts, setWorkouts] = useState<ApiWorkout[]>([])
   const [notes, setNotes] = useState<ApiNote[]>([])
@@ -297,6 +299,9 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
   const [showAllTraineeNotes, setShowAllTraineeNotes] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [showSubModal, setShowSubModal] = useState(false)
+  const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false)
+  const [unlinking, setUnlinking] = useState(false)
+  const [unlinkError, setUnlinkError] = useState("")
   const [detailWorkout, setDetailWorkout] = useState<ApiWorkout | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [lastLogsMap, setLastLogsMap] = useState<Record<string, Record<number, string>>>({})
@@ -325,6 +330,22 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
       .then((data) => setNotes(Array.isArray(data) ? data : []))
       .catch(() => setNotes([]))
   }, [trainee.id])
+
+  // Unlink this trainee from the signed-in coach (removes the coach_trainee row)
+  const handleUnlink = async () => {
+    if (!user?.id || unlinking) return
+    setUnlinking(true)
+    setUnlinkError("")
+    try {
+      await apiFetch(`/users/${user.id}/connection/${trainee.id}`, { method: "DELETE" })
+      setShowUnlinkConfirm(false)
+      onTraineeUnlinked?.()
+    } catch (e) {
+      setUnlinkError(e instanceof Error ? e.message : t.traineeDetail.unlinkError)
+    } finally {
+      setUnlinking(false)
+    }
+  }
 
   // Fetch previous-session history for each exercise whenever the detail workout changes
   useEffect(() => {
@@ -790,6 +811,17 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                   <span className="text-sm font-medium text-white">{display.subscriptionExpiry}</span>
                 </div>
               )}
+
+              <div className="border-t border-white/[0.08] pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setUnlinkError(""); setShowUnlinkConfirm(true) }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#ff4444]/40 bg-[#ff4444]/10 px-4 py-2.5 text-sm font-medium text-[#ff4444] transition-colors hover:bg-[#ff4444]/20"
+                >
+                  <UserMinus className="h-4 w-4" />
+                  {t.traineeDetail.unlinkTrainee}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -853,6 +885,45 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
           }}
           onClose={() => setShowSubModal(false)}
         />
+      )}
+
+      {/* Unlink trainee confirmation */}
+      {showUnlinkConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#ff4444]/30 bg-[#161b22]">
+            <div className="flex items-center gap-3 border-b border-white/[0.08] px-5 py-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff4444]/10">
+                <UserMinus className="h-5 w-5 text-[#ff4444]" />
+              </div>
+              <h3 className="text-lg font-bold text-white">
+                {t.traineeDetail.unlinkConfirmTitle.replace("{name}", trainee.name)}
+              </h3>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-sm leading-relaxed text-[#888888]">{t.traineeDetail.unlinkConfirmBody}</p>
+              {unlinkError && <p role="alert" className="text-sm text-[#ff7777]">{unlinkError}</p>}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowUnlinkConfirm(false); setUnlinkError("") }}
+                  disabled={unlinking}
+                  className="flex-1 rounded-xl border border-white/[0.15] py-2.5 font-medium text-white transition-colors hover:bg-[#1c2128] disabled:opacity-40"
+                >
+                  {t.common.cancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUnlink}
+                  disabled={unlinking}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#ff4444] py-2.5 font-medium text-white transition-colors hover:bg-[#e03030] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {unlinking && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t.traineeDetail.unlinkConfirmAction}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <AssignWorkoutModal
@@ -976,24 +1047,24 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
 
                         {/* Sets table */}
                         {hasLogs ? (
-                          <div className="p-3">
+                          <div className="p-2 sm:p-3">
                             {/* Table header */}
-                            <div className={`grid text-[10px] font-bold uppercase tracking-wider text-[#888888] mb-2 px-1 ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}>
-                              <span>{t.workouts?.setColumn || "Set"}</span>
+                            <div className={`mb-2 grid min-w-0 px-1 text-[10px] font-bold uppercase tracking-normal text-[#888888] sm:tracking-wider ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}>
+                              <span className="truncate">{t.workouts?.setColumn || "Set"}</span>
                               {isCardio ? (
                                 <>
-                                  <span className="text-center">Time</span>
-                                  <span className="text-center">Dist</span>
-                                  <span className="text-center">kcal</span>
+                                  <span className="truncate text-center">Time</span>
+                                  <span className="truncate text-center">Dist</span>
+                                  <span className="truncate text-center">kcal</span>
                                 </>
                               ) : (
                                 <>
-                                  <span className="text-center">{t.workouts?.lastColumn || "Last"}</span>
-                                  <span className="text-center">{t.workouts?.weightColumn || "Weight"}</span>
-                                  <span className="text-center">{t.workouts?.repsColumn || "Reps"}</span>
-                                  {showRpe && <span className="text-center">RPE</span>}
-                                  {showRir && <span className="text-center">RIR</span>}
-                                  {!showRpe && !showRir && <span className="text-center">Status</span>}
+                                  <span className="truncate text-center">{t.workouts?.lastColumn || "Last"}</span>
+                                  <span className="truncate text-center">{t.workouts?.weightColumn || "Weight"}</span>
+                                  <span className="truncate text-center">{t.workouts?.repsColumn || "Reps"}</span>
+                                  {showRpe && <span className="truncate text-center">RPE</span>}
+                                  {showRir && <span className="truncate text-center">RIR</span>}
+                                  {!showRpe && !showRir && <span className="truncate text-center">Status</span>}
                                 </>
                               )}
                             </div>
@@ -1010,48 +1081,48 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                 return (
                                   <div
                                     key={log.id}
-                                    className={`grid items-center rounded-lg px-3 py-2 text-sm ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}
+                                    className={`grid min-w-0 items-center rounded-lg px-2 py-2 text-sm sm:px-3 ${isCardio ? "grid-cols-4" : showRpe || showRir ? "grid-cols-6" : "grid-cols-5"}`}
                                     style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}
                                   >
-                                    <span className="font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>
+                                    <span className="truncate font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>
                                       {setNum}
                                     </span>
 
                                     {isCardio ? (
                                       <>
-                                        <span className="text-center text-white">
+                                        <span className="truncate text-center text-white">
                                           {log.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}
                                         </span>
-                                        <span className="text-center text-white">
+                                        <span className="truncate text-center text-white">
                                           {log.distance != null ? `${log.distance}km` : "—"}
                                         </span>
-                                        <span className="text-center text-white">
+                                        <span className="truncate text-center text-white">
                                           {log.calories != null ? `${log.calories}` : "—"}
                                         </span>
                                       </>
                                     ) : (
                                       <>
-                                        <span className="text-center text-[10px] font-bold" style={{ color: lastVal ? "#00ffff" : "#444444" }}>
+                                        <span className="truncate text-center text-[10px] font-bold" style={{ color: lastVal ? "#00ffff" : "#444444" }}>
                                           {lastVal ?? "—"}
                                         </span>
-                                        <span className="text-center font-medium text-white">
+                                        <span className="truncate text-center font-medium text-white">
                                           {weight != null ? `${weight}${ex.weight_unit ?? "kg"}` : "—"}
                                         </span>
-                                        <span className="text-center font-medium text-white">
+                                        <span className="truncate text-center font-medium text-white">
                                           {reps != null ? `${reps}` : "—"}
                                         </span>
                                         {showRpe && (
-                                          <span className="text-center text-[#888888]">
+                                          <span className="truncate text-center text-[#888888]">
                                             {log.rpe != null ? log.rpe : "—"}
                                           </span>
                                         )}
                                         {showRir && (
-                                          <span className="text-center text-[#888888]">
+                                          <span className="truncate text-center text-[#888888]">
                                             {log.rir != null ? log.rir : "—"}
                                           </span>
                                         )}
                                         {!showRpe && !showRir && (
-                                          <span className="text-center text-xs font-semibold" style={{ color: isDone ? "#00ff88" : "#555555" }}>
+                                          <span className="truncate text-center text-xs font-semibold" style={{ color: isDone ? "#00ff88" : "#555555" }}>
                                             {isDone ? "✓" : "—"}
                                           </span>
                                         )}
@@ -1089,8 +1160,8 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                     }
 
                     return (
-                      <div key={group.exercises.map(e => e.id).join("-")} className="rounded-xl border border-[#00ffff]/20 bg-[#161b22] overflow-hidden">
-                        <div className="bg-gradient-to-r from-[#00ffff]/10 to-transparent px-4 py-2 flex items-center justify-between border-b border-[#00ffff]/10">
+                      <div key={group.exercises.map(e => e.id).join("-")} className="min-w-0 overflow-hidden rounded-xl border border-[#00ffff]/20 bg-[#161b22]">
+                        <div className="flex items-center justify-between border-b border-[#00ffff]/10 bg-gradient-to-r from-[#00ffff]/10 to-transparent px-3 py-2 sm:px-4">
                           <div className="flex items-center gap-2">
                             <Zap className="h-4 w-4 text-[#00ffff]" />
                             <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">Bi-Serie</span>
@@ -1100,9 +1171,9 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                           </span>
                         </div>
 
-                        <div className="p-3 space-y-4">
+                        <div className="space-y-4 p-1.5 sm:p-3">
                           {Array.from({ length: maxSets }, (_, i) => i + 1).map(setNum => (
-                            <div key={setNum} className="rounded-xl border border-white/[0.05] bg-black/20 p-3 relative">
+                            <div key={setNum} className="relative min-w-0 rounded-xl border border-white/[0.05] bg-black/20 p-1.5 sm:p-3">
                               <p className="text-[10px] font-bold text-[#888] mb-2 uppercase tracking-widest">Round {setNum}</p>
                               <div className="space-y-3 relative">
                                 <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px] bg-[#00ffff]/20" />
@@ -1119,7 +1190,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                   const lastVal = lastLogsMap[ex.name]?.[setNum]
 
                                   return (
-                                    <div key={ex.id} className="space-y-1.5 rounded-lg bg-black/10 p-2">
+                                    <div key={ex.id} className="min-w-0 space-y-1.5 rounded-lg bg-black/10 p-2">
                                       <div className="flex flex-col gap-1 mb-2 px-1">
                                         <div className="flex items-center gap-2">
                                           <Dumbbell className="h-3 w-3 text-[#00ffff]" />
@@ -1136,32 +1207,32 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                       {setNum === 1 && <ExerciseNotesEditor exercise={ex} workoutId={detailWorkout?.id ?? 0} onSaved={() => { void refreshWorkoutDetail(detailWorkout?.id ?? 0) }} />}
                                       
                                       {!isCardio && (
-                                        <div className="flex items-center gap-2 px-1 text-[9px] font-bold uppercase tracking-wider text-[#888888] mb-1">
-                                          <span className="w-6 shrink-0">{t.workouts?.setColumn || "Set"}</span>
-                                          <span className="w-16 shrink-0 text-center">{t.workouts?.lastColumn || "Last"}</span>
-                                          <span className="w-20 shrink-0 text-center">{t.workouts?.weightColumn || "Weight"}</span>
-                                          <span className="w-14 shrink-0 text-center">{t.workouts?.repsColumn || "Reps"}</span>
-                                          {showRpe && <span className="w-10 shrink-0 text-center">RPE</span>}
-                                          {showRir && <span className="w-10 shrink-0 text-center">RIR</span>}
+                                        <div className="mb-1 flex min-w-0 items-center gap-1.5 px-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:gap-2 sm:text-[10px] sm:tracking-wider">
+                                          <span className="w-7 shrink-0 truncate">{t.workouts?.setColumn || "Set"}</span>
+                                          <span className="w-11 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
+                                          <span className="min-w-0 flex-1 text-center sm:w-20 sm:flex-none">{t.workouts?.weightColumn || "Weight"}</span>
+                                          <span className="w-12 shrink-0 text-center sm:w-14">{t.workouts?.repsColumn || "Reps"}</span>
+                                          {showRpe && <span className="w-8 shrink-0 text-center sm:w-10">RPE</span>}
+                                          {showRir && <span className="w-8 shrink-0 text-center sm:w-10">RIR</span>}
                                         </div>
                                       )}
 
                                       {isCardio ? (
-                                        <div className="grid grid-cols-4 items-center rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
-                                          <span className="font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
-                                          <span className="text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
-                                          <span className="text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
-                                          <span className="text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
+                                        <div className="grid min-w-0 grid-cols-4 items-center gap-1 rounded-lg px-2 py-2 text-sm sm:px-3" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+                                          <span className="min-w-0 truncate font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
+                                          <span className="min-w-0 truncate text-center text-white">{log?.duration != null ? `${(log.duration / 60).toFixed(1)}m` : "—"}</span>
+                                          <span className="min-w-0 truncate text-center text-white">{log?.distance != null ? `${log.distance}km` : "—"}</span>
+                                          <span className="min-w-0 truncate text-center text-white">{log?.calories != null ? `${log.calories}kcal` : "—"}</span>
                                         </div>
                                       ) : (
-                                        <div className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
-                                          <span className="w-6 shrink-0 font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
-                                          <span className="w-16 shrink-0 text-center text-[10px] font-bold" style={{ color: lastVal ? "#00ffff" : "#444444" }}>{lastVal ?? "—"}</span>
-                                          <span className="w-20 shrink-0 text-center font-medium text-white">{weight != null ? `${weight}${ex.weight_unit ?? "kg"}` : "—"}</span>
-                                          <span className="w-14 shrink-0 text-center font-medium text-white">{reps != null ? `${reps}` : "—"}</span>
-                                          {showRpe && <span className="w-10 shrink-0 text-center text-[#888888]">{log?.rpe != null ? log.rpe : "—"}</span>}
-                                          {showRir && <span className="w-10 shrink-0 text-center text-[#888888]">{log?.rir != null ? log.rir : "—"}</span>}
-                                          {!showRpe && !showRir && <span className="flex-1 text-right pr-2 text-xs font-semibold" style={{ color: isDone ? "#00ff88" : "#555555" }}>{isDone ? "✓" : "—"}</span>}
+                                        <div className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm sm:gap-2" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+                                          <span className="w-7 shrink-0 font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
+                                          <span className="w-11 shrink-0 truncate text-center text-[10px] font-bold sm:w-16" style={{ color: lastVal ? "#00ffff" : "#444444" }}>{lastVal ?? "—"}</span>
+                                          <span className="min-w-0 flex-1 truncate text-center font-medium text-white sm:w-20 sm:flex-none">{weight != null ? `${weight}${ex.weight_unit ?? "kg"}` : "—"}</span>
+                                          <span className="w-12 shrink-0 text-center font-medium text-white sm:w-14">{reps != null ? `${reps}` : "—"}</span>
+                                          {showRpe && <span className="w-8 shrink-0 text-center text-[#888888] sm:w-10">{log?.rpe != null ? log.rpe : "—"}</span>}
+                                          {showRir && <span className="w-8 shrink-0 text-center text-[#888888] sm:w-10">{log?.rir != null ? log.rir : "—"}</span>}
+                                          {!showRpe && !showRir && <span className="w-8 shrink-0 text-right pr-1 text-xs font-semibold sm:w-10 sm:pr-2" style={{ color: isDone ? "#00ff88" : "#555555" }}>{isDone ? "✓" : "—"}</span>}
                                         </div>
                                       )}
                                     </div>
