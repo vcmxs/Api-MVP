@@ -1,6 +1,60 @@
 // controllers/workout.controller.js
 const Workout = require('../models/Workout');
 const NotificationController = require('./notification.controller');
+const pool = require('../config/database');
+
+/**
+ * Load types accepted in `weight_unit`. `plates` stores a machine plate count
+ * instead of a mass, so anything that derives a weight (1RM, volume) must skip
+ * it. Unknown values fall back to `kg`, matching the column default.
+ */
+const LOAD_UNITS = ['kg', 'lb', 'plates'];
+function normalizeWeightUnit(unit) {
+    const raw = String(unit || '').trim().toLowerCase();
+    if (raw === 'plate') return 'plates';
+    if (raw === 'lbs') return 'lb';
+    return LOAD_UNITS.includes(raw) ? raw : 'kg';
+}
+
+/**
+ * `loadWorkoutPlan` proves the caller may touch `:workoutPlanId` / `:planId`,
+ * but the exercise and log ids in the URL are independent: pinning them to that
+ * plan stops a caller from pairing their own plan with someone else's
+ * exercise/log id. Responds 404 and returns false when the child row belongs
+ * elsewhere.
+ */
+async function assertExerciseInPlan(req, res) {
+    const { exerciseId } = req.params;
+    const planId = req.workoutPlan?.id;
+    if (!planId || !exerciseId) return false;
+
+    const result = await pool.query(
+        'SELECT 1 FROM exercises WHERE id = $1 AND workout_plan_id = $2',
+        [exerciseId, planId]
+    );
+    if (result.rows.length > 0) return true;
+
+    res.status(404).json({ error: 'Not Found', message: 'Exercise not found in this workout plan' });
+    return false;
+}
+
+async function assertLogInPlan(req, res) {
+    const { logId } = req.params;
+    const planId = req.workoutPlan?.id;
+    if (!planId || !logId) return false;
+
+    const result = await pool.query(
+        `SELECT 1
+           FROM exercise_logs el
+           JOIN exercises e ON e.id = el.exercise_id
+          WHERE el.id = $1 AND e.workout_plan_id = $2`,
+        [logId, planId]
+    );
+    if (result.rows.length > 0) return true;
+
+    res.status(404).json({ error: 'Not Found', message: 'Log not found in this workout plan' });
+    return false;
+}
 
 /**
  * Create workout plan with exercises
@@ -349,12 +403,71 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
 
 /**
  * Update workout plan
+ *
+ * Two shapes are accepted:
+ *   - `{ name, description, scheduledDate }`            → header only (legacy)
+ *   - `{ name, description, scheduledDate, exercises }` → header + full
+ *     replacement of the prescription, used by the coach "edit assigned
+ *     workout" flow. Ownership and the completed-plan guard live in
+ *     `middleware/plan-access.js`.
  */
 exports.updateWorkoutPlan = async (req, res) => {
     try {
-        const { name, description, scheduledDate } = req.body;
+        const { name, description, scheduledDate, exercises } = req.body;
         const { planId, workoutPlanId } = req.params;
-        const id = planId || workoutPlanId;
+        const id = req.workoutPlan?.id ?? (planId || workoutPlanId);
+
+        if (exercises !== undefined) {
+            if (!Array.isArray(exercises) || exercises.length === 0) {
+                return res.status(400).json({
+                    error: 'Bad Request',
+                    message: 'exercises must be a non-empty array when provided'
+                });
+            }
+            if (!name || !String(name).trim()) {
+                return res.status(400).json({ error: 'Bad Request', message: 'Workout name is required' });
+            }
+
+            const workout = await Workout.replaceExercises(
+                id,
+                {
+                    name: String(name).trim(),
+                    description: description ?? '',
+                    scheduledDate: scheduledDate || null
+                },
+                exercises
+            );
+
+            if (!workout) {
+                return res.status(404).json({ error: 'Not Found', message: 'Workout plan not found' });
+            }
+
+            return res.json({
+                workoutPlan: {
+                    id: workout.id.toString(),
+                    traineeId: workout.trainee_id.toString(),
+                    coachId: workout.coach_id?.toString(),
+                    name: workout.name,
+                    description: workout.description,
+                    scheduledDate: workout.scheduled_date,
+                    status: workout.status,
+                    exercises: workout.exercises.map(ex => ({
+                        id: ex.id.toString(),
+                        name: ex.name,
+                        sets: ex.sets,
+                        reps: ex.reps,
+                        targetWeight: parseFloat(ex.target_weight),
+                        weightUnit: ex.weight_unit,
+                        restTime: ex.rest_time,
+                        notes: ex.notes,
+                        order: ex.exercise_order,
+                        isCardio: ex.is_cardio,
+                        targetDistance: ex.target_distance,
+                        targetDuration: ex.target_duration
+                    }))
+                }
+            });
+        }
 
         const workout = await Workout.update(id, { name, description, scheduledDate });
 
@@ -486,6 +599,8 @@ exports.addExercises = async (req, res) => {
  */
 exports.deleteExercise = async (req, res) => {
     try {
+        if (!(await assertExerciseInPlan(req, res))) return;
+
         const exercise = await Workout.deleteExercise(req.params.exerciseId);
 
         if (!exercise) {
@@ -540,6 +655,8 @@ exports.updateExercise = async (req, res) => {
  */
 exports.logExerciseSet = async (req, res) => {
     try {
+        if (!(await assertExerciseInPlan(req, res))) return;
+
         const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories, completed } = req.body;
         const { workoutPlanId, exerciseId } = req.params;
 
@@ -635,6 +752,8 @@ exports.logExerciseSet = async (req, res) => {
  */
 exports.updateExerciseLog = async (req, res) => {
     try {
+        if (!(await assertLogInPlan(req, res))) return;
+
         const { setNumber, repsCompleted, weightUsed, weightUnit, notes, rpe, rir, distance, duration, calories, completed } = req.body;
         const { logId } = req.params;
 
@@ -725,6 +844,8 @@ exports.updateExerciseLog = async (req, res) => {
  */
 exports.getExerciseLogs = async (req, res) => {
     try {
+        if (!(await assertExerciseInPlan(req, res))) return;
+
         const logs = await Workout.getExerciseLogs(req.params.exerciseId);
 
         res.json({
@@ -758,6 +879,8 @@ exports.getExerciseLogs = async (req, res) => {
  */
 exports.deleteExerciseLog = async (req, res) => {
     try {
+        if (!(await assertLogInPlan(req, res))) return;
+
         const log = await Workout.deleteExerciseLog(req.params.logId);
 
         if (!log) {
@@ -786,18 +909,24 @@ exports.getProgression = async (req, res) => {
 
         // Calculate 1RM and format data
         const progression = logs.map(log => {
+            // Plate stacks are counts, not kilos: Epley has no meaning for them,
+            // so the estimate is null and consumers hide the 1RM series.
+            const weightUnit = normalizeWeightUnit(log.weight_unit);
+            const usesPlates = weightUnit === 'plates';
+            const weight = parseFloat(log.weight_used);
             // Epley Formula: 1RM = Weight * (1 + Reps/30)
-            const oneRepMax = log.weight_used * (1 + log.reps_completed / 30);
+            const oneRepMax = usesPlates ? null : weight * (1 + log.reps_completed / 30);
             return {
 
                 date: log.completed_at || log.scheduled_date,
-                weight: parseFloat(log.weight_used),
+                weight,
+                weightUnit,
                 reps: log.reps_completed,
                 setNumber: log.set_number,
                 rpe: log.rpe,
                 rir: log.rir,
                 workoutPlanId: log.workout_plan_id,
-                oneRepMax: Math.round(oneRepMax * 10) / 10 // Round to 1 decimal
+                oneRepMax: oneRepMax === null ? null : Math.round(oneRepMax * 10) / 10 // Round to 1 decimal
             };
         });
 

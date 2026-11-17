@@ -220,6 +220,82 @@ class Workout {
     }
 
     /**
+     * Replace the whole prescription of a plan in one transaction.
+     *
+     * Coaches edit assigned routines from the trainee detail sheet, so the
+     * exercise list arrives as the complete desired state: the old rows are
+     * dropped and the new ones inserted (exercise_logs cascade with them).
+     * `null`/`undefined` header fields keep their current value.
+     */
+    static async replaceExercises(planId, updateData, exercises) {
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            const planResult = await client.query(
+                `UPDATE workout_plans
+       SET name = COALESCE($1, name),
+           description = COALESCE($2, description),
+           scheduled_date = COALESCE($3, scheduled_date)
+       WHERE id = $4
+       RETURNING *`,
+                [
+                    updateData.name ?? null,
+                    updateData.description ?? null,
+                    updateData.scheduledDate ?? null,
+                    planId
+                ]
+            );
+
+            if (planResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return null;
+            }
+
+            await client.query('DELETE FROM exercises WHERE workout_plan_id = $1', [planId]);
+
+            const insertedExercises = [];
+            for (let index = 0; index < exercises.length; index++) {
+                const ex = exercises[index];
+                const result = await client.query(
+                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+           RETURNING *`,
+                    [
+                        planId,
+                        ex.name,
+                        ex.sets,
+                        ex.reps,
+                        ex.targetWeight || 0,
+                        ex.weightUnit || 'kg',
+                        ex.restTime ?? 60,
+                        ex.notes || '',
+                        index + 1,
+                        ex.rpe !== undefined && ex.rpe !== null ? ex.rpe : null,
+                        ex.rir !== undefined && ex.rir !== null ? ex.rir : null,
+                        (ex.isCardio || ex.is_cardio) ? true : false,
+                        ex.targetDistance || ex.target_distance || null,
+                        ex.targetDuration || ex.target_duration || null,
+                        ex.trackRpe || ex.track_rpe || false,
+                        ex.trackRir || ex.track_rir || false
+                    ]
+                );
+                insertedExercises.push(result.rows[0]);
+            }
+
+            await client.query('COMMIT');
+
+            return { ...planResult.rows[0], exercises: insertedExercises };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
      * Delete workout plan
      */
     static async delete(planId) {
@@ -445,12 +521,57 @@ class Workout {
         return result.rows;
     }
     /**
+     * Every plan scheduled for one day — the data behind the dashboard agenda.
+     *
+     * `date` is a `YYYY-MM-DD` string in the caller's local day (scheduled_date
+     * is DATE and db.js returns it verbatim, so no timezone shifting happens).
+     * Scope is optional and additive:
+     *   - `traineeId` → that trainee's plans (trainee dashboard)
+     *   - `coachId`   → plans of the trainees linked to that coach
+     *   - neither     → the whole day (admin)
+     *
+     * `exercise_count` comes from a correlated subquery so the agenda needs a
+     * single round-trip instead of one extra query per row.
+     */
+    static async findAgenda({ date, traineeId = null, coachId = null } = {}) {
+        const result = await pool.query(
+            `SELECT wp.id,
+                    wp.trainee_id,
+                    wp.coach_id,
+                    wp.name,
+                    wp.status,
+                    wp.scheduled_date,
+                    wp.shared_session_id,
+                    wp.created_at,
+                    u.name  AS trainee_name,
+                    u.email AS trainee_email,
+                    (SELECT COUNT(*)::int
+                       FROM exercises e
+                      WHERE e.workout_plan_id = wp.id) AS exercise_count
+               FROM workout_plans wp
+               JOIN users u ON u.id = wp.trainee_id
+              WHERE wp.scheduled_date = $1::date
+                AND ($2::int IS NULL OR wp.trainee_id = $2::int)
+                AND ($3::int IS NULL OR wp.trainee_id IN (
+                        SELECT ct.trainee_id
+                          FROM coach_trainee ct
+                         WHERE ct.coach_id = $3::int))
+              ORDER BY u.name ASC, wp.created_at ASC
+              LIMIT 200`,
+            [date, traineeId, coachId]
+        );
+
+        return result.rows;
+    }
+
+    /**
      * Get progression data for a specific exercise and user
      */
     static async getProgression(userId, exerciseName) {
         const result = await pool.query(
             `SELECT 
                 el.weight_used, 
+                el.weight_unit,
                 el.reps_completed, 
                 el.completed_at,
                 el.set_number,
