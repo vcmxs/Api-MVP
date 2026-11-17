@@ -425,6 +425,7 @@ const en = {
     tomorrow: "Tomorrow",
     noDayWorkouts: "No workouts",
     loadError: "Could not load your workouts.",
+    openError: "Could not open this workout.",
     deleteError: "Could not delete the workout.",
     createError: "Could not create the workout.",
     notLoggedIn: "Please sign in again.",

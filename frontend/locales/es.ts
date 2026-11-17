@@ -427,6 +427,7 @@ const es: TranslationKeys = {
     tomorrow: "Mañana",
     noDayWorkouts: "Sin rutinas",
     loadError: "No se pudieron cargar tus rutinas.",
+    openError: "No se pudo abrir esta rutina.",
     deleteError: "No se pudo eliminar la rutina.",
     createError: "No se pudo crear la rutina.",
     notLoggedIn: "Vuelve a iniciar sesión.",

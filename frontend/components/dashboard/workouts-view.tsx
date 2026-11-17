@@ -31,7 +31,32 @@ import {
 } from "./exercise-reorder"
 
 
-// ── API types ─────────────────────────────────────────────────────────────
+// ── Set-table layout ──────────────────────────────────────────────────────
+
+/**
+ * Column template shared by the set-table headers and rows
+ * (serie · anterior · peso · reps · acciones).
+ *
+ * It used to be a flex row where the weight field was `flex-1`: the input ate
+ * every spare pixel while reps sat at a fixed 48px and "anterior" was squeezed
+ * into 44px. Two proportional tracks keep peso/reps equally wide — reps is as
+ * easy to type in as weight — and the history column only needs room for its
+ * compact `20×10` label. The trailing 50/60px block matches the two icon
+ * buttons of a completed row, which the old header under-reserved by 2px.
+ */
+const SET_TABLE_GRID =
+  "grid min-w-0 grid-cols-[24px_42px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-1 sm:grid-cols-[28px_56px_minmax(0,1fr)_minmax(0,0.8fr)_60px] sm:gap-2"
+
+/**
+ * Header of the weight column. A plate-stack load is a plate *count*, not a
+ * mass, so calling that column "Peso" while the target line right above reads
+ * "20 Placas" is what makes a plates exercise get logged as kilos.
+ */
+function weightColumnLabel(exercise: Pick<ApiExercise, "weight_unit" | "weightUnit">, t: TranslationKeys): string {
+  return isPlatesUnit(exercise.weight_unit ?? exercise.weightUnit)
+    ? t.workouts.loadPlates
+    : (t.workouts?.weightColumn || "Weight")
+}
 
 interface ApiSetLog {
   id: number
@@ -185,8 +210,9 @@ function useLastSessionHistory(exerciseName: string, workoutDate?: string, subje
         const setNum = l.setNumber ?? l.set_number
         const w = l.weight ?? l.weightUsed ?? l.weight_used
         const r = l.reps ?? l.repsCompleted ?? l.reps_completed
-        const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-        if (setNum != null && w != null && r != null) map[setNum] = `${w}${unit}×${r}`
+        // Compact `20×10`: the header above already says whether this row is
+        // measured in kg or in plates, and 42px of table cannot fit "20kg×10".
+        if (setNum != null && w != null && r != null) map[setNum] = `${formatDecimal(w)}×${r}`
       }
       setHistory(map)
     }).catch(() => {})
@@ -354,6 +380,8 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
 }) {
   const isDone = !!(log?.completed || log?.is_completed)
   const { t } = useT()
+  const weightUnit = exercise.weight_unit ?? exercise.weightUnit
+  const weightLabel = weightColumnLabel(exercise, t)
   const [editing, setEditing] = useState(false)
   const [weight, setWeight] = useState("")
   const [reps, setReps] = useState("")
@@ -441,13 +469,18 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   if (isDone && !editing) {
     const w = log?.weight_used ?? log?.weightUsed
     const r = log?.reps_completed ?? log?.repsCompleted
+    // Plates are already announced by the column header ("Placas"), so the
+    // cell keeps just the count and never truncates inside its narrow track.
+    const weightCell = w == null
+      ? "—"
+      : isPlatesUnit(weightUnit) ? formatDecimal(w) : formatLoad(w, weightUnit, t.workouts.loadPlates)
     return (
-      <div className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-2 sm:gap-2 sm:px-3" style={{ backgroundColor: "rgba(0,255,136,0.06)" }}>
-        <span className="w-7 shrink-0 text-sm font-bold text-[#00ff88]">{setNumber}</span>
-        <span className="w-11 shrink-0 truncate text-center text-[10px] font-bold sm:w-16" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
-        <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-white sm:w-20 sm:flex-none">{w != null ? `${w}${exercise.weight_unit ?? "kg"}` : "—"}</span>
-        <span className="w-12 shrink-0 text-center text-sm font-medium text-white sm:w-14">{r ?? "—"}</span>
-        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+      <div className={cn(SET_TABLE_GRID, "rounded-lg px-2 py-2 sm:px-3")} style={{ backgroundColor: "rgba(0,255,136,0.06)" }}>
+        <span className="truncate text-sm font-bold text-[#00ff88]">{setNumber}</span>
+        <span className="truncate text-center text-[10px] font-bold" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
+        <span className="truncate text-center text-sm font-medium text-white" title={w != null ? formatLoad(w, weightUnit, t.workouts.loadPlates) : undefined}>{weightCell}</span>
+        <span className="truncate text-center text-sm font-medium text-white">{r ?? "—"}</span>
+        <div className="flex items-center justify-end gap-0.5 sm:gap-1">
           <button onClick={() => setEditing(true)} className="flex h-6 w-6 items-center justify-center rounded text-[#555555] transition-colors hover:text-[#00ffff]" title={t.workouts.editSet}>
             <Pencil className="h-3 w-3" />
           </button>
@@ -461,24 +494,31 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
 
   // Editable row (pending or editing a completed set)
   return (
-    <div className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 sm:gap-2 sm:px-3" style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
-      <span className="w-7 shrink-0 text-sm font-bold text-[#888888]">{setNumber}</span>
-      <span className="w-11 shrink-0 truncate text-center text-[10px] font-bold text-[#555555] sm:w-16">{lastHistory ?? "—"}</span>
+    <div className={cn(SET_TABLE_GRID, "rounded-lg px-2 py-1.5 sm:px-3")} style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
+      <span className="truncate text-sm font-bold text-[#888888]">{setNumber}</span>
+      <span className="truncate text-center text-[10px] font-bold text-[#555555]">{lastHistory ?? "—"}</span>
       <input
         type="number"
+        step="any"
+        inputMode="decimal"
         value={weight}
         onChange={(e) => { userEdited.current = true; setWeight(e.target.value) }}
         placeholder={String(exercise.target_weight ?? exercise.targetWeight ?? "0")}
-        className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none sm:w-20 sm:flex-none"
+        aria-label={weightLabel}
+        title={weightLabel}
+        className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-1.5 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
       />
       <input
         type="number"
+        step="1"
+        inputMode="numeric"
         value={reps}
         onChange={(e) => { userEdited.current = true; setReps(e.target.value) }}
         placeholder={String(exercise.reps ?? "0")}
-        className="w-12 shrink-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-2 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none sm:w-14"
+        aria-label={t.workouts.repsColumn}
+        className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-1.5 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
       />
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+      <div className="flex items-center justify-end gap-0.5 sm:gap-1">
         {editing && (
           <button onClick={() => setEditing(false)} className="flex h-6 w-6 items-center justify-center rounded text-[#555555] hover:text-white sm:h-7 sm:w-7">
             <X className="h-3.5 w-3.5" />
@@ -656,12 +696,12 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
       <ExerciseNotesPanel exercise={exercise} workoutId={workoutId} coachId={coachId} traineeId={traineeId} onRefresh={onRefresh} />
 
       {!isCardio && (
-        <div className="mb-1 flex min-w-0 items-center gap-1.5 px-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:gap-2 sm:text-[10px] sm:tracking-wider">
-          <span className="w-7 shrink-0 truncate">{t.workouts?.setColumn || "Set"}</span>
-          <span className="w-11 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
-          <span className="min-w-0 flex-1 text-center sm:w-20 sm:flex-none">{t.workouts?.weightColumn || "Weight"}</span>
-          <span className="w-12 shrink-0 text-center sm:w-14">{t.workouts?.repsColumn || "Reps"}</span>
-          <span aria-hidden className="w-[48px] shrink-0 sm:w-[60px]" />
+        <div className={cn(SET_TABLE_GRID, "mb-1 px-2 py-0.5 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:px-3 sm:text-[10px] sm:tracking-wider")}>
+          <span className="truncate">{t.workouts?.setColumn || "Set"}</span>
+          <span className="truncate text-center">{t.workouts?.lastColumn || "Last"}</span>
+          <span className="truncate text-center">{weightColumnLabel(exercise, t)}</span>
+          <span className="truncate text-center">{t.workouts?.repsColumn || "Reps"}</span>
+          <span aria-hidden />
         </div>
       )}
 
@@ -803,12 +843,12 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
 
       {/* Column headers */}
       {!isCardio && (
-        <div className="flex min-w-0 items-center gap-1.5 px-3 py-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:gap-2 sm:px-4 sm:text-[10px] sm:tracking-wider">
-          <span className="w-7 shrink-0 truncate">{t.workouts?.setColumn || "Set"}</span>
-          <span className="w-11 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
-          <span className="min-w-0 flex-1 text-center sm:w-20 sm:flex-none">{t.workouts?.weightColumn || "Weight"}</span>
-          <span className="w-12 shrink-0 text-center sm:w-14">{t.workouts?.repsColumn || "Reps"}</span>
-          <span aria-hidden className="w-[48px] shrink-0 sm:w-[60px]" />
+        <div className={cn(SET_TABLE_GRID, "px-3 py-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:px-4 sm:text-[10px] sm:tracking-wider")}>
+          <span className="truncate">{t.workouts?.setColumn || "Set"}</span>
+          <span className="truncate text-center">{t.workouts?.lastColumn || "Last"}</span>
+          <span className="truncate text-center">{weightColumnLabel(exercise, t)}</span>
+          <span className="truncate text-center">{t.workouts?.repsColumn || "Reps"}</span>
+          <span aria-hidden />
         </div>
       )}
 
@@ -858,6 +898,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   const dateLocale = useDateLocale()
   const [rawDetail, setRawDetail] = useState<ApiWorkout | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [completing, setCompleting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -877,15 +918,20 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
     try {
       const data = await apiFetch<ApiWorkout>(`/workout-plans/${id}`)
       setRawDetail(data)
+      setLoadFailed(false)
     } catch {
+      // The agenda can surface a plan the detail route rejects (e.g. a co-op
+      // session whose owner is another coach), so keep an explicit failure
+      // state instead of leaving an empty sheet behind.
       setRawDetail(null)
+      setLoadFailed(true)
     } finally {
       if (!silent) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    if (!open || !workout) { setRawDetail(null); return }
+    if (!open || !workout) { setRawDetail(null); setLoadFailed(false); return }
     fetchDetail(workout.id)
   }, [open, workout?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -952,7 +998,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
             "min-h-0 flex-1 overflow-y-auto overscroll-contain",
             // Leave room for the floating button; without it (completed or
             // still loading) a small bottom padding is enough.
-            isCompleted || loading ? "pb-6" : "pb-32",
+            isCompleted || loading || loadFailed ? "pb-6" : "pb-32",
           )}
           style={{ "--hp": 0 } as React.CSSProperties}
         >
@@ -991,6 +1037,17 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-[#00ffff]" />
+              </div>
+            ) : loadFailed ? (
+              <div className="flex flex-col items-center gap-3 py-12 text-center">
+                <AlertCircle className="h-8 w-8 text-[#ff4444]" />
+                <p className="text-sm text-[#888888]">{t.workouts.openError}</p>
+                <button
+                  onClick={() => fetchDetail(workout.id)}
+                  className="rounded-lg border border-white/[0.12] px-3 py-1.5 text-xs font-semibold text-[#00ffff] transition-colors hover:bg-white/[0.05]"
+                >
+                  {t.todayWorkouts.retry}
+                </button>
               </div>
             ) : exercises.length === 0 ? (
               <div className="flex flex-col items-center py-12 text-[#555555]">
@@ -1061,7 +1118,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
 
         {/* Floating footer: the wrapper ignores pointer events so the content
             behind the blur stays scrollable; only the button is interactive. */}
-        {!loading && !isCompleted && (
+        {!loading && !loadFailed && !isCompleted && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
             <div
               className="absolute inset-0"

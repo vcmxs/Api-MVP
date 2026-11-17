@@ -1204,7 +1204,9 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                               ) : (
                                 <>
                                   <span className="truncate text-center">{t.workouts?.lastColumn || "Last"}</span>
-                                  <span className="truncate text-center">{t.workouts?.weightColumn || "Weight"}</span>
+                                  <span className="truncate text-center">
+                                    {isPlatesUnit(ex.weight_unit ?? ex.weightUnit) ? t.workouts.loadPlates : (t.workouts?.weightColumn || "Weight")}
+                                  </span>
                                   <span className="truncate text-center">{t.workouts?.repsColumn || "Reps"}</span>
                                   {showRpe && <span className="truncate text-center">RPE</span>}
                                   {showRir && <span className="truncate text-center">RIR</span>}
@@ -1354,7 +1356,9 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                         <div className="mb-1 flex min-w-0 items-center gap-1.5 px-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:gap-2 sm:text-[10px] sm:tracking-wider">
                                           <span className="w-7 shrink-0 truncate">{t.workouts?.setColumn || "Set"}</span>
                                           <span className="w-11 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
-                                          <span className="min-w-0 flex-1 text-center sm:w-20 sm:flex-none">{t.workouts?.weightColumn || "Weight"}</span>
+                                          <span className="min-w-0 flex-1 truncate text-center sm:w-20 sm:flex-none">
+                                            {isPlatesUnit(ex.weight_unit ?? ex.weightUnit) ? t.workouts.loadPlates : (t.workouts?.weightColumn || "Weight")}
+                                          </span>
                                           <span className="w-12 shrink-0 text-center sm:w-14">{t.workouts?.repsColumn || "Reps"}</span>
                                           {showRpe && <span className="w-8 shrink-0 text-center sm:w-10">RPE</span>}
                                           {showRir && <span className="w-8 shrink-0 text-center sm:w-10">RIR</span>}
