@@ -10,10 +10,13 @@ import {
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
+import { formatLoad, normalizeLoadUnit, type LoadUnit } from "@/lib/format"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
+import { isPaymentInactive } from "@/lib/trainee-payment"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
+import { LoadUnitToggle } from "./load-unit-toggle"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import {
   DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
@@ -166,6 +169,8 @@ interface LocalWorkoutExercise {
   sets?: number
   reps?: number
   weight?: number
+  /** Load type of `weight`: "kg" or "plates". */
+  weightUnit?: string
   notes?: string
   isCardio?: boolean
   isSuperset?: boolean
@@ -203,7 +208,7 @@ function localWorkoutToProgramWorkout(workout: LocalWorkoutRecord): ApiProgramWo
         sets: ex.sets ?? 3,
         reps: ex.reps ?? 10,
         targetWeight: ex.weight ?? 0,
-        weightUnit: "kg",
+        weightUnit: ex.weightUnit ?? "kg",
         restTime: ex.isSuperset ? -1 : 60,
         notes: ex.notes ?? "",
         exerciseOrder: index,
@@ -322,7 +327,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
 
   const addCreateEx = () => {
     const id = newExerciseRowId()
-    setCreateExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }])
+    setCreateExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, weightUnit: "kg", notes: "", isCardio: false }])
     setExPickerTarget(id)
   }
 
@@ -361,7 +366,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
             userId: user.id, name: createName.trim(), programId: programFolderId,
             exercises: validEx.map((e, i) => ({
               name: e.name.trim(), sets: e.sets, reps: e.reps, targetWeight: e.weight,
-              weightUnit: "kg", restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
+              weightUnit: e.weightUnit, restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
               trackRpe: false, trackRir: false, isCardio: e.isCardio,
             })),
           }),
@@ -530,7 +535,12 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
 
 // ── Builder Exercise Row ──────────────────────────────────────────────────
 
-interface BuilderEx { id: string; name: string; sets: number; reps: number; weight: number; notes: string; isCardio: boolean; isSuperset?: boolean }
+interface BuilderEx {
+  id: string; name: string; sets: number; reps: number; weight: number
+  /** "kg" for bar load, "plates" for a machine plate stack (stored in `weight_unit`). */
+  weightUnit: LoadUnit
+  notes: string; isCardio: boolean; isSuperset?: boolean
+}
 
 const mapApiExToBuilderEx = (ex: any): BuilderEx => ({
   id: ex.id ? `ex-${ex.id}` : `ex-${Date.now()}-${Math.random()}`,
@@ -538,6 +548,7 @@ const mapApiExToBuilderEx = (ex: any): BuilderEx => ({
   sets: ex.sets || 3,
   reps: ex.reps || 10,
   weight: Number(ex.targetWeight ?? ex.target_weight ?? 0),
+  weightUnit: normalizeLoadUnit(ex.weightUnit ?? ex.weight_unit),
   notes: ex.notes || "",
   isSuperset: ex.isSuperset || ex.restTime === -1 || ex.rest_time === -1 || false,
   isCardio: !!(ex.isCardio ?? ex.is_cardio ?? false),
@@ -549,6 +560,7 @@ const mapLocalWorkoutExercise = (exercise: any, index: number): BuilderEx => ({
   sets: Number(exercise.sets) || 3,
   reps: Number(exercise.reps) || 10,
   weight: Number(exercise.weight ?? exercise.targetWeight ?? exercise.target_weight) || 0,
+  weightUnit: normalizeLoadUnit(exercise.weightUnit ?? exercise.weight_unit),
   notes: exercise.notes || "",
   isCardio: Boolean(exercise.isCardio ?? exercise.is_cardio),
   isSuperset: Boolean(exercise.isSuperset) || exercise.restTime === -1 || exercise.rest_time === -1,
@@ -595,7 +607,7 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId, dragHandle,
         const w = l.weight ?? l.weightUsed ?? l.weight_used
         const r = l.reps ?? l.repsCompleted ?? l.reps_completed
         const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-        if (setNum != null && w != null && r != null) map[setNum] = `${w}${unit}×${r}`
+        if (setNum != null && w != null && r != null) map[setNum] = `${formatLoad(w, unit, t.workouts.loadPlates)}×${r}`
       }
       setLastHistory(map)
     }).catch(() => {})
@@ -638,16 +650,16 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId, dragHandle,
       )}
       <div className={cn("grid gap-2", ex.isCardio ? "grid-cols-2" : "grid-cols-3")}>
         <div>
-          <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.sets}</label>
-          <input type="number" value={rawSets} min={0} max={20}
+          <label className="mb-0.5 flex h-5 items-center text-[9px] text-[#555555]">{t.programs.sets}</label>
+          <input type="number" value={rawSets} min={0} max={20} step="1" inputMode="numeric"
             onChange={e => setRawSets(e.target.value)}
             onBlur={() => commitNum("sets", rawSets, 20)}
             className={inputCls} />
         </div>
         {ex.isCardio ? (
           <div>
-            <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.durationMin}</label>
-            <input type="number" value={rawReps} min={0} max={999}
+            <label className="mb-0.5 flex h-5 items-center text-[9px] text-[#555555]">{t.programs.durationMin}</label>
+            <input type="number" value={rawReps} min={0} max={999} step="any" inputMode="decimal"
               onChange={e => setRawReps(e.target.value)}
               onBlur={() => commitNum("reps", rawReps, 999)}
               className={inputCls} />
@@ -655,15 +667,17 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, userId, dragHandle,
         ) : (
           <>
             <div>
-              <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.reps}</label>
-              <input type="number" value={rawReps} min={0} max={999}
+              <label className="mb-0.5 flex h-5 items-center text-[9px] text-[#555555]">{t.programs.reps}</label>
+              <input type="number" value={rawReps} min={0} max={999} step="1" inputMode="numeric"
                 onChange={e => setRawReps(e.target.value)}
                 onBlur={() => commitNum("reps", rawReps, 999)}
                 className={inputCls} />
             </div>
             <div>
-              <label className="mb-0.5 block text-[9px] text-[#555555]">{t.programs.weightKg}</label>
-              <input type="number" value={rawWeight} min={0} max={1000}
+              <div className="mb-0.5 flex h-5 items-center">
+                <LoadUnitToggle value={ex.weightUnit} onChange={unit => onChange(ex.id, "weightUnit", unit)} />
+              </div>
+              <input type="number" value={rawWeight} min={0} max={1000} step="any" inputMode="decimal"
                 onChange={e => setRawWeight(e.target.value)}
                 onBlur={() => commitNum("weight", rawWeight, 1000)}
                 className={inputCls} />
@@ -711,7 +725,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
     }
   }, [open, editWorkoutId, editWorkoutName, editWorkoutDesc, editWorkoutExercises])
 
-  const addEx = () => { const id = newExerciseRowId(); setExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false }]); setPickerTargetId(id) }
+  const addEx = () => { const id = newExerciseRowId(); setExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, weightUnit: "kg", notes: "", isCardio: false }]); setPickerTargetId(id) }
   const updateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) => setExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
   const removeEx = (id: string) => setExercises(p => p.filter(e => e.id !== id))
   const reorder = useExerciseReorder((from, to) => setExercises(p => moveItem(p, from, to)))
@@ -754,7 +768,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
             userId: user.id, name: name.trim(), description: description.trim() || undefined, programId,
             exercises: savedExercises.map((e, i) => ({
               name: e.name, sets: e.sets, reps: e.reps, targetWeight: e.weight,
-              weightUnit: "kg", restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
+              weightUnit: e.weightUnit, restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
               trackRpe: false, trackRir: false, isCardio: e.isCardio,
             })),
           }),
@@ -1196,7 +1210,16 @@ function PlanBuilderSheet({ open, onOpenChange, programFolderId, editPlan, onSav
 
 // ── Assign Plan Modal ─────────────────────────────────────────────────────
 
-interface AssignTrainee { id: number; name: string; email: string; isOverLimit?: boolean }
+interface AssignTrainee {
+  id: number
+  name: string
+  email: string
+  /** Out of the coach's plan slots *or* without a live payment. */
+  isOverLimit?: boolean
+  /** Coach-assigned subscription (already returned by `GET /coaches/:id/trainees`). */
+  coach_subscription_status?: string
+  coach_subscription_end_date?: string
+}
 
 const TIER_LIMITS: Record<string, number> = {
   starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
@@ -1237,6 +1260,10 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
 
   const updateField = (index: number, field: "sets" | "reps" | "targetWeight" | "weightIncrement", value: number) =>
     onChange(exercises.map((ex, i) => i === index ? { ...ex, [field]: value } : ex))
+
+  /** Load type is not numeric, so it needs its own setter (it maps to `weight_unit`). */
+  const updateLoadUnit = (index: number, weightUnit: LoadUnit) =>
+    onChange(exercises.map((ex, i) => i === index ? { ...ex, weightUnit } : ex))
 
   const removeAt = (index: number) => onChange(exercises.filter((_, i) => i !== index))
 
@@ -1300,16 +1327,28 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
                     <button onClick={() => removeAt(i)} className="text-[#555555] hover:text-[#ff4444]"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-4 gap-2 sm:gap-3">
                   {[
                     { label: t.programs.sets, field: "sets" as const, value: ex.sets },
                     { label: t.programs.reps, field: "reps" as const, value: ex.reps },
-                    { label: t.programs.weightKg, field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
+                    { label: "", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
                     { label: "+ / " + t.programs.week.slice(0, 2).toUpperCase(), field: "weightIncrement" as const, value: ex.weightIncrement ?? 0 },
                   ].map(({ label, field, value }) => (
                     <div key={field}>
-                      <label className="mb-1 block text-[10px] uppercase text-[#555555] truncate">{label}</label>
+                      <div className="mb-1 flex h-5 items-center">
+                        {field === "targetWeight" ? (
+                          <LoadUnitToggle
+                            accent="violet"
+                            value={ex.weightUnit ?? ex.weight_unit}
+                            onChange={unit => updateLoadUnit(i, unit)}
+                          />
+                        ) : (
+                          <label className="truncate text-[10px] uppercase text-[#555555]">{label}</label>
+                        )}
+                      </div>
                       <input type="number" defaultValue={value as number} min={0}
+                        step={field === "sets" || field === "reps" ? "1" : "any"}
+                        inputMode={field === "sets" || field === "reps" ? "numeric" : "decimal"}
                         onChange={e => updateField(i, field, parseFloat(e.target.value) || 0)}
                         className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
                     </div>
@@ -1402,7 +1441,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             const w = l.weight ?? l.weightUsed ?? l.weight_used
             const r = l.reps ?? l.repsCompleted ?? l.reps_completed
             const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-            if (setNum != null && w != null && r != null) setMap[setNum] = `${w}${unit}×${r}`
+            if (setNum != null && w != null && r != null) setMap[setNum] = `${formatLoad(w, unit, t.workouts.loadPlates)}×${r}`
           }
           map[ex.name] = setMap
         }
@@ -1438,7 +1477,12 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         const rawTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
         const userTier = isSubExpired ? "starter" : rawTier
         const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
-        const realTrainees = fetched.filter(t => t.id !== user.id).map((t, i) => ({ ...t, isOverLimit: i >= currentLimit }))
+        // Not assignable when out of the coach's plan slots *or* when the
+        // coach-assigned payment is not live — the rule `TraineesView` already
+        // shows as "Expired" but this modal was skipping.
+        const realTrainees = fetched
+          .filter(t => t.id !== user.id)
+          .map((t, i) => ({ ...t, isOverLimit: i >= currentLimit || isPaymentInactive(t) }))
         const meAsTrainee: AssignTrainee = { id: user.id, name: `${user.name || "Coach"} (Me)`, email: user.email || "", isOverLimit: false }
         setTrainees([meAsTrainee, ...realTrainees])
       })
@@ -1608,9 +1652,16 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#a78bfa]/30 to-[#00ffff]/20 text-[10px] font-bold text-[#a78bfa]">
                           {t_item.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="truncate text-sm font-medium text-white">
-                          {t_item.name} {t_item.isOverLimit && "🔒"}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">
+                            {t_item.name} {t_item.isOverLimit && !isPaymentInactive(t_item) && "🔒"}
+                          </p>
+                          {isPaymentInactive(t_item) && (
+                            <p className="truncate text-[10px] font-bold uppercase tracking-wide text-[#ff4444]">
+                              {t.access.lockedPaymentExpired}
+                            </p>
+                          )}
+                        </div>
                         {!t_item.isOverLimit && selectedTrainee?.id === t_item.id && <Check className="ml-auto h-4 w-4 text-[#a78bfa]" />}
                       </button>
                     ))}
@@ -1720,6 +1771,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 targetWeight: 0,
                 target_weight: 0,
                 isCardio,
+                weightUnit: "kg",
                 weightIncrement: 0,
               }
               setEditedExercises(m => {
@@ -1953,7 +2005,7 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange, onDeleteFolde
                               {(workout.exercises ?? []).map((ex, idx) => (
                                 <div key={idx} className="flex items-center justify-between rounded-lg bg-[#0a0a0f] px-3 py-2">
                                   <span className="text-sm text-white">{idx + 1}. {ex.name}</span>
-                                  <span className="text-xs text-[#555555]">{ex.sets}×{ex.reps}{(ex.targetWeight ?? ex.target_weight) ? ` @ ${ex.targetWeight ?? ex.target_weight}kg` : ""}</span>
+                                  <span className="text-xs text-[#555555]">{ex.sets}×{ex.reps}{(ex.targetWeight ?? ex.target_weight) ? ` @ ${formatLoad(ex.targetWeight ?? ex.target_weight, ex.weightUnit ?? ex.weight_unit, t.workouts.loadPlates)}` : ""}</span>
                                 </div>
                               ))}
                             </div>

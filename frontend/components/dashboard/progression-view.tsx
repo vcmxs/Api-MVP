@@ -5,14 +5,18 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Dumbbell, X, ChevronDown, Loader2, Weight, User, Users } from "lucide-react"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { formatLoad } from "@/lib/format"
 
 interface ProgressionPoint {
   date?: string
   completed_at?: string
   weight?: number
+  weightUnit?: string
+  weight_unit?: string
   reps?: number
-  oneRepMax?: number
-  one_rep_max?: number
+  /** Null for plate-stack loads: Epley only applies to kilograms. */
+  oneRepMax?: number | null
+  one_rep_max?: number | null
 }
 
 interface WeightLog {
@@ -137,13 +141,18 @@ export function ProgressionView({ defaultSubject }: { defaultSubject?: Trainee |
   }, [activeTab, targetUserId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Chart data
-  const chartPoints = progressionData.slice(-10).map(p => ({
-    date: (() => {
-      const d = new Date(p.date || p.completed_at || "")
-      return `${d.getDate()}/${d.getMonth() + 1}`
-    })(),
-    "1RM": p.oneRepMax ?? p.one_rep_max ?? 0,
-  }))
+  // Plate-stack sets come back with `oneRepMax: null`; plotting them as 0 would
+  // fake a strength drop, so they are left out of the 1RM series entirely.
+  const chartPoints = progressionData
+    .filter(p => (p.oneRepMax ?? p.one_rep_max) != null)
+    .slice(-10)
+    .map(p => ({
+      date: (() => {
+        const d = new Date(p.date || p.completed_at || "")
+        return `${d.getDate()}/${d.getMonth() + 1}`
+      })(),
+      "1RM": p.oneRepMax ?? p.one_rep_max ?? 0,
+    }))
 
   const weightChartPoints = weightHistory.slice(-10).map(w => ({
     date: (() => {
@@ -270,7 +279,7 @@ export function ProgressionView({ defaultSubject }: { defaultSubject?: Trainee |
                     <div key={i} className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
                       <span className="text-sm text-[#888888]">{date.toLocaleDateString()}</span>
                       <div className="flex items-center gap-4">
-                        <span className="text-sm font-medium text-white">{log.weight}kg × {log.reps}</span>
+                        <span className="text-sm font-medium text-white">{formatLoad(log.weight, log.weightUnit ?? log.weight_unit)} × {log.reps}</span>
                         {orm != null && (
                           <span className="text-sm font-bold text-[#00ffff]">1RM: {orm}kg</span>
                         )}

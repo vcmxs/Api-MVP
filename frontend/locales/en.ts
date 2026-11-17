@@ -1,4 +1,9 @@
 const en = {
+  // ── Access / payment gating ────────────────────────────────────────────────
+  access: {
+    lockedPaymentExpired: "Locked · payment expired",
+  },
+
   // ── Sidebar nav ────────────────────────────────────────────────────────────
   nav: {
     overview: "Overview",
@@ -79,6 +84,20 @@ const en = {
     ago: "ago",
   },
 
+  // ── Today's workouts (dashboard agenda) ────────────────────────────────────
+  todayWorkouts: {
+    title: "Today's Workouts",
+    total: "total",
+    completed: "done",
+    pending: "pending",
+    empty: "No workouts scheduled for today",
+    emptyHint: "Assign a routine and it will show up here.",
+    error: "Could not load today's workouts.",
+    retry: "Retry",
+    refresh: "Refresh",
+    viewAll: "View all",
+  },
+
   // ── Trainees View ──────────────────────────────────────────────────────────
   trainees: {
     title: "My Trainees",
@@ -148,6 +167,13 @@ const en = {
     unlinkConfirmBody: "They will be removed from your trainee list and will stop receiving the workouts you assigned. Their account and data are not deleted — you can invite them again later.",
     unlinkConfirmAction: "Unlink",
     unlinkError: "Could not unlink this trainee. Please try again.",
+    editWorkout: "Edit",
+    deleteWorkout: "Delete",
+    deleteWorkoutTitle: "Delete this workout?",
+    deleteWorkoutBody: "It will be removed from this trainee's plan, including any sets already logged. This cannot be undone.",
+    deleteWorkoutConfirm: "Delete workout",
+    deleteWorkoutError: "Could not delete this workout.",
+    completedLocked: "Completed workouts can't be edited or deleted.",
   },
 
   // ── Trainee Overview (trainee dashboard) ───────────────────────────────────
@@ -361,12 +387,20 @@ const en = {
     exercises: "exercises",
     exercise: "exercise",
     deleteConfirm: "Delete this workout?",
+    editWorkoutTitle: "Edit Workout",
+    saveChanges: "Save Changes",
+    updatedSuccess: "Workout updated for {trainee}.",
+    updateError: "Could not update the workout.",
     assignTo: "Assign to Trainee",
     statusCompleted: "COMPLETED",
+    statusInProgress: "IN PROGRESS",
     statusAssigned: "ASSIGNED",
     statusPending: "PENDING",
     statusAll: "All",
     coOp: "Co-Op",
+    loadType: "Load type",
+    loadKg: "Kg",
+    loadPlates: "Plates",
     editSet: "Edit set",
     uncheckSet: "Uncheck set",
     logSet: "Log set",

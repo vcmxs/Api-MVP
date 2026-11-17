@@ -1,6 +1,11 @@
 import type { TranslationKeys } from "./en"
 
 const es: TranslationKeys = {
+  // ── Acceso / control de pagos ──────────────────────────────────────────────
+  access: {
+    lockedPaymentExpired: "Bloqueado · pago vencido",
+  },
+
   // ── Sidebar nav ────────────────────────────────────────────────────────────
   nav: {
     overview: "Inicio",
@@ -81,6 +86,20 @@ const es: TranslationKeys = {
     ago: "atrás",
   },
 
+  // ── Today's workouts (dashboard agenda) ────────────────────────────────────
+  todayWorkouts: {
+    title: "Rutinas de hoy",
+    total: "total",
+    completed: "hechas",
+    pending: "pendientes",
+    empty: "No hay rutinas programadas para hoy",
+    emptyHint: "Asigna una rutina y aparecerá aquí.",
+    error: "No se pudieron cargar las rutinas de hoy.",
+    retry: "Reintentar",
+    refresh: "Actualizar",
+    viewAll: "Ver todo",
+  },
+
   // ── Trainees View ──────────────────────────────────────────────────────────
   trainees: {
     title: "Mis Alumnos",
@@ -150,6 +169,13 @@ const es: TranslationKeys = {
     unlinkConfirmBody: "Se eliminará de tu lista de alumnos y dejará de recibir las rutinas que le asignaste. Su cuenta y sus datos no se eliminan — podés volver a invitarlo más adelante.",
     unlinkConfirmAction: "Desvincular",
     unlinkError: "No se pudo desvincular al alumno. Intentá de nuevo.",
+    editWorkout: "Editar",
+    deleteWorkout: "Eliminar",
+    deleteWorkoutTitle: "¿Eliminar esta rutina?",
+    deleteWorkoutBody: "Se quitará del plan de este alumno, incluidas las series ya registradas. No se puede deshacer.",
+    deleteWorkoutConfirm: "Eliminar rutina",
+    deleteWorkoutError: "No se pudo eliminar esta rutina.",
+    completedLocked: "Las rutinas completadas no se pueden editar ni eliminar.",
   },
 
   // ── Trainee Overview (trainee dashboard) ─────────────────────────────────
@@ -363,12 +389,20 @@ const es: TranslationKeys = {
     exercises: "ejercicios",
     exercise: "ejercicio",
     deleteConfirm: "¿Eliminar esta rutina?",
+    editWorkoutTitle: "Editar Rutina",
+    saveChanges: "Guardar Cambios",
+    updatedSuccess: "Rutina actualizada para {trainee}.",
+    updateError: "No se pudo actualizar la rutina.",
     assignTo: "Asignar a Alumno",
     statusCompleted: "COMPLETADA",
+    statusInProgress: "EN CURSO",
     statusAssigned: "ASIGNADA",
     statusPending: "PENDIENTE",
     statusAll: "Todas",
     coOp: "Co-Op",
+    loadType: "Tipo de carga",
+    loadKg: "Kg",
+    loadPlates: "Placas",
     editSet: "Editar serie",
     uncheckSet: "Desmarcar serie",
     logSet: "Registrar serie",

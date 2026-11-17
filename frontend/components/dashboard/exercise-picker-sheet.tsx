@@ -322,6 +322,14 @@ export function ExercisePickerSheet({
     handleOpenChange(false)
   }
 
+  // The muscle chips are a single-line slider now, so a category picked deep in
+  // the list has to be scrolled back into view when the sheet reopens.
+  const activeChipRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    if (!open) return
+    activeChipRef.current?.scrollIntoView({ inline: "center", block: "nearest" })
+  }, [open, category])
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -382,12 +390,22 @@ export function ExercisePickerSheet({
               )}
             </div>
 
-            <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5">
+            {/* Muscle chips: one horizontally scrollable row so the list keeps a
+                fixed height instead of wrapping into several lines. */}
+            <div
+              onWheel={event => {
+                // Desktop: let the mouse wheel ride the slider sideways.
+                if (event.deltaY === 0) return
+                event.currentTarget.scrollLeft += event.deltaY
+              }}
+              className="-mx-1 flex snap-x items-center gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               <button
+                ref={!category && !isSearching ? activeChipRef : undefined}
                 type="button"
                 onClick={() => { setQuery(""); setCategory(null) }}
                 className={cn(
-                  "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition",
+                  "flex min-h-[36px] shrink-0 snap-start items-center justify-center whitespace-nowrap rounded-xl border px-3.5 py-1.5 text-[13px] font-semibold leading-tight transition sm:text-sm",
                   !category && !isSearching
                     ? tint.chip
                     : "border-white/[0.1] text-[#888] hover:border-white/[0.25] hover:text-white"
@@ -399,10 +417,11 @@ export function ExercisePickerSheet({
               {categories.map(option => (
                 <button
                   key={option}
+                  ref={category === option ? activeChipRef : undefined}
                   type="button"
                   onClick={() => { setQuery(""); setCategory(option) }}
                   className={cn(
-                    "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition",
+                    "flex min-h-[36px] shrink-0 snap-start items-center justify-center whitespace-nowrap rounded-xl border px-3.5 py-1.5 text-[13px] font-semibold leading-tight transition sm:text-sm",
                     category === option
                       ? tint.chip
                       : "border-white/[0.1] text-[#888] hover:border-white/[0.25] hover:text-white"

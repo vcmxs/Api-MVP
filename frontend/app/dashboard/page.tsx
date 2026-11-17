@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { KPICard } from "@/components/dashboard/kpi-card"
 import { QuickActions } from "@/components/dashboard/quick-actions"
+import { TodayWorkouts } from "@/components/dashboard/today-workouts"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
 import { TraineesView } from "@/components/dashboard/trainees-view"
 import type { ApiTrainee } from "@/components/dashboard/trainees-view"
 import { TraineeDetail } from "@/components/dashboard/trainee-detail"
 import { TraineeOverview } from "@/components/dashboard/trainee-overview"
-import { WorkoutsView } from "@/components/dashboard/workouts-view"
+import { WorkoutsView, WorkoutDetailSheet, displayWorkoutFromAgenda, type DisplayWorkout } from "@/components/dashboard/workouts-view"
 import { MessagesView } from "@/components/dashboard/messages-view"
 import { InsightsView } from "@/components/dashboard/insights-view"
 import { ProgressionView } from "@/components/dashboard/progression-view"
@@ -51,6 +52,10 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedTrainee, setSelectedTrainee] = useState<ApiTrainee | null>(null)
+  // Workout opened from the "Today's workouts" agenda: the row is a shortcut to
+  // the log sheet of that plan, whether it belongs to a trainee or to the coach.
+  const [agendaWorkout, setAgendaWorkout] = useState<DisplayWorkout | null>(null)
+  const [agendaReloadKey, setAgendaReloadKey] = useState(0)
   const [progressionSubject, setProgressionSubject] = useState<{ id: number; name: string } | null>(null)
   const [messageTargetId, setMessageTargetId] = useState<number | null>(null)
   const [nutritionSubject, setNutritionSubject] = useState<{ id: number; name: string } | null>(null)
@@ -336,6 +341,20 @@ export default function Dashboard() {
                     onBlastMessage={() => setBlastOpen(true)}
                   />
 
+                  <TodayWorkouts
+                    // Everything in this section is about workouts, so "view
+                    // all" belongs in the Workouts tab — the roster it used to
+                    // open is a different question.
+                    onViewAll={() => changeTab("workouts")}
+                    reloadKey={agendaReloadKey}
+                    onOpenWorkout={(workout) => {
+                      // The agenda row already carries everything the sheet's
+                      // header needs; it fetches the exercises by plan id, so
+                      // this opens the workout itself instead of a tab jump.
+                      setAgendaWorkout(displayWorkoutFromAgenda(workout))
+                    }}
+                  />
+
                   <RecentActivity onViewAll={() => changeTab("notifications")} />
                 </>
               )
@@ -373,6 +392,19 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Same log sheet the Workouts tab uses, mounted here so a row of the
+          agenda opens that workout instead of navigating somewhere else. */}
+      <WorkoutDetailSheet
+        workout={agendaWorkout}
+        open={!!agendaWorkout}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) return
+          setAgendaWorkout(null)
+          // Anything logged inside the sheet changes the agenda pills.
+          setAgendaReloadKey((n) => n + 1)
+        }}
+      />
 
       {/* In-app popups for new notifications (top-right, cascading) */}
       <NotificationPopups

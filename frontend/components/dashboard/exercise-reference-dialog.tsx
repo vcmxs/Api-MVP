@@ -14,6 +14,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
+import { formatLoad } from "@/lib/format"
 import {
   datasetMediaUrl,
   getExerciseDescription,
@@ -127,19 +128,23 @@ interface ProgressionPoint {
   completed_at?: string
   scheduled_date?: string
   weight?: number
+  weightUnit?: string
+  weight_unit?: string
   reps?: number
   setNumber?: number
   set_number?: number
   rpe?: number | null
   rir?: number | null
-  oneRepMax?: number
-  one_rep_max?: number
+  /** Null for plate-stack loads: Epley only applies to kilograms. */
+  oneRepMax?: number | null
+  one_rep_max?: number | null
 }
 
 interface HistoryGroup {
   dateKey: string
   dateLabel: string
-  best: number
+  /** Null when every set of the session used plates (no 1RM estimate). */
+  best: number | null
   points: ProgressionPoint[]
 }
 
@@ -232,26 +237,34 @@ export function ExerciseReferenceDialog({ open, onOpenChange, exerciseName, targ
       grouped.get(date)!.push(point)
     })
     return Array.from(grouped.entries())
-      .map(([dateKey, points]) => ({
-        dateKey,
-        dateLabel: formatDate(dateKey),
-        best: Math.max(...points.map(point => Number(point.oneRepMax ?? point.one_rep_max ?? 0))),
-        points: points.slice().sort((a, b) => (a.setNumber ?? a.set_number ?? 0) - (b.setNumber ?? b.set_number ?? 0)),
-      }))
+      .map(([dateKey, points]) => {
+        // Plate-stack sets have no Epley estimate; mixing their null with the
+        // numeric kg estimates would turn Math.max into 0.
+        const estimates = points
+          .map(point => point.oneRepMax ?? point.one_rep_max)
+          .filter((value): value is number => value != null && Number.isFinite(value))
+        return {
+          dateKey,
+          dateLabel: formatDate(dateKey),
+          best: estimates.length > 0 ? Math.max(...estimates) : null,
+          points: points.slice().sort((a, b) => (a.setNumber ?? a.set_number ?? 0) - (b.setNumber ?? b.set_number ?? 0)),
+        }
+      })
       .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
   }, [progression])
 
   const chartData = useMemo(() => historyGroups
+    .filter(group => group.best != null)
     .slice()
     .reverse()
     .slice(-10)
     .map(group => ({
       date: group.dateKey,
       label: group.dateKey === "unknown" ? "—" : group.dateKey.slice(5),
-      oneRepMax: group.best,
+      oneRepMax: group.best ?? 0,
     })), [historyGroups])
 
-  const latestBest = historyGroups[0]?.best ?? 0
+  const latestBest = historyGroups.find(group => group.best != null)?.best ?? null
   const selectedGroup = historyGroups.find(group => group.dateKey === selectedDate) ?? historyGroups[0]
 
   useEffect(() => {
@@ -467,16 +480,20 @@ export function ExerciseReferenceDialog({ open, onOpenChange, exerciseName, targ
                     <section key={group.dateKey} className="rounded-xl border border-white/[0.08] bg-[#151a21] p-4">
                       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <span className="text-xs font-medium text-[#888]">{group.dateLabel}</span>
-                        <span className="text-xs font-bold text-[#00ffff]">{t.workouts.best1RM}: {group.best.toFixed(1)} kg</span>
+                        <span className="text-xs font-bold text-[#00ffff]">
+                          {t.workouts.best1RM}: {group.best != null ? `${group.best.toFixed(1)} kg` : "—"}
+                        </span>
                       </header>
                       <div className="space-y-2">
                         {group.points.map((point, index) => (
                           <div key={`${group.dateKey}-${point.setNumber ?? point.set_number ?? index}`} className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.05] pt-2 text-xs">
-                            <span className="text-[#aaa]">Set {point.setNumber ?? point.set_number ?? index + 1}: <strong className="text-white">{point.weight ?? "—"} kg × {point.reps ?? "—"}</strong></span>
+                            <span className="text-[#aaa]">Set {point.setNumber ?? point.set_number ?? index + 1}: <strong className="text-white">{formatLoad(point.weight, point.weightUnit ?? point.weight_unit, t.workouts.loadPlates)} × {point.reps ?? "—"}</strong></span>
                             <span className="flex gap-3 text-[#888]">
                               {point.rpe != null && <span>RPE {point.rpe}</span>}
                               {point.rir != null && <span>RIR {point.rir}</span>}
-                              <span className="text-[#00ffff]">1RM {Number(point.oneRepMax ?? point.one_rep_max ?? 0).toFixed(1)} kg</span>
+                              {(point.oneRepMax ?? point.one_rep_max) != null && (
+                                <span className="text-[#00ffff]">1RM {Number(point.oneRepMax ?? point.one_rep_max).toFixed(1)} kg</span>
+                              )}
                             </span>
                           </div>
                         ))}
@@ -494,7 +511,7 @@ export function ExerciseReferenceDialog({ open, onOpenChange, exerciseName, targ
                 : <div className="space-y-4">
                   <section className="rounded-xl border border-white/[0.08] bg-[#151a21] p-4">
                     <p className="text-xs font-bold uppercase tracking-wide text-[#888]">{t.workouts.current1RM}</p>
-                    <p className="mt-1 text-3xl font-bold text-white">{latestBest.toFixed(1)} <span className="text-base text-[#00ffff]">kg</span></p>
+                    <p className="mt-1 text-3xl font-bold text-white">{latestBest != null ? latestBest.toFixed(1) : "—"} <span className="text-base text-[#00ffff]">kg</span></p>
                     <p className="mt-1 text-xs text-[#777]">{selectedGroup?.dateLabel}</p>
                   </section>
                   <section className="h-64 rounded-xl border border-white/[0.08] bg-[#151a21] p-3 sm:p-5">
@@ -523,8 +540,18 @@ export function ExerciseReferenceDialog({ open, onOpenChange, exerciseName, targ
                     <section className="rounded-xl border border-[#00ffff]/20 bg-[#00ffff]/[0.04] p-4">
                       <p className="mb-3 text-center text-sm font-bold text-[#00ffff]">{selectedGroup.dateLabel}</p>
                       <div className="grid grid-cols-2 gap-3 text-center">
-                        <div><p className="text-[10px] uppercase text-[#888]">1RM</p><p className="mt-1 font-bold text-white">{selectedGroup.best.toFixed(1)} kg</p></div>
-                        <div><p className="text-[10px] uppercase text-[#888]">{t.workouts.bestSet}</p><p className="mt-1 font-bold text-white">{(() => { const best = selectedGroup.points.slice().sort((a, b) => Number(b.oneRepMax ?? b.one_rep_max ?? 0) - Number(a.oneRepMax ?? a.one_rep_max ?? 0))[0]; return `${best?.weight ?? "—"} kg × ${best?.reps ?? "—"}` })()}</p></div>
+                        <div><p className="text-[10px] uppercase text-[#888]">1RM</p><p className="mt-1 font-bold text-white">{selectedGroup.best != null ? `${selectedGroup.best.toFixed(1)} kg` : "—"}</p></div>
+                        <div><p className="text-[10px] uppercase text-[#888]">{t.workouts.bestSet}</p><p className="mt-1 font-bold text-white">{(() => {
+                          // Sort by 1RM when the session has kg estimates; plate
+                          // stacks only have a raw plate count, so fall back to it.
+                          const best = selectedGroup.points.slice().sort((a, b) => {
+                            const aEstimate = a.oneRepMax ?? a.one_rep_max
+                            const bEstimate = b.oneRepMax ?? b.one_rep_max
+                            if (aEstimate != null && bEstimate != null) return bEstimate - aEstimate
+                            return (b.weight ?? 0) - (a.weight ?? 0)
+                          })[0]
+                          return `${formatLoad(best?.weight, best?.weightUnit ?? best?.weight_unit, t.workouts.loadPlates) || "—"} × ${best?.reps ?? "—"}`
+                        })()}</p></div>
                       </div>
                     </section>
                   )}

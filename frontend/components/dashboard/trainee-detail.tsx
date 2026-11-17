@@ -5,7 +5,7 @@ import {
   ArrowLeft, BarChart3, Apple, MessageCircle, CreditCard, Plus,
   ChevronDown, ChevronUp, Dumbbell, Calendar, Mail, Phone,
   Building, User, Loader2, X, ChevronRight, ChevronLeft,
-  LayoutList, CalendarDays, Zap, UserMinus,
+  LayoutList, CalendarDays, Zap, UserMinus, Pencil, Trash2,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { AssignWorkoutModal } from "./assign-workout-modal"
@@ -13,6 +13,7 @@ import { ManageSubscriptionModal } from "./manage-subscription-modal"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { cn, getLocalISOString } from "@/lib/utils"
+import { formatLoad, isPlatesUnit } from "@/lib/format"
 import { parseExerciseNotes, type ExerciseNoteEntry } from "@/lib/exercise-notes"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 import type { ApiTrainee } from "./trainees-view"
@@ -45,6 +46,7 @@ interface ApiExercise {
   target_weight?: number
   targetWeight?: number
   weight_unit?: string
+  weightUnit?: string
   rest_time?: number
   notes?: string
   exerciseOrder?: number
@@ -305,6 +307,12 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
   const [detailWorkout, setDetailWorkout] = useState<ApiWorkout | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [lastLogsMap, setLastLogsMap] = useState<Record<string, Record<number, string>>>({})
+  // Coach actions on a routine shown in the detail sheet
+  const [editWorkoutTarget, setEditWorkoutTarget] = useState<ApiWorkout | null>(null)
+  const [deleteWorkoutTarget, setDeleteWorkoutTarget] = useState<ApiWorkout | null>(null)
+  const [deletingWorkout, setDeletingWorkout] = useState(false)
+  const [deleteWorkoutError, setDeleteWorkoutError] = useState("")
+  const isCoachView = ["coach", "admin"].includes(String(user?.role ?? "").toLowerCase())
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar")
   const [calendarDate, setCalendarDate] = useState(() => {
     const d = new Date()
@@ -374,7 +382,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
             const w = l.weight ?? l.weightUsed ?? l.weight_used
             const r = l.reps ?? l.repsCompleted ?? l.reps_completed
             const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-            if (setNum != null && w != null && r != null) setMap[setNum] = `${w}${unit}×${r}`
+            if (setNum != null && w != null && r != null) setMap[setNum] = `${formatLoad(w, unit, t.workouts.loadPlates)}×${r}`
           }
           map[ex.name] = setMap
         }
@@ -406,6 +414,40 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
       setWorkouts(current => current.map(workout => workout.id === full.id ? { ...workout, ...full } : workout))
     } catch {
       // The note is already saved; keep the local history visible if refresh fails.
+    }
+  }
+
+  const reloadWorkouts = async () => {
+    try {
+      const data = await apiFetch<{ workoutPlans: ApiWorkout[] }>(`/trainees/${trainee.id}/workout-plans`)
+      setWorkouts(data.workoutPlans ?? [])
+    } catch {
+      // Keep whatever the list already shows.
+    }
+  }
+
+  // The edit modal saved: refresh both the list and the open detail sheet.
+  const handleWorkoutSaved = async () => {
+    const editedId = editWorkoutTarget?.id
+    setEditWorkoutTarget(null)
+    await reloadWorkouts()
+    if (editedId != null) await refreshWorkoutDetail(editedId)
+  }
+
+  const handleDeleteWorkout = async () => {
+    if (!deleteWorkoutTarget || deletingWorkout) return
+    setDeletingWorkout(true)
+    setDeleteWorkoutError("")
+    try {
+      await apiFetch(`/workout-plans/${deleteWorkoutTarget.id}`, { method: "DELETE" })
+      const deletedId = deleteWorkoutTarget.id
+      setWorkouts(prev => prev.filter(w => w.id !== deletedId))
+      if (detailWorkout?.id === deletedId) setDetailWorkout(null)
+      setDeleteWorkoutTarget(null)
+    } catch (e) {
+      setDeleteWorkoutError(e instanceof Error ? e.message : t.traineeDetail.deleteWorkoutError)
+    } finally {
+      setDeletingWorkout(false)
     }
   }
 
@@ -846,7 +888,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                       
                       <p className="text-[10px] font-semibold text-[#00ffff]">
                         {group.exercise.sets} {t.traineeDetail?.sets || "sets"} × {group.exercise.reps} {t.traineeDetail?.reps || "reps"}
-                        {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${group.exercise.weight_unit ?? "kg"}`}
+                        {targetWeight != null && targetWeight > 0 && ` @ ${formatLoad(targetWeight, group.exercise.weight_unit ?? group.exercise.weightUnit, t.workouts.loadPlates)}`}
                         {group.exercise.track_rpe || group.exercise.trackRpe ? " @ RPE" : ""}
                         {group.exercise.track_rir || group.exercise.trackRir ? " @ RIR" : ""}
                       </p>
@@ -938,6 +980,76 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
         }}
       />
 
+      <AssignWorkoutModal
+        open={editWorkoutTarget !== null}
+        onOpenChange={(v) => { if (!v) setEditWorkoutTarget(null) }}
+        preselectedTraineeId={trainee.id}
+        editWorkout={editWorkoutTarget ? {
+          id: editWorkoutTarget.id,
+          name: editWorkoutTarget.name,
+          description: editWorkoutTarget.description,
+          scheduledDate: editWorkoutTarget.scheduledDate,
+          traineeId: trainee.id,
+          traineeName: trainee.name,
+          status: editWorkoutTarget.status,
+          exercises: (editWorkoutTarget.exercises ?? []).map(ex => ({
+            id: ex.id,
+            name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            targetWeight: ex.targetWeight ?? ex.target_weight,
+            weightUnit: ex.weightUnit ?? ex.weight_unit,
+            notes: ex.notes,
+            is_cardio: ex.is_cardio ?? ex.isCardio,
+            track_rpe: ex.track_rpe ?? ex.trackRpe,
+            track_rir: ex.track_rir ?? ex.trackRir,
+            restTime: ex.rest_time,
+          })),
+        } : undefined}
+        onAssigned={handleWorkoutSaved}
+      />
+
+      {/* Delete assigned workout confirmation */}
+      {deleteWorkoutTarget && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#ff4444]/30 bg-[#161b22]">
+            <div className="flex items-center gap-3 border-b border-white/[0.08] px-5 py-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff4444]/10">
+                <Trash2 className="h-5 w-5 text-[#ff4444]" />
+              </div>
+              <h3 className="text-lg font-bold text-white">{t.traineeDetail.deleteWorkoutTitle}</h3>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-sm leading-relaxed text-[#888888]">
+                <span className="font-semibold text-white">{deleteWorkoutTarget.name}</span>
+                {" — "}
+                {t.traineeDetail.deleteWorkoutBody}
+              </p>
+              {deleteWorkoutError && <p role="alert" className="text-sm text-[#ff7777]">{deleteWorkoutError}</p>}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setDeleteWorkoutTarget(null); setDeleteWorkoutError("") }}
+                  disabled={deletingWorkout}
+                  className="flex-1 rounded-xl border border-white/[0.15] py-2.5 font-medium text-white transition-colors hover:bg-[#1c2128] disabled:opacity-40"
+                >
+                  {t.common.cancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteWorkout}
+                  disabled={deletingWorkout}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#ff4444] py-2.5 font-medium text-white transition-colors hover:bg-[#e03030] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deletingWorkout && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t.traineeDetail.deleteWorkoutConfirm}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Workout Detail Sheet */}
       <Sheet open={detailWorkout !== null} onOpenChange={(v) => { if (!v) setDetailWorkout(null) }}>
         <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-md">
@@ -974,6 +1086,38 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                 >
                   {detailWorkout.status}
                 </div>
+                {isCoachView && (String(detailWorkout.status).toLowerCase() === "completed" ? (
+                  <span
+                    className="ml-auto max-w-[150px] text-right text-[10px] leading-tight text-[#555555]"
+                    title={t.traineeDetail.completedLocked}
+                  >
+                    {t.traineeDetail.completedLocked}
+                  </span>
+                ) : (
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditWorkoutTarget(detailWorkout)}
+                      disabled={detailLoading || !detailWorkout.exercises?.length}
+                      title={t.traineeDetail.editWorkout}
+                      aria-label={t.traineeDetail.editWorkout}
+                      className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 text-xs font-medium text-[#888888] transition-colors hover:border-[#00ffff]/40 hover:text-[#00ffff] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{t.traineeDetail.editWorkout}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDeleteWorkoutError(""); setDeleteWorkoutTarget(detailWorkout) }}
+                      title={t.traineeDetail.deleteWorkout}
+                      aria-label={t.traineeDetail.deleteWorkout}
+                      className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 text-xs font-medium text-[#888888] transition-colors hover:border-[#ff4444]/40 hover:text-[#ff4444]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{t.traineeDetail.deleteWorkout}</span>
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -1040,7 +1184,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                             </div>
                             <p className="mt-0.5 text-xs text-[#555555]">
                               {t.workouts?.target || "Target:"} {ex.sets} {t.traineeDetail?.sets || "sets"} × {ex.reps} {t.traineeDetail?.reps || "reps"}
-                              {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${ex.weight_unit ?? "kg"}`}
+                              {targetWeight != null && targetWeight > 0 && ` @ ${formatLoad(targetWeight, ex.weight_unit ?? ex.weightUnit, t.workouts.loadPlates)}`}
                             </p>
                           </div>
                         </div>
@@ -1106,7 +1250,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                           {lastVal ?? "—"}
                                         </span>
                                         <span className="truncate text-center font-medium text-white">
-                                          {weight != null ? `${weight}${ex.weight_unit ?? "kg"}` : "—"}
+                                          {weight != null ? formatLoad(weight, ex.weight_unit ?? ex.weightUnit, t.workouts.loadPlates) : "—"}
                                         </span>
                                         <span className="truncate text-center font-medium text-white">
                                           {reps != null ? `${reps}` : "—"}
@@ -1198,7 +1342,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                         </div>
                                         <p className="text-[10px] text-[#888888] ml-5">
                                           {t.workouts?.target || "Target:"} {ex.sets} {t.traineeDetail?.sets || "sets"} × {ex.reps} {t.traineeDetail?.reps || "reps"}
-                                          {(ex.target_weight ?? ex.targetWeight) != null && Number(ex.target_weight ?? ex.targetWeight) > 0 && ` @ ${ex.target_weight ?? ex.targetWeight}${ex.weight_unit ?? "kg"}`}
+                                          {(ex.target_weight ?? ex.targetWeight) != null && Number(ex.target_weight ?? ex.targetWeight) > 0 && ` @ ${formatLoad(ex.target_weight ?? ex.targetWeight, ex.weight_unit ?? ex.weightUnit, t.workouts.loadPlates)}`}
                                         </p>
                                       </div>
 
@@ -1228,7 +1372,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                         <div className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm sm:gap-2" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
                                           <span className="w-7 shrink-0 font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
                                           <span className="w-11 shrink-0 truncate text-center text-[10px] font-bold sm:w-16" style={{ color: lastVal ? "#00ffff" : "#444444" }}>{lastVal ?? "—"}</span>
-                                          <span className="min-w-0 flex-1 truncate text-center font-medium text-white sm:w-20 sm:flex-none">{weight != null ? `${weight}${ex.weight_unit ?? "kg"}` : "—"}</span>
+                                          <span className="min-w-0 flex-1 truncate text-center font-medium text-white sm:w-20 sm:flex-none">{weight != null ? formatLoad(weight, ex.weight_unit ?? ex.weightUnit, t.workouts.loadPlates) : "—"}</span>
                                           <span className="w-12 shrink-0 text-center font-medium text-white sm:w-14">{reps != null ? `${reps}` : "—"}</span>
                                           {showRpe && <span className="w-8 shrink-0 text-center text-[#888888] sm:w-10">{log?.rpe != null ? log.rpe : "—"}</span>}
                                           {showRir && <span className="w-8 shrink-0 text-center text-[#888888] sm:w-10">{log?.rir != null ? log.rir : "—"}</span>}

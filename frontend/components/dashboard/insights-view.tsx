@@ -201,7 +201,7 @@ export function InsightsView() {
       let totalReps = 0, totalVolume = 0
       await Promise.allSettled(
         completedThisWeek.slice(0, 8).map(plan =>
-          apiFetch<{ exercises?: { logs?: { reps_completed?: number; repsCompleted?: number; weight_used?: number; weightUsed?: number; completed?: boolean; is_completed?: boolean }[] }[] }>(
+          apiFetch<{ exercises?: { logs?: { reps_completed?: number; repsCompleted?: number; weight_used?: number; weightUsed?: number; weight_unit?: string; weightUnit?: string; completed?: boolean; is_completed?: boolean }[] }[] }>(
             `/workout-plans/${plan.id}`
           ).then(d => {
             for (const ex of d.exercises ?? []) {
@@ -210,6 +210,10 @@ export function InsightsView() {
                 const r = l.reps_completed ?? l.repsCompleted ?? 0
                 const w = l.weight_used ?? l.weightUsed ?? 0
                 totalReps += r
+                // Plate stacks are a count, not kilos: adding them to "weight
+                // lifted" would report a meaningless tonnage.
+                const unit = String(l.weight_unit ?? l.weightUnit ?? "kg").toLowerCase()
+                if (unit === "plates" || unit === "plate") continue
                 totalVolume += r * w
               }
             }

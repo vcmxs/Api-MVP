@@ -10,9 +10,12 @@ import {
 } from "lucide-react"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
+import { NumberField } from "@/components/ui/number-field"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
+import { formatDecimal, formatLoad, isPlatesUnit, type LoadUnit } from "@/lib/format"
+import { normalizeWorkoutStatus } from "@/lib/workout-status"
 import { format, parseISO, type Locale } from "date-fns"
 import { enUS as dateFnsEnUS, es as dateFnsEs } from "date-fns/locale"
 import { apiFetch, getUserInfo } from "@/lib/api"
@@ -20,7 +23,9 @@ import { ExerciseNoteEntry, parseExerciseNotes, serializeCoachNote } from "@/lib
 import { useLanguage, useT } from "@/lib/i18n"
 import type { TranslationKeys } from "@/locales/en"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
+import { LoadUnitToggle } from "./load-unit-toggle"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
+import type { AgendaWorkout } from "./workout-row"
 import {
   DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
@@ -53,6 +58,7 @@ interface ApiExercise {
   target_weight?: number
   targetWeight?: number
   weight_unit?: string
+  weightUnit?: string
   rest_time?: number
   notes?: string
   track_rpe?: boolean | number
@@ -90,7 +96,7 @@ interface DisplayExercise {
   notes?: string
 }
 
-interface DisplayWorkout {
+export interface DisplayWorkout {
   id: number
   name: string
   description?: string
@@ -119,6 +125,30 @@ function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
     status: ((w.status ?? "pending").toLowerCase()) as DisplayWorkout["status"],
     isCoachAssigned: !!(w.coach_id || w.coachId) && w.coach_id !== userId,
     isCoOp: w.is_shared === 1 || w.is_shared === true,
+  }
+}
+
+/**
+ * Adapts one row of `GET /agenda/today` to the shape `WorkoutDetailSheet` needs.
+ *
+ * The dashboard agenda is a shortcut to the workout itself, so tapping a row
+ * must open *that* plan instead of a trainee profile. Only the header fields
+ * matter here: the sheet fetches the exercises on its own with
+ * `GET /workout-plans/:id`, a route `loadWorkoutPlan` allows for the plan's
+ * coach, its trainee and any coach linked to that trainee — and the agenda is
+ * scoped to exactly those rows (`coach_trainee` for coaches, own plans for a
+ * trainee), so the fetch always has authorization to succeed.
+ */
+export function displayWorkoutFromAgenda(workout: AgendaWorkout): DisplayWorkout {
+  const status = normalizeWorkoutStatus(workout.status)
+  return {
+    id: Number(workout.id),
+    name: workout.name,
+    scheduledDate: parseISO(workout.scheduledDate),
+    exercises: [],
+    status: status === "completed" ? "completed" : status === "assigned" ? "assigned" : "pending",
+    isCoachAssigned: !!workout.isCoachAssigned,
+    isCoOp: !!workout.isShared,
   }
 }
 
@@ -372,7 +402,7 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
         setNumber,
         weightUsed: parseFloat(weight) || 0,
         repsCompleted: parseInt(reps) || 0,
-        weightUnit: exercise.weight_unit ?? "kg",
+        weightUnit: exercise.weightUnit ?? exercise.weight_unit ?? "kg",
         completed: true,
       }
       if (log?.id) {
@@ -617,7 +647,7 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
           </div>
           <p className="ml-5 text-[10px] text-[#888888]">
             {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
-            {(exercise.target_weight ?? exercise.targetWeight) != null && Number(exercise.target_weight ?? exercise.targetWeight) > 0 && ` @ ${exercise.target_weight ?? exercise.targetWeight}${exercise.weight_unit ?? "kg"}`}
+            {(exercise.target_weight ?? exercise.targetWeight) != null && Number(exercise.target_weight ?? exercise.targetWeight) > 0 && ` @ ${formatLoad(exercise.target_weight ?? exercise.targetWeight, exercise.weight_unit ?? exercise.weightUnit, t.workouts.loadPlates)}`}
           </p>
         </div>
         {setNum === 1 && <ExerciseReferenceButton exerciseName={exercise.name} targetUserId={traineeId} />}
@@ -763,7 +793,7 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
           </div>
           <p className="mt-0.5 text-xs text-[#555555]">
             {t.workouts?.target || "Target:"} {exercise.sets} {t.traineeDetail?.sets || "sets"} × {exercise.reps} {t.traineeDetail?.reps || "reps"}
-            {targetWeight != null && targetWeight > 0 && ` @ ${targetWeight}${exercise.weight_unit ?? "kg"}`}
+            {targetWeight != null && targetWeight > 0 && ` @ ${formatLoad(targetWeight, exercise.weight_unit ?? exercise.weightUnit, t.workouts.loadPlates)}`}
           </p>
           <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
             <div className="h-full rounded-full transition-all" style={{ width: `${progressPercent}%`, backgroundColor: progressColor }} />
@@ -819,7 +849,7 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
 
 // ── Workout Detail Sheet ──────────────────────────────────────────────────
 
-function WorkoutDetailSheet({ workout, open, onOpenChange }: {
+export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   workout: DisplayWorkout | null
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -1071,6 +1101,8 @@ interface BuilderExercise {
   sets: number
   reps: number
   weight: number
+  /** "kg" for bar/dumbbell load, "plates" for a machine plate stack. */
+  weightUnit: LoadUnit
   notes: string
   isCardio?: boolean
   isSuperset?: boolean
@@ -1130,25 +1162,36 @@ function ExerciseRow({ ex, index, onChange, onRemove, onPickExercise, isActive, 
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-[10px] text-[#555555]">{t.programs.sets}</label>
-            <input type="number" value={ex.sets} onChange={(e) => onChange(ex.id, "sets", parseFloat(e.target.value) || 0)}
-              className="w-full rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-3 py-2 text-sm text-white focus:border-[#00ffff]/40 focus:outline-none" />
+            <NumberField value={ex.sets} decimal={false} min={0} max={50}
+              onChange={(v) => onChange(ex.id, "sets", v)} className="px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="mb-1 block text-[10px] text-[#555555]">{t.programs.durationMin}</label>
-            <input type="number" value={ex.reps} onChange={(e) => onChange(ex.id, "reps", parseFloat(e.target.value) || 0)}
-              className="w-full rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-3 py-2 text-sm text-white focus:border-[#00ffff]/40 focus:outline-none" />
+            <NumberField value={ex.reps} min={0} max={999}
+              onChange={(v) => onChange(ex.id, "reps", v)} className="px-3 py-2 text-sm" />
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {(["sets", "reps", "weight"] as const).map((field) => (
-            <div key={field}>
-              <label className="mb-1 block text-[10px] text-[#555555] capitalize">{field === "weight" ? t.programs.weightKg : field === "sets" ? t.programs.sets : t.programs.reps}</label>
-              <input type="number" value={ex[field]} onChange={(e) => onChange(ex.id, field, parseFloat(e.target.value) || 0)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-3 py-2 text-sm text-white focus:border-[#00ffff]/40 focus:outline-none" />
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            {(["sets", "reps", "weight"] as const).map((field) => (
+              <div key={field}>
+                <div className="mb-1 flex h-5 items-center">
+                  {field === "weight" ? (
+                    <LoadUnitToggle value={ex.weightUnit} onChange={(unit) => onChange(ex.id, "weightUnit", unit)} />
+                  ) : (
+                    <label className="text-[10px] text-[#555555]">
+                      {field === "sets" ? t.programs.sets : t.programs.reps}
+                    </label>
+                  )}
+                </div>
+                <NumberField value={ex[field]} decimal={field === "weight"}
+                  min={0} max={field === "weight" ? 2000 : field === "sets" ? 50 : 999}
+                  onChange={(v) => onChange(ex.id, field, v)} className="px-3 py-2 text-sm" />
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <label className="mt-2 block text-[10px] text-[#555555]">{t.workouts.coachNote}</label>
@@ -1179,7 +1222,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
   const dateLocale = useDateLocale()
 
   const addExercise = () =>
-    setExercises(prev => [...prev, { id: newExerciseRowId(), name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false }])
+    setExercises(prev => [...prev, { id: newExerciseRowId(), name: "", sets: 3, reps: 10, weight: 0, weightUnit: "kg", notes: "", isCardio: false, isSuperset: false }])
 
   const updateExercise = (id: string, field: keyof BuilderExercise, value: string | number | boolean) =>
     setExercises(prev => prev.map((ex) => ex.id === id ? { ...ex, [field]: value } : ex))
@@ -1428,7 +1471,7 @@ export function WorkoutsView() {
           sets: ex.sets,
           reps: ex.reps,
           targetWeight: ex.weight,
-          weightUnit: "kg",
+          weightUnit: ex.weightUnit,
           // Bi-serie convention: the linked exercise rests 0 s (backend stores -1)
           restTime: i > 0 && ex.isSuperset ? -1 : 60,
           notes: serializeCoachNote(ex.notes, user),

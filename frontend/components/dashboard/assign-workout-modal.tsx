@@ -8,12 +8,16 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { NumberField } from "@/components/ui/number-field"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { getCoachNoteDraft, serializeCoachNote } from "@/lib/exercise-notes"
 import { useT } from "@/lib/i18n"
+import { formatLoad, normalizeLoadUnit, type LoadUnit } from "@/lib/format"
+import { isPaymentInactive } from "@/lib/trainee-payment"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
+import { LoadUnitToggle } from "./load-unit-toggle"
 import {
   DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
@@ -29,7 +33,11 @@ interface ExistingWorkout {
   id: number
   name: string
   description?: string
-  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; weightUnit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number }[]
+  scheduledDate?: string
+  traineeId?: number
+  traineeName?: string
+  status?: string
+  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number }[]
 }
 
 interface ApiProgram {
@@ -52,6 +60,19 @@ interface Trainee {
   email: string
   subscriptionTier?: string
   isOverLimit?: boolean
+  /** Coach-assigned subscription (already returned by `GET /coaches/:id/trainees`). */
+  coach_subscription_status?: string
+  coach_subscription_end_date?: string
+}
+
+/**
+ * A trainee can only receive a new workout when they hold one of the coach's
+ * plan slots *and* their coach-assigned subscription is live. The slot rule is
+ * the same tier limit as before; the payment rule was missing here even though
+ * `TraineesView` already badges those trainees as "Expired".
+ */
+function isTraineeLocked(trainee: Trainee) {
+  return trainee.isOverLimit === true || isPaymentInactive(trainee)
 }
 
 interface BuilderExercise {
@@ -60,6 +81,11 @@ interface BuilderExercise {
   sets: number
   reps: number
   weight: number
+  /**
+   * How the load is counted: kilos on the bar or plates on a machine stack.
+   * Stored in `weight_unit`, so no schema change is needed for plate support.
+   */
+  weightUnit: LoadUnit
   notes: string
   isCardio: boolean
   isSuperset?: boolean
@@ -105,27 +131,29 @@ function BuilderRow({ ex, index, onChange, onRemove, onPick, lastHistory, dragHa
       )}
       <div className={cn("grid gap-2", ex.isCardio ? "grid-cols-2" : "grid-cols-3")}>
         <div>
-          <label className="mb-0.5 block text-[9px] text-[#555555]">Sets</label>
-          <input type="number" value={ex.sets} onChange={(e) => onChange(ex.id, "sets", parseFloat(e.target.value) || 0)}
-            className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-2 py-1.5 text-xs text-white focus:border-[#00ffff]/40 focus:outline-none" />
+          <label className="mb-0.5 flex h-5 items-center text-[9px] text-[#555555]">Sets</label>
+          <NumberField value={ex.sets} decimal={false} min={0} max={50}
+            onChange={(v) => onChange(ex.id, "sets", v)} className="bg-[#161b22]" />
         </div>
         {ex.isCardio ? (
           <div>
-            <label className="mb-0.5 block text-[9px] text-[#555555]">Duration (min)</label>
-            <input type="number" value={ex.reps} onChange={(e) => onChange(ex.id, "reps", parseFloat(e.target.value) || 0)}
-              className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-2 py-1.5 text-xs text-white focus:border-[#00ffff]/40 focus:outline-none" />
+            <label className="mb-0.5 flex h-5 items-center text-[9px] text-[#555555]">Duration (min)</label>
+            <NumberField value={ex.reps} min={0} max={999}
+              onChange={(v) => onChange(ex.id, "reps", v)} className="bg-[#161b22]" />
           </div>
         ) : (
           <>
             <div>
-              <label className="mb-0.5 block text-[9px] text-[#555555]">Reps</label>
-              <input type="number" value={ex.reps} onChange={(e) => onChange(ex.id, "reps", parseFloat(e.target.value) || 0)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-2 py-1.5 text-xs text-white focus:border-[#00ffff]/40 focus:outline-none" />
+              <label className="mb-0.5 flex h-5 items-center text-[9px] text-[#555555]">Reps</label>
+              <NumberField value={ex.reps} decimal={false} min={0} max={999}
+                onChange={(v) => onChange(ex.id, "reps", v)} className="bg-[#161b22]" />
             </div>
             <div>
-              <label className="mb-0.5 block text-[9px] text-[#555555]">Weight (kg)</label>
-              <input type="number" value={ex.weight} onChange={(e) => onChange(ex.id, "weight", parseFloat(e.target.value) || 0)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-2 py-1.5 text-xs text-white focus:border-[#00ffff]/40 focus:outline-none" />
+              <div className="mb-0.5 flex h-5 items-center">
+                <LoadUnitToggle value={ex.weightUnit} onChange={(unit) => onChange(ex.id, "weightUnit", unit)} />
+              </div>
+              <NumberField value={ex.weight} min={0} max={2000}
+                onChange={(v) => onChange(ex.id, "weight", v)} className="bg-[#161b22]" />
             </div>
           </>
         )}
@@ -152,16 +180,23 @@ interface AssignWorkoutModalProps {
   preselectedTraineeId?: number
   preselectedTemplateId?: number
   preselectedWorkout?: ExistingWorkout
+  /**
+   * Edit mode: the plan already exists (coach opened it from the trainee
+   * detail sheet). The trainee step is skipped and submit issues a PUT with the
+   * complete exercise list instead of creating a new assignment.
+   */
+  editWorkout?: ExistingWorkout
   onAssigned?: () => void
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function AssignWorkoutModal({
-  open, onOpenChange, preselectedTraineeId, preselectedTemplateId, preselectedWorkout, onAssigned,
+  open, onOpenChange, preselectedTraineeId, preselectedTemplateId, preselectedWorkout, editWorkout, onAssigned,
 }: AssignWorkoutModalProps) {
   const user = getUserInfo()
   const { t } = useT()
+  const isEditing = !!editWorkout
 
   type Step = "workout" | "build" | "trainee" | "date"
   const [step, setStep] = useState<Step>("workout")
@@ -254,6 +289,7 @@ export function AssignWorkoutModal({
       sets: ex.sets,
       reps: ex.reps,
       weight: ex.targetWeight ?? (ex as any).target_weight ?? 0,
+      weightUnit: normalizeLoadUnit(ex.weightUnit ?? ex.weight_unit),
       notes: getCoachNoteDraft(ex.notes, user?.id),
       isCardio: !!ex.is_cardio,
       isSuperset: ex.restTime === -1 || (ex as any).rest_time === -1,
@@ -272,7 +308,18 @@ export function AssignWorkoutModal({
     setSelectedTrainee(null)
     setScheduledDate(new Date())
 
-    if (preselectedWorkout) {
+    if (editWorkout) {
+      // Edit mode: same builder, but the plan already exists.
+      loadWorkoutIntoBuilder(editWorkout)
+      const when = editWorkout.scheduledDate
+        ? new Date(`${String(editWorkout.scheduledDate).split("T")[0]}T12:00:00`)
+        : new Date()
+      setScheduledDate(Number.isNaN(when.getTime()) ? new Date() : when)
+      setSelectedTrainee(editWorkout.traineeId
+        ? { id: editWorkout.traineeId, name: editWorkout.traineeName ?? "Trainee", email: "" }
+        : null)
+      setStep("build")
+    } else if (preselectedWorkout) {
       loadWorkoutIntoBuilder(preselectedWorkout)
       setStep(preselectedTraineeId ? "build" : "trainee")
     } else {
@@ -288,8 +335,10 @@ export function AssignWorkoutModal({
 
   useEffect(() => {
     if (preselectedTraineeId && trainees.length > 0) {
-      const t = trainees.find((t) => t.id === preselectedTraineeId)
-      if (t) setSelectedTrainee(t)
+      const match = trainees.find((trainee) => trainee.id === preselectedTraineeId)
+      // Skip locked trainees: `canAdvance` would otherwise let the coach submit
+      // an assignment for a trainee that is not eligible.
+      if (match && !isTraineeLocked(match)) setSelectedTrainee(match)
     }
   }, [preselectedTraineeId, trainees]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -297,7 +346,7 @@ export function AssignWorkoutModal({
 
   const addBuilderEx = () => {
     const newId = newExerciseRowId()
-    setBuildExercises(prev => [...prev, { id: newId, name: "", sets: 3, reps: 10, weight: 0, notes: "", isCardio: false, isSuperset: false }])
+    setBuildExercises(prev => [...prev, { id: newId, name: "", sets: 3, reps: 10, weight: 0, weightUnit: "kg", notes: "", isCardio: false, isSuperset: false }])
     setPickerTargetId(newId)
   }
 
@@ -347,7 +396,7 @@ export function AssignWorkoutModal({
           const w = l.weight ?? l.weightUsed ?? l.weight_used
           const r = l.reps ?? l.repsCompleted ?? l.reps_completed
           const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-          if (setNum != null && w != null && r != null) map[setNum] = `${w}${unit}×${r}`
+          if (setNum != null && w != null && r != null) map[setNum] = `${formatLoad(w, unit, t.workouts.loadPlates)}×${r}`
         }
         setLastSessionLogs(p => ({ ...p, [ex.id]: map }))
       }).catch(() => {})
@@ -357,38 +406,56 @@ export function AssignWorkoutModal({
   // ── Submit ─────────────────────────────────────────────────────────────
 
   const handleAssign = async () => {
-    if (!selectedTrainee || !user?.id) return
+    const traineeId = selectedTrainee?.id
+    if (!user?.id) return
+    if (!isEditing && !traineeId) return
     setSubmitting(true); setSubmitError("")
     try {
       const exercises = buildExercises.filter(ex => ex.name.trim()).map((ex, i) => ({
         name: ex.name, sets: ex.sets, reps: ex.reps,
-        targetWeight: ex.weight, weightUnit: "kg",
+        targetWeight: ex.weight, weightUnit: ex.weightUnit,
         restTime: i > 0 && ex.isSuperset ? -1 : 60, notes: serializeCoachNote(ex.notes, user), exerciseOrder: i,
         track_rpe: 0, track_rir: 0, is_cardio: ex.isCardio ? 1 : 0,
       }))
 
-      await apiFetch("/workout-plans", {
-        method: "POST",
-        body: JSON.stringify({
-          traineeId: selectedTrainee.id,
-          coachId: user.id,
-          name: buildName,
-          description: buildDesc,
-          scheduledDate: format(scheduledDate, "yyyy-MM-dd"),
-          exercises,
-        }),
-      })
-      
-      const successMsg = t.workouts.assignedSuccess
-        .replace("{workout}", buildName || "Workout")
-        .replace("{trainee}", selectedTrainee.name)
-        .replace("{date}", format(scheduledDate, "MMM d, yyyy"))
-      alert(successMsg)
+      if (isEditing && editWorkout) {
+        // The API replaces the prescription in one transaction; the completed
+        // guard lives server-side (`middleware/plan-access.js`).
+        await apiFetch(`/workout-plans/${editWorkout.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: buildName,
+            description: buildDesc,
+            scheduledDate: format(scheduledDate, "yyyy-MM-dd"),
+            exercises,
+          }),
+        })
+
+        alert(t.workouts.updatedSuccess.replace("{trainee}", editWorkout.traineeName ?? selectedTrainee?.name ?? ""))
+      } else {
+        await apiFetch("/workout-plans", {
+          method: "POST",
+          body: JSON.stringify({
+            traineeId,
+            coachId: user.id,
+            name: buildName,
+            description: buildDesc,
+            scheduledDate: format(scheduledDate, "yyyy-MM-dd"),
+            exercises,
+          }),
+        })
+
+        const successMsg = t.workouts.assignedSuccess
+          .replace("{workout}", buildName || "Workout")
+          .replace("{trainee}", selectedTrainee?.name ?? "")
+          .replace("{date}", format(scheduledDate, "MMM d, yyyy"))
+        alert(successMsg)
+      }
 
       onAssigned?.()
       onOpenChange(false)
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "Failed to assign workout")
+      setSubmitError(e instanceof Error ? e.message : (isEditing ? t.workouts.updateError : "Failed to assign workout"))
     } finally { setSubmitting(false) }
   }
 
@@ -411,7 +478,9 @@ export function AssignWorkoutModal({
       if (preselectedTraineeId) onOpenChange(false)
       else setStep("trainee")
     } else if (step === "build") {
-      if (preselectedWorkout) {
+      if (isEditing) {
+        onOpenChange(false)
+      } else if (preselectedWorkout) {
         if (preselectedTraineeId) onOpenChange(false)
         else setStep("trainee")
       } else {
@@ -463,7 +532,7 @@ export function AssignWorkoutModal({
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00ffff]/10">
                 <Dumbbell className="h-5 w-5 text-[#00ffff]" />
               </div>
-              <DialogTitle className="text-lg font-bold text-white">{stepLabel[step]}</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-white">{step === "build" && isEditing ? t.workouts.editWorkoutTitle : stepLabel[step]}</DialogTitle>
             </div>
             <button onClick={() => onOpenChange(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#888888] hover:bg-white/[0.05] hover:text-white">
               <X className="h-4 w-4" />
@@ -670,27 +739,31 @@ export function AssignWorkoutModal({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {filteredTrainees.map((t) => {
-                      const initials = t.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-                      const color = tierColor[t.subscriptionTier ?? ""] ?? "#888888"
+                    {filteredTrainees.map((trainee) => {
+                      const initials = trainee.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+                      const color = tierColor[trainee.subscriptionTier ?? ""] ?? "#888888"
+                      const locked = isTraineeLocked(trainee)
+                      const paymentInactive = isPaymentInactive(trainee)
                       return (
-                        <button key={t.id} onClick={() => { if (!t.isOverLimit) setSelectedTrainee(t) }}
+                        <button key={trainee.id} onClick={() => { if (!locked) setSelectedTrainee(trainee) }}
                           className={cn("flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all",
-                            t.isOverLimit ? "opacity-60 cursor-not-allowed border-white/[0.08] bg-[#161b22]" :
-                            selectedTrainee?.id === t.id ? "border-[#00ffff]/50 bg-[#00ffff]/10" : "border-white/[0.08] bg-[#0a0a0f] hover:border-white/[0.15]")}>
+                            locked ? "opacity-60 cursor-not-allowed border-white/[0.08] bg-[#161b22]" :
+                            selectedTrainee?.id === trainee.id ? "border-[#00ffff]/50 bg-[#00ffff]/10" : "border-white/[0.08] bg-[#0a0a0f] hover:border-white/[0.15]")}>
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#00ffff]/30 to-[#00ff88]/30 text-sm font-bold text-[#00ffff]">
                             {initials}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="truncate font-medium text-white">{t.name} {t.isOverLimit && "(Locked 🔒)"}</p>
-                              {t.subscriptionTier && (
-                                <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" style={{ backgroundColor: `${color}20`, color }}>{t.subscriptionTier}</span>
+                              <p className="truncate font-medium text-white">
+                                {trainee.name} {locked && (paymentInactive ? `(${t.access.lockedPaymentExpired})` : "(Locked 🔒)")}
+                              </p>
+                              {trainee.subscriptionTier && (
+                                <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" style={{ backgroundColor: `${color}20`, color }}>{trainee.subscriptionTier}</span>
                               )}
                             </div>
-                            <p className="truncate text-xs text-[#888888]">{t.email}</p>
+                            <p className="truncate text-xs text-[#888888]">{trainee.email}</p>
                           </div>
-                          {selectedTrainee?.id === t.id && <Check className="h-5 w-5 shrink-0 text-[#00ffff]" />}
+                          {selectedTrainee?.id === trainee.id && <Check className="h-5 w-5 shrink-0 text-[#00ffff]" />}
                         </button>
                       )
                     })}
@@ -741,13 +814,13 @@ export function AssignWorkoutModal({
           {/* Footer */}
           <div className="flex gap-3 border-t border-white/[0.08] px-6 py-4">
             <button onClick={handleBack} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-3 font-medium text-white hover:bg-[#161b22]">
-              {step === "trainee" || (step === "workout" && preselectedTraineeId) ? "Cancel" : "Back"}
+              {step === "trainee" || (step === "workout" && preselectedTraineeId) || (step === "build" && isEditing) ? "Cancel" : "Back"}
             </button>
             {step !== "workout" && (
               <button onClick={handleNext} disabled={!canAdvance || submitting}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#00ffff] py-3 font-bold text-black hover:bg-[#00e5e5] disabled:cursor-not-allowed disabled:opacity-50">
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {step === "date" ? "Assign Workout" : "Next"}
+                {step === "date" ? (isEditing ? t.workouts.saveChanges : "Assign Workout") : "Next"}
               </button>
             )}
           </div>
