@@ -349,3 +349,32 @@ table and service.
 - Mobile QA of the set tables at 320/360/375/390px plus desktop >= 640px (must look unchanged).
 - `tsconfig.json` in the repository root is an Expo leftover (`extends: expo/tsconfig.base`). It is untracked; delete it or move it to the mobile repository.
 
+**Deployment record (2026-11-18):** the six commits behind `b2261ea` were promoted to production.
+Order used: the migrations first, then the push. `CONFIRM_PROD_MIGRATION=YES node run-migration-013.js --production`
+and `… run-migration-014.js --production` created the two `workout_plans` agenda indexes and the
+`release_notes` table plus `idx_release_notes_published` on `mainline.proxy.rlwy.net:56505/railway`
+(both additive and idempotent), then `git push origin main` (`8a47aff..b2261ea`) redeployed Railway and
+Vercel automatically.
+
+Verified live after the deploy:
+
+- `GET /api/v1/release-notes` → `200 {"notes":[]}` **without** a token; the route is public on purpose
+  because the notes are global.
+- `GET /api/v1/agenda/today` → `401` (it answered `404` before).
+- `GET /api/v1/workout-plans/1` → `401` (it used to answer anonymously; `loadWorkoutPlan` now scopes a
+  plan to its trainee, its coach or an admin and freezes completed sessions for writes).
+- `GET /api/v1/notifications` and `GET /api/v1/admin/release-notes` → `401`.
+- `https://duplagym.vercel.app/novedades` → `200`, and the served HTML already contains the "Novedades"
+  heading, so the Vercel build picked up the new route.
+
+**Still manual / pending (2026-11-18)**
+
+- Publish the first note from Admin → Release Notes (version `1.4`; the ready-to-paste ES/EN copy is in
+  the session that shipped it). `POST /admin/release-notes` fans out one `release_note` row per active
+  coach/trainee when *Notify* is checked, and the response reports `notified`; leave the checkbox off to
+  publish without notifying anyone.
+- Mobile: `Dupla-mobile/src/locales/{en,es}.json` still has no `notifications.release_note` key (nor
+  `direct_message`), and `NotificationScreen` falls back to the raw JSON params (`{"version":"…"}`) when
+  the key is missing. Nothing breaks, but add the key and ship a build so the bell copy reads properly;
+  the mobile app cannot open `/novedades` yet either.
+

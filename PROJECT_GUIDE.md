@@ -166,6 +166,37 @@ Rollback: inside the database
 restores the original 164 rows; an extra off-database JSON snapshot of those rows is kept in the
 git-ignored `backups/` folder.
 
+### Release notes and daily agenda rollout (2026-11-18)
+
+Six commits (`c469aab..b2261ea`) were promoted to production. Both migrations must run **before** the
+push: the deployed code does not know the new objects, but the new code fails without them.
+
+1. `CONFIRM_PROD_MIGRATION=YES node run-migration-013.js --production` — creates
+   `idx_workout_plans_trainee_scheduled` and `idx_workout_plans_scheduled_date`, the lookups behind
+   `GET /agenda/today` (it filters `scheduled_date` and joins `coach_trainee` through `trainee_id`).
+2. `CONFIRM_PROD_MIGRATION=YES node run-migration-014.js --production` — creates `release_notes`
+   (`version`, `title_es/en`, `body_es/en`, `is_published`, `notified_at`, `created_by`, `created_at`)
+   and `idx_release_notes_published`. Both runners read `PRODUCTION_DATABASE_URL` from `.env`, refuse to
+   run without `CONFIRM_PROD_MIGRATION=YES` and are idempotent.
+3. `git push origin main`; Railway and Vercel redeploy automatically. No npm dependency was added, so no
+   build-configuration change is needed.
+
+Behaviour worth remembering:
+
+- `GET /release-notes` is **public** (`routes/release_notes.routes.js`) because the notes are global;
+  authoring stays admin-only under `/admin/release-notes` (`requireAdmin`).
+- Publishing a note fans out one `release_note` notification per active coach/trainee in a single
+  `INSERT..SELECT` with `{ version }` as JSON params, and each client localizes them.
+  `release_note` is excluded from the bell bulk mark-all and is cleared with
+  `PATCH /notifications/read-all?type=release_note`.
+- The public page lives at `frontend/app/novedades/page.tsx` and is opened from Settings → Novedades and
+  from every `release_note` notification (bell, notifications list and in-app popups share one router).
+- Every `GET /workout-plans*` route now authenticates; plan ids are sequential, so they were readable
+  anonymously before this rollout.
+
+Verified live on 2026-11-18: `/release-notes` `200 {"notes":[]}` unauthenticated, `/agenda/today` and
+`/workout-plans/1` `401` (they answered `404` and an anonymous `200` before), `/notifications` `401`, and
+`https://duplagym.vercel.app/novedades` `200` with the new heading in the served HTML.
 
 ## Web app (`frontend/`)
 
