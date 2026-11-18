@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { WheelScrollArea } from "@/components/ui/wheel-scroll-area"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { formatLoad } from "@/lib/format"
@@ -350,7 +351,7 @@ export function ExerciseReferenceDialog({ open, onOpenChange, exerciseName, targ
           ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <WheelScrollArea className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           {activeTab === "about" && (
             <div className="space-y-5">
               <div className="relative">
@@ -557,7 +558,7 @@ export function ExerciseReferenceDialog({ open, onOpenChange, exerciseName, targ
                   )}
                 </div>
           )}
-        </div>
+        </WheelScrollArea>
 
         {onPick && (
           <div className="shrink-0 border-t border-white/[0.08] bg-[#0a0a0f] p-3 sm:p-4">

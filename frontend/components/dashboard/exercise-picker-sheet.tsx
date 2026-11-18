@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { Dumbbell, Info, Loader2, Search, X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { WheelScrollArea } from "@/components/ui/wheel-scroll-area"
 import { apiFetch } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -392,12 +393,8 @@ export function ExercisePickerSheet({
 
             {/* Muscle chips: one horizontally scrollable row so the list keeps a
                 fixed height instead of wrapping into several lines. */}
-            <div
-              onWheel={event => {
-                // Desktop: let the mouse wheel ride the slider sideways.
-                if (event.deltaY === 0) return
-                event.currentTarget.scrollLeft += event.deltaY
-              }}
+            <WheelScrollArea
+              axis="x"
               className="-mx-1 flex snap-x items-center gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               <button
@@ -430,10 +427,10 @@ export function ExercisePickerSheet({
                   {categoryLabel(option) ?? option}
                 </button>
               ))}
-            </div>
+            </WheelScrollArea>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5">
+          <WheelScrollArea className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5">
             {loading && exercises.length === 0 ? (
               <SkeletonGrid />
             ) : failed ? (
@@ -476,7 +473,7 @@ export function ExercisePickerSheet({
                 )}
               </>
             )}
-          </div>
+          </WheelScrollArea>
         </DialogContent>
       </Dialog>
 

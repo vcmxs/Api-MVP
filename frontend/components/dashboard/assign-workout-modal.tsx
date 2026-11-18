@@ -608,6 +608,9 @@ export function AssignWorkoutModal({
                               weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg",
                               notes: ex.notes, is_cardio: ex.is_cardio,
                               track_rpe: ex.track_rpe, track_rir: ex.track_rir,
+                              // `restTime: -1` marks a bi-serie row; losing it here
+                              // would drop the pairing when the workout is loaded.
+                              restTime: ex.restTime ?? ex.rest_time,
                             }))
                           }
                           return (

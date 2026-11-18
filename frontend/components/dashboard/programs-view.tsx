@@ -1858,8 +1858,9 @@ function PlanCard({ plan, onDelete, onAssign, onEdit }: {
 
 type FolderTab = "workouts" | "plans"
 
-function FolderDetailView({ program, onBack, onWorkoutCountChange, onDeleteFolder }: {
-  program: ApiProgram; onBack: () => void; onWorkoutCountChange: (id: number, count: number) => void; onDeleteFolder?: (id: number) => void
+function FolderDetailView({ program, onBack, onWorkoutCountChange, onRenameFolder, onDeleteFolder }: {
+  program: ApiProgram; onBack: () => void; onWorkoutCountChange: (id: number, count: number) => void
+  onRenameFolder?: (program: ApiProgram) => void; onDeleteFolder?: (id: number) => void
 }) {
   const { t } = useT()
   const color = program.hex_color ?? "#a78bfa"
@@ -1920,6 +1921,9 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange, onDeleteFolde
       id: ex.id ?? 0, name: ex.name, sets: ex.sets, reps: ex.reps,
       targetWeight: ex.targetWeight ?? ex.target_weight,
       weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", notes: ex.notes,
+      // The API stores a bi-serie row as `restTime: -1`; the assign modal reads
+      // it back from here, so dropping it would rebuild the workout unpaired.
+      restTime: ex.restTime ?? ex.rest_time,
       is_cardio: (ex.is_cardio ?? ex.isCardio) ? 1 : 0, track_rpe: ex.track_rpe ? 1 : 0, track_rir: ex.track_rir ? 1 : 0,
     }))
   })
@@ -1935,16 +1939,26 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange, onDeleteFolde
           <FolderOpen className="h-5 w-5" style={{ color }} />
         </div>
         <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">{program.name}</h2>
-            {onDeleteFolder && (
-              <button onClick={() => onDeleteFolder(program.id)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#ff4444]/30 hover:text-[#ff4444]"
-                title="Delete Folder"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="min-w-0 truncate text-xl font-bold text-white">{program.name}</h2>
+            <div className="flex shrink-0 items-center gap-2">
+              {onRenameFolder && (
+                <button type="button" onClick={() => onRenameFolder(program)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#a78bfa]/30 hover:text-[#a78bfa]"
+                  title={t.programs.renameFolder} aria-label={t.programs.renameFolder}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {onDeleteFolder && (
+                <button type="button" onClick={() => onDeleteFolder(program.id)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#555555] transition-colors hover:border-[#ff4444]/30 hover:text-[#ff4444]"
+                  title={t.programs.deleteFolderTitle} aria-label={t.programs.deleteFolderTitle}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-sm text-[#555555]">{workouts.length} {workouts.length === 1 ? t.programs.workoutCount : t.programs.workoutCountPlural} · {plans.length} {plans.length === 1 ? t.programs.planCount : t.programs.planCountPlural}</p>
         </div>
@@ -2082,15 +2096,24 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange, onDeleteFolde
 
 // ── Folder Card ───────────────────────────────────────────────────────────
 
-function FolderCard({ program, onClick, onDelete }: {
-  program: ApiProgram; onClick: () => void; onDelete: (id: number) => void
+function FolderCard({ program, onClick, onDelete, onRename }: {
+  program: ApiProgram; onClick: () => void; onDelete: (id: number) => void; onRename: (program: ApiProgram) => void
 }) {
   const { t } = useT()
   const color = program.hex_color ?? "#a78bfa"
   const wCount = program.workout_count ?? 0
+  // A <button> cannot wrap the action buttons below (invalid HTML, hydration
+  // error), so the card is a div with button semantics instead.
+  const actionClass = "flex h-8 w-8 items-center justify-center rounded-lg text-[#555555] transition-all sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100"
   return (
-    <button onClick={onClick}
-      className="group flex w-full items-center gap-4 rounded-2xl border border-white/[0.08] bg-[#161b22] px-5 py-4 text-left transition-all hover:border-white/[0.15] hover:bg-[#1c222b]"
+    <div onClick={onClick}
+      role="button" tabIndex={0} aria-label={program.name}
+      onKeyDown={event => {
+        // Enter/Space on an inner action must not also open the folder.
+        if (event.target !== event.currentTarget) return
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick() }
+      }}
+      className="group flex w-full cursor-pointer items-center gap-4 rounded-2xl border border-white/[0.08] bg-[#161b22] px-5 py-4 text-left transition-all hover:border-white/[0.15] hover:bg-[#1c222b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#a78bfa]/50"
       style={{ borderLeftWidth: "4px", borderLeftColor: color }}>
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}18` }}>
         <Folder className="h-5 w-5" style={{ color }} />
@@ -2103,34 +2126,59 @@ function FolderCard({ program, onClick, onDelete }: {
           </span>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <button onClick={e => { e.stopPropagation(); onDelete(program.id) }}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#555555] opacity-0 pointer-events-none transition-all group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-[#ff4444]/10 hover:text-[#ff4444]">
+      <div className="flex shrink-0 items-center gap-1">
+        <button type="button" onClick={e => { e.stopPropagation(); onRename(program) }}
+          title={t.programs.renameFolder} aria-label={t.programs.renameFolder}
+          className={`${actionClass} hover:bg-[#a78bfa]/10 hover:text-[#a78bfa]`}>
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={e => { e.stopPropagation(); onDelete(program.id) }}
+          title={t.programs.deleteFolderTitle} aria-label={t.programs.deleteFolderTitle}
+          className={`${actionClass} hover:bg-[#ff4444]/10 hover:text-[#ff4444]`}>
           <Trash2 className="h-4 w-4" />
         </button>
         <ChevronRight className="h-4 w-4 text-[#555555] transition-transform group-hover:translate-x-0.5" />
       </div>
-    </button>
+    </div>
   )
 }
 
-// ── New Program Dialog ────────────────────────────────────────────────────
+// ── Program folder dialog (create + rename) ───────────────────────────────
 
-function NewProgramDialog({ open, onOpenChange, onSaved }: {
-  open: boolean; onOpenChange: (v: boolean) => void; onSaved: () => void
+function ProgramFolderDialog({ open, program, onOpenChange, onSaved }: {
+  open: boolean
+  /** Present in edit mode: the folder to rename or recolour. */
+  program?: ApiProgram | null
+  onOpenChange: (v: boolean) => void
+  onSaved: () => void
 }) {
   const { t } = useT()
   const user = getUserInfo()
+  const editing = Boolean(program)
   const [name, setName] = useState(""); const [color, setColor] = useState(folderColors[0])
   const [saving, setSaving] = useState(false); const [error, setError] = useState("")
 
+  // Re-seed on every open so a cancelled edit does not leak into the next one.
+  useEffect(() => {
+    if (!open) return
+    setError("")
+    setName(program?.name ?? "")
+    setColor(program?.hex_color ?? folderColors[0])
+  }, [open, program])
+
   const handleSave = async () => {
-    if (!name.trim() || !user?.id) return
+    const trimmed = name.trim()
+    if (!trimmed || saving) return
     setSaving(true); setError("")
     try {
-      await apiFetch("/programs", { method: "POST", body: JSON.stringify({ userId: user.id, name: name.trim(), hexColor: color }) })
-      setName(""); setColor(folderColors[0]); onSaved(); onOpenChange(false)
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to create program") }
+      if (program) {
+        await apiFetch(`/programs/${program.id}`, { method: "PUT", body: JSON.stringify({ name: trimmed, hexColor: color }) })
+      } else {
+        if (!user?.id) return
+        await apiFetch("/programs", { method: "POST", body: JSON.stringify({ userId: user.id, name: trimmed, hexColor: color }) })
+      }
+      onSaved(); onOpenChange(false)
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t.programs.folderSaveFailed) }
     finally { setSaving(false) }
   }
 
@@ -2139,8 +2187,8 @@ function NewProgramDialog({ open, onOpenChange, onSaved }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => onOpenChange(false)}>
       <div className="w-full max-w-sm rounded-2xl border border-white/[0.12] bg-[#161b22] p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white">{t.programs.newProgramFolder}</h3>
-          <button onClick={() => onOpenChange(false)} className="text-[#555555] hover:text-white"><X className="h-5 w-5" /></button>
+          <h3 className="text-lg font-bold text-white">{editing ? t.programs.editFolderTitle : t.programs.newProgramFolder}</h3>
+          <button type="button" onClick={() => onOpenChange(false)} aria-label={t.common.close} className="text-[#555555] hover:text-white"><X className="h-5 w-5" /></button>
         </div>
         {error && <p className="mb-3 rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-3 py-2 text-sm text-[#ff4444]">{error}</p>}
         <div className="space-y-4">
@@ -2153,17 +2201,67 @@ function NewProgramDialog({ open, onOpenChange, onSaved }: {
           <div>
             <label className="mb-2 block text-sm font-medium text-[#888888]">{t.programs.color}</label>
             <div className="flex flex-wrap gap-2">
-              {folderColors.map(c => <button key={c} onClick={() => setColor(c)} className="h-7 w-7 rounded-full transition-transform hover:scale-110"
+              {folderColors.map(c => <button key={c} type="button" onClick={() => setColor(c)} aria-label={c} className="h-7 w-7 rounded-full transition-transform hover:scale-110"
                 style={{ backgroundColor: c, outline: color === c ? `3px solid ${c}` : "none", outlineOffset: "2px" }} />)}
             </div>
           </div>
         </div>
         <div className="mt-5 flex gap-3">
-          <button onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-2.5 font-medium text-white hover:bg-[#161b22]">{t.programs.cancel}</button>
-          <button onClick={handleSave} disabled={!name.trim() || saving}
+          <button type="button" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#0a0a0f] py-2.5 font-medium text-white hover:bg-[#161b22]">{t.programs.cancel}</button>
+          <button type="button" onClick={handleSave} disabled={!name.trim() || saving}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 font-bold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             style={{ backgroundColor: color }}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? t.programs.creating : t.programs.createFolderBtn}
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving ? t.programs.saving : editing ? t.programs.saveFolder : t.programs.createFolderBtn}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Delete folder confirmation ────────────────────────────────────────────
+
+function DeleteFolderDialog({ program, onCancel, onConfirm }: {
+  program: ApiProgram | null
+  onCancel: () => void
+  /** Resolves `false` when the API rejected the delete, so the dialog stays open. */
+  onConfirm: (id: number) => Promise<boolean>
+}) {
+  const { t } = useT()
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState("")
+
+  useEffect(() => { setError("") }, [program])
+
+  if (!program) return null
+
+  const handleConfirm = async () => {
+    setDeleting(true); setError("")
+    const ok = await onConfirm(program.id)
+    setDeleting(false)
+    if (!ok) setError(t.programs.deleteFolderFailed)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/[0.08] bg-[#0d0f14] p-6 shadow-2xl">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#ff4444]/10 text-[#ff4444]">
+          <AlertCircle className="h-6 w-6" />
+        </div>
+        <div className="space-y-2 text-center">
+          <h3 className="text-lg font-bold text-white">{t.programs.deleteFolderTitle}</h3>
+          <p className="text-sm text-[#888888]">{t.programs.deleteFolderBody.replace("{folder}", program.name)}</p>
+        </div>
+        {error && <p className="rounded-xl border border-[#ff4444]/20 bg-[#ff4444]/10 px-3 py-2 text-sm text-[#ff4444]">{error}</p>}
+        <div className="flex gap-3">
+          <button type="button" onClick={onCancel} disabled={deleting}
+            className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-2.5 text-sm font-medium text-white hover:bg-[#1c2128] disabled:opacity-40">
+            {t.common.cancel}
+          </button>
+          <button type="button" onClick={handleConfirm} disabled={deleting}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#ff4444] py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60">
+            {deleting && <Loader2 className="h-4 w-4 animate-spin" />}{t.common.delete}
           </button>
         </div>
       </div>
@@ -2181,6 +2279,7 @@ export function ProgramsView() {
   const [error, setError] = useState("")
    const [openProgramId, setOpenProgramId] = useState<number | null>(null)
   const [newProgramOpen, setNewProgramOpen] = useState(false)
+  const [editingProgram, setEditingProgram] = useState<ApiProgram | null>(null)
   const [deleteConfirmProgramId, setDeleteConfirmProgramId] = useState<number | null>(null)
 
   // Standalone plans (no folder)
@@ -2208,7 +2307,12 @@ export function ProgramsView() {
   useEffect(() => { fetchPrograms(); loadStandalonePlans() }, [fetchPrograms, loadStandalonePlans])
 
   const handleDeleteProgram = async (id: number) => {
-    try { await apiFetch(`/programs/${id}`, { method: "DELETE" }); setPrograms(p => p.filter(pr => pr.id !== id)); if (openProgramId === id) setOpenProgramId(null) } catch { }
+    try {
+      await apiFetch(`/programs/${id}`, { method: "DELETE" })
+      setPrograms(p => p.filter(pr => pr.id !== id))
+      if (openProgramId === id) setOpenProgramId(null)
+      return true
+    } catch { return false }
   }
   const handleDeletePlan = async (id: string) => {
     const target = standalonePlans.find(plan => plan.id === id)
@@ -2218,13 +2322,19 @@ export function ProgramsView() {
   }
   const updateWorkoutCount = (id: number, count: number) => setPrograms(p => p.map(pr => pr.id === id ? { ...pr, workout_count: count } : pr))
 
-  if (openProgramId !== null) {
-    const prog = programs.find(p => p.id === openProgramId)
-    if (prog) return <FolderDetailView program={prog} onBack={() => setOpenProgramId(null)} onWorkoutCountChange={updateWorkoutCount} onDeleteFolder={id => setDeleteConfirmProgramId(id)} />
-  }
+  // The folder detail and the confirmation dialog share this render tree: the
+  // early return that used to live here unmounted the dialog, so deleting from
+  // inside a folder did nothing until the coach navigated back to the list.
+  const openProgram = openProgramId !== null ? programs.find(p => p.id === openProgramId) ?? null : null
+  const deleteProgram = deleteConfirmProgramId !== null ? programs.find(p => p.id === deleteConfirmProgramId) ?? null : null
 
   return (
     <div className="space-y-10">
+      {openProgram ? (
+        <FolderDetailView program={openProgram} onBack={() => setOpenProgramId(null)} onWorkoutCountChange={updateWorkoutCount}
+          onRenameFolder={setEditingProgram} onDeleteFolder={id => setDeleteConfirmProgramId(id)} />
+      ) : (
+        <>
       {/* ── Folders ── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -2247,7 +2357,7 @@ export function ProgramsView() {
             </div>
           ) : (
             <div className="space-y-3">
-              {programs.map(p => <FolderCard key={p.id} program={p} onClick={() => setOpenProgramId(p.id)} onDelete={id => setDeleteConfirmProgramId(id)} />)}
+              {programs.map(p => <FolderCard key={p.id} program={p} onClick={() => setOpenProgramId(p.id)} onRename={setEditingProgram} onDelete={id => setDeleteConfirmProgramId(id)} />)}
             </div>
           )}
       </div>
@@ -2285,37 +2395,21 @@ export function ProgramsView() {
         )}
       </div>
 
-      <NewProgramDialog open={newProgramOpen} onOpenChange={setNewProgramOpen} onSaved={fetchPrograms} />
+        </>
+      )}
+
+      <ProgramFolderDialog open={newProgramOpen} onOpenChange={setNewProgramOpen} onSaved={fetchPrograms} />
+      <ProgramFolderDialog open={editingProgram !== null} program={editingProgram}
+        onOpenChange={v => { if (!v) setEditingProgram(null) }} onSaved={fetchPrograms} />
       <PlanBuilderSheet open={planBuilderOpen} onOpenChange={(v) => { setPlanBuilderOpen(v); if (!v) setEditingStandalonePlan(null); }} editPlan={editingStandalonePlan} onSaved={() => { setPlanBuilderOpen(false); loadStandalonePlans(); setEditingStandalonePlan(null); }} />
       {assigningPlan && <AssignPlanModal plan={assigningPlan} open={assigningPlan !== null} onOpenChange={v => { if (!v) setAssigningPlan(null) }} onAssigned={() => setAssigningPlan(null)} />}
 
-      {deleteConfirmProgramId !== null && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[#0d0f14] p-6 shadow-2xl space-y-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ff4444]/10 text-[#ff4444] mx-auto">
-              <AlertCircle className="h-6 w-6" />
-            </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-bold text-white">Delete Folder</h3>
-              <p className="text-sm text-[#888888]">Are you sure you want to delete this folder? All workouts inside it will be kept but the folder category will be removed.</p>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirmProgramId(null)} className="flex-1 rounded-xl border border-white/[0.15] bg-[#161b22] py-2.5 text-sm font-medium text-white hover:bg-[#1c2128]">Cancel</button>
-              <button
-                onClick={async () => {
-                  if (deleteConfirmProgramId) {
-                    await handleDeleteProgram(deleteConfirmProgramId)
-                    setDeleteConfirmProgramId(null)
-                  }
-                }}
-                className="flex-1 rounded-xl bg-[#ff4444] py-2.5 text-sm font-bold text-white hover:opacity-90"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteFolderDialog program={deleteProgram} onCancel={() => setDeleteConfirmProgramId(null)}
+        onConfirm={async id => {
+          const ok = await handleDeleteProgram(id)
+          if (ok) setDeleteConfirmProgramId(null)
+          return ok
+        }} />
     </div>
   )
 }
