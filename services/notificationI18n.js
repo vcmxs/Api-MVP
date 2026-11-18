@@ -45,7 +45,7 @@ const TEMPLATES = {
         traineeUnlinkedBody: '{name} is no longer in your trainee list',
         traineeUnlinkedBodyAnon: 'A trainee left your list',
         releaseNoteTitle: "What's new in Dupla",
-        releaseNoteBody: 'Version {version} is available. Open Settings to see the latest updates.',
+        releaseNoteBody: 'Version {version} is available. Open Novedades to see the latest updates.',
         releaseNoteBodyAnon: 'There are new updates available',
     },
     es: {
@@ -85,7 +85,7 @@ const TEMPLATES = {
         traineeUnlinkedBody: '{name} ya no está en tu lista de alumnos',
         traineeUnlinkedBodyAnon: 'Un alumno dejó tu lista',
         releaseNoteTitle: 'Novedades en Dupla',
-        releaseNoteBody: 'La versión {version} ya está disponible. Abre Configuración para ver las novedades.',
+        releaseNoteBody: 'La versión {version} ya está disponible. Abre Novedades para ver los cambios.',
         releaseNoteBodyAnon: 'Hay nuevas actualizaciones disponibles',
     },
 };

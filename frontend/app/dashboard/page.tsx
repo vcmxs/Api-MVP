@@ -59,9 +59,6 @@ export default function Dashboard() {
   const [agendaReloadKey, setAgendaReloadKey] = useState(0)
   const [progressionSubject, setProgressionSubject] = useState<{ id: number; name: string } | null>(null)
   const [messageTargetId, setMessageTargetId] = useState<number | null>(null)
-  // Settings → What's new is opened by release-note notifications; the nonce
-  // re-triggers the scroll/highlight when the same section is requested twice.
-  const [settingsFocus, setSettingsFocus] = useState<{ section: "whatsNew"; nonce: number } | null>(null)
   const [nutritionSubject, setNutritionSubject] = useState<{ id: number; name: string } | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [blastOpen, setBlastOpen] = useState(false)
@@ -166,9 +163,6 @@ export default function Dashboard() {
     setActiveTab(tab)
     setSelectedTrainee(null)
     setBellOpen(false)
-    // Leaving Settings drops a pending "What's new" deep link, so opening
-    // Settings again later does not re-scroll and re-highlight the section.
-    if (tab !== "settings") setSettingsFocus(null)
     if (!opts?.keep) {
       setNutritionSubject(null)
       setProgressionSubject(null)
@@ -190,7 +184,7 @@ export default function Dashboard() {
 
   // One routing point for every notification surface (bell, list, popup): a
   // chat row opens that conversation, a workout row opens the workout sheet and
-  // a release note lands on Settings → What's new. Everything else falls back
+  // a release note opens the Novedades page. Everything else falls back
   // to the notifications tab, which is where the row already lives.
   const openNotificationTarget = async (n: RawNotification) => {
     setBellOpen(false)
@@ -211,8 +205,9 @@ export default function Dashboard() {
         setAgendaWorkout(displayWorkoutFromNotification(n))
         return
       case "whatsNew":
-        setSettingsFocus((prev) => ({ section: "whatsNew", nonce: (prev?.nonce ?? 0) + 1 }))
-        changeTab("settings")
+        // The notes live on the standalone Novedades page, opened from Settings
+        // and from every release-note notification.
+        router.push("/novedades")
         return
       default:
         changeTab("notifications")
@@ -412,12 +407,7 @@ export default function Dashboard() {
             )}
             {activeTab === "nutrition" && <NutritionView targetUser={nutritionSubject} />}
             {activeTab === "programs" && <ProgramsView />}
-            {activeTab === "settings" && (
-              <SettingsView
-                focusSection={settingsFocus?.section}
-                focusNonce={settingsFocus?.nonce}
-              />
-            )}
+            {activeTab === "settings" && <SettingsView />}
           </div>
         </div>
       </main>

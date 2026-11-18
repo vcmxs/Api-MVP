@@ -221,7 +221,7 @@ export function AdminReleaseNotesView() {
             <Sparkles className="h-5 w-5 text-[#ffd700]" /> Release Notes
           </h2>
           <p className="text-sm text-[#888888]">
-            Publish what&apos;s new — every coach and trainee sees it in Settings → What&apos;s new.
+            Publish what&apos;s new - every coach and trainee sees it on the Novedades page.
           </p>
         </div>
         <button
@@ -320,7 +320,7 @@ export function AdminReleaseNotesView() {
                     <BellRing className="h-4 w-4 text-[#00ffff]" /> Notify all coaches and trainees
                   </span>
                   <span className="mt-0.5 block text-xs text-[#555555]">
-                    Sends an in-app notification (bell + popup) that deep-links to Settings → What&apos;s new.
+                    Sends an in-app notification (bell & popup) that opens the Novedades page.
                   </span>
                 </span>
               </label>

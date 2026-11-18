@@ -40,7 +40,7 @@ export function getNotificationTarget(n: RawNotification): NotificationTarget {
     }
 
     case "release_note":
-      // Nothing to open by id: the note lives in Settings → What's new.
+      // Nothing to open by id: the notes all live on the Novedades page.
       return { kind: "whatsNew" }
 
     default:

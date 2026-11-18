@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { User, Bell, Shield, Globe, Trash2, Save, Eye, EyeOff, Loader2, UserMinus, Sparkles, ChevronDown } from "lucide-react"
+import { useState, useEffect } from "react"
+import { User, Bell, Shield, Globe, Trash2, Save, Eye, EyeOff, Loader2, UserMinus, Sparkles, ChevronRight } from "lucide-react"
 import { apiFetch, getUserInfo, clearAuth, getToken, setAuth } from "@/lib/api"
 import { isNotificationSoundEnabled, playNotificationSound, setNotificationSoundEnabled } from "@/lib/notification-sound"
-import { fetchReleaseNotes, getLastSeenReleaseId, markReleaseSeen, type ReleaseNote } from "@/lib/release-notes"
 import { useT, useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -80,15 +79,7 @@ const tierColors: Record<string, string> = {
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function SettingsView({
-  focusSection = null,
-  focusNonce = 0,
-}: {
-  /** Section the dashboard wants to bring into view (e.g. from a release-note push). */
-  focusSection?: "whatsNew" | null
-  /** Bumping this re-triggers the scroll even if the section name is unchanged. */
-  focusNonce?: number
-} = {}) {
+export function SettingsView() {
   const router = useRouter()
   const { t } = useT()
   const { language: lang, setLanguage: setLang } = useLanguage()
@@ -137,69 +128,6 @@ export function SettingsView({
   const [leavingCoach, setLeavingCoach] = useState(false)
   const [leaveCoachError, setLeaveCoachError] = useState("")
   const [leaveCoachDone, setLeaveCoachDone] = useState("")
-
-  // What's New (release notes). `seenIdRef` holds the id the user had already
-  // opened before this visit, so the "New" pill survives for the whole session
-  // and disappears the next time Settings is opened.
-  const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([])
-  const [releaseNotesLoading, setReleaseNotesLoading] = useState(true)
-  const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null)
-  const [whatsNewFocused, setWhatsNewFocused] = useState(false)
-  const seenIdRef = useRef(0)
-  const whatsNewRef = useRef<HTMLDivElement | null>(null)
-  // Nonce already scrolled to: a language switch reloads the notes, and that
-  // must not re-scroll to (and re-highlight) the section by itself.
-  const focusedNonceRef = useRef<number | null>(null)
-
-  // ── Load release notes ──────────────────────────────────────────────────
-
-  useEffect(() => {
-    seenIdRef.current = getLastSeenReleaseId()
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    setReleaseNotesLoading(true)
-    fetchReleaseNotes(lang)
-      .then((notes) => {
-        if (cancelled) return
-        setReleaseNotes(notes)
-        // Newest note starts expanded, older ones stay collapsed.
-        setExpandedNoteId((prev) => prev ?? notes[0]?.id ?? null)
-        const newestId = notes[0]?.id
-        if (newestId) {
-          markReleaseSeen(newestId)
-          // Opening Settings is what clears the release-note notifications
-          // (they are excluded from the bell's bulk "mark all as read").
-          apiFetch("/notifications/read-all?type=release_note", { method: "PATCH" }).catch(() => {})
-        }
-      })
-      .catch(() => { if (!cancelled) setReleaseNotes([]) })
-      .finally(() => { if (!cancelled) setReleaseNotesLoading(false) })
-    return () => { cancelled = true }
-  }, [lang])
-
-  // ── Deep-link focus (notification → Settings → What's New) ──────────────
-
-  useEffect(() => {
-    if (focusSection !== "whatsNew") return
-    const nonce = focusNonce ?? 0
-    // Each request is honoured once, and only after the profile/notes have been
-    // laid out, so the section actually exists when we scroll to it.
-    if (focusedNonceRef.current === nonce) return
-    if (loading || releaseNotesLoading) return
-    focusedNonceRef.current = nonce
-    setWhatsNewFocused(true)
-    // Wait a frame so the section is laid out before scrolling to it.
-    const scrollTimer = window.setTimeout(() => {
-      whatsNewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 60)
-    const ringTimer = window.setTimeout(() => setWhatsNewFocused(false), 2800)
-    return () => {
-      window.clearTimeout(scrollTimer)
-      window.clearTimeout(ringTimer)
-    }
-  }, [focusSection, focusNonce, loading, releaseNotesLoading])
 
   // ── Load profile ────────────────────────────────────────────────────────
 
@@ -340,17 +268,6 @@ export function SettingsView({
     ? Math.ceil((new Date(subEnd).getTime() - Date.now()) / 86400000)
     : null
 
-  const formatNoteDate = (iso?: string) => {
-    if (!iso) return ""
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return ""
-    return d.toLocaleDateString(lang === "en" ? "en-US" : "es-ES", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
-  }
-
   // ── Render ──────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -364,74 +281,6 @@ export function SettingsView({
   return (
     <div className="max-w-3xl space-y-6">
 
-      {/* What's New — release notes (deep-linked from release-note notifications) */}
-      <div
-        ref={whatsNewRef}
-        className={cn(
-          "scroll-mt-24 rounded-2xl transition-shadow duration-500",
-          whatsNewFocused && "ring-2 ring-[#ffd700]/70 ring-offset-2 ring-offset-[#0a0a0f]",
-        )}
-      >
-        <Section title={t.settings.whatsNew} icon={<Sparkles className="h-4 w-4" />}>
-          {releaseNotesLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-[#555555]" />
-            </div>
-          ) : releaseNotes.length === 0 ? (
-            <p className="text-sm text-[#555555]">{t.settings.whatsNewEmpty}</p>
-          ) : (
-            <div className="space-y-3">
-              {releaseNotes.map((note) => {
-                const expanded = expandedNoteId === note.id
-                const isNew = note.id > seenIdRef.current
-                const date = formatNoteDate(note.createdAt)
-                return (
-                  <div
-                    key={note.id}
-                    className="rounded-xl border border-white/[0.08] bg-[#0a0a0f] transition-colors hover:border-white/[0.14]"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setExpandedNoteId(expanded ? null : note.id)}
-                      className="flex w-full items-start justify-between gap-3 p-4 text-left"
-                      aria-expanded={expanded}
-                    >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide"
-                            style={{ backgroundColor: "rgba(255,215,0,0.14)", color: "#ffd700" }}
-                          >
-                            v{note.version}
-                          </span>
-                          {isNew && (
-                            <span className="rounded-full bg-[#00ff88]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#00ff88]">
-                              {t.settings.whatsNewNew}
-                            </span>
-                          )}
-                          {date && <span className="text-xs text-[#555555]">{date}</span>}
-                        </div>
-                        <p className="mt-1.5 font-semibold text-white">{note.title}</p>
-                      </div>
-                      <ChevronDown
-                        className={cn(
-                          "mt-1 h-4 w-4 shrink-0 text-[#888888] transition-transform",
-                          expanded && "rotate-180",
-                        )}
-                      />
-                    </button>
-                    {expanded && note.body && (
-                      <p className="whitespace-pre-line border-t border-white/[0.06] px-4 py-3 text-sm leading-relaxed text-[#888888]">
-                        {note.body}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </Section>
-      </div>
 
       {/* Personal Info */}
       <Section title={t.settings.personalInfo} icon={<User className="h-4 w-4" />}>
@@ -593,6 +442,20 @@ export function SettingsView({
           </div>
         </div>
       </Section>
+
+      {/* Novedades - global release notes, shown on the standalone page */}
+      <button
+        onClick={() => router.push("/novedades")}
+        className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#161b22] px-6 py-5 text-left transition-colors hover:border-[#ffd700]/40"
+      >
+        <span className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ffd700]/10">
+            <Sparkles className="h-4 w-4 text-[#ffd700]" />
+          </span>
+          <span className="font-bold text-white">{t.settings.whatsNew}</span>
+        </span>
+        <ChevronRight className="h-4 w-4 text-[#555555] transition-colors group-hover:text-white" />
+      </button>
 
       {/* Language */}
       <Section title={t.settings.language} icon={<Globe className="h-4 w-4" />}>

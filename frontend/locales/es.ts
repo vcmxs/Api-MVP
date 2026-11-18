@@ -928,7 +928,7 @@ const es: TranslationKeys = {
     traineeUnlinkedBody: "{name} ya no está en tu lista de alumnos",
     traineeUnlinkedBodyAnon: "Un alumno dejó tu lista",
     releaseNoteTitle: "Novedades en Dupla",
-    releaseNoteBody: "La versión {version} ya está disponible. Abre Configuración para ver las novedades.",
+    releaseNoteBody: "La versión {version} ya está disponible. Abre Novedades para ver los cambios.",
     releaseNoteBodyAnon: "Hay nuevas actualizaciones disponibles",
     notificationFallback: "Notificación",
     messageTitle: "Nuevo mensaje de {name}",

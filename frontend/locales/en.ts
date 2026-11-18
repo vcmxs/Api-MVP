@@ -926,7 +926,7 @@ const en = {
     traineeUnlinkedBody: "{name} is no longer in your trainee list",
     traineeUnlinkedBodyAnon: "A trainee left your list",
     releaseNoteTitle: "What's new in Dupla",
-    releaseNoteBody: "Version {version} is available. Open Settings to see the latest updates.",
+    releaseNoteBody: "Version {version} is available. Open Novedades to see the latest updates.",
     releaseNoteBodyAnon: "There are new updates available",
     notificationFallback: "Notification",
     messageTitle: "New message from {name}",
