@@ -7,6 +7,7 @@ import {
   DollarSign,
   Gift,
   Activity,
+  Sparkles,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -69,6 +70,7 @@ export function AdminSidebar({ activeTab, onTabChange, collapsed, onToggleCollap
     { id: "users", icon: <Users className="h-5 w-5" />, label: "User Management" },
     { id: "finance", icon: <DollarSign className="h-5 w-5" />, label: "Financials" },
     { id: "referrals", icon: <Gift className="h-5 w-5" />, label: "Referrals" },
+    { id: "release-notes", icon: <Sparkles className="h-5 w-5" />, label: "Release Notes" },
     { id: "audit", icon: <Activity className="h-5 w-5" />, label: "Audit Logs" },
   ]
 

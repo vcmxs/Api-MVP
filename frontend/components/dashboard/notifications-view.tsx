@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Bell, Trash2, Check, Loader2, RefreshCw, MessageCircle } from "lucide-react"
+import { Bell, Trash2, Check, Loader2, RefreshCw, MessageCircle, ChevronRight } from "lucide-react"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
 import { formatNotification } from "@/lib/notifications"
 import { formatTimeAgo, getNotificationConfig } from "@/lib/notification-display"
+import { getNotificationTarget } from "@/lib/notification-target"
 import { useT } from "@/lib/i18n"
 
 // ── API types ─────────────────────────────────────────────────────────────
@@ -26,7 +27,14 @@ interface ApiNotification {
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function NotificationsView({ onOpenMessage }: { onOpenMessage?: (userId: number) => void } = {}) {
+export function NotificationsView({
+  onOpenMessage,
+  onOpen,
+}: {
+  onOpenMessage?: (userId: number) => void
+  /** Resolves where a row leads (chat, workout sheet, Settings → What's new). */
+  onOpen?: (n: ApiNotification) => void
+} = {}) {
   const { t } = useT()
   const [notifications, setNotifications] = useState<ApiNotification[]>([])
   const [loading, setLoading] = useState(false)
@@ -57,16 +65,22 @@ export function NotificationsView({ onOpenMessage }: { onOpenMessage?: (userId: 
     try { await apiFetch(`/notifications/${id}/read`, { method: "PATCH" }) } catch { /* ignore */ }
   }
 
-  // "Mark all read" never touches message notifications: those only clear when
-  // the conversation is opened (the API applies the same rule).
+  // "Mark all read" never touches message or release-note notifications: those
+  // only clear when the conversation / the note itself is opened (the API
+  // applies the same rule).
   const handleMarkAllRead = async () => {
-    setNotifications((prev) => prev.map((n) => n.type === "direct_message" ? n : { ...n, is_read: true }))
+    setNotifications((prev) => prev.map((n) =>
+      n.type === "direct_message" || n.type === "release_note" ? n : { ...n, is_read: true }
+    ))
     try { await apiFetch("/notifications/read-all", { method: "PATCH" }) } catch { /* ignore */ }
   }
 
-  // Clicking a card reads it; message notifications also open the chat
+  // Clicking a card reads it and navigates. `onOpen` (dashboard) resolves the
+  // destination; without it only the chat deep-link is available, which keeps
+  // this component usable on its own.
   const handleOpen = (n: ApiNotification) => {
     if (!n.is_read) handleMarkRead(n.id)
+    if (onOpen) { onOpen(n); return }
     if (n.type === "direct_message" && n.related_id) onOpenMessage?.(n.related_id)
   }
 
@@ -74,7 +88,9 @@ export function NotificationsView({ onOpenMessage }: { onOpenMessage?: (userId: 
   const clearedOnMountRef = useRef(false)
   useEffect(() => {
     if (clearedOnMountRef.current) return
-    const pending = notifications.some((n) => !n.is_read && n.type !== "direct_message")
+    const pending = notifications.some(
+      (n) => !n.is_read && n.type !== "direct_message" && n.type !== "release_note"
+    )
     if (!pending) return
     clearedOnMountRef.current = true
     handleMarkAllRead()
@@ -149,6 +165,8 @@ export function NotificationsView({ onOpenMessage }: { onOpenMessage?: (userId: 
             const config = getNotificationConfig(n.type, "h-5 w-5")
             const isHovered = hoveredId === n.id
             const timestamp = formatTimeAgo(n.createdAt ?? n.created_at, t)
+            // Rows that lead somewhere show a chevron (chat, workout, notes).
+            const canNavigate = getNotificationTarget(n).kind !== "none"
 
             const fmt = formatNotification(n, t)
             return (
@@ -181,11 +199,17 @@ export function NotificationsView({ onOpenMessage }: { onOpenMessage?: (userId: 
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {n.type === "direct_message" && (
-                    <MessageCircle
-                      className="h-4 w-4 shrink-0"
+                  {canNavigate && (
+                    <span
+                      className="flex shrink-0 items-center"
                       style={{ color: n.is_read ? "#555555" : config.accentColor }}
-                    />
+                    >
+                      {n.type === "direct_message" ? (
+                        <MessageCircle className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      )}
+                    </span>
                   )}
                   {!n.is_read && !isHovered && (
                     <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: config.accentColor }} />

@@ -236,6 +236,9 @@ const es: TranslationKeys = {
 
   // ── Settings ───────────────────────────────────────────────────────────────
   settings: {
+    whatsNew: "Novedades",
+    whatsNewEmpty: "Todavía no hay novedades. Las nuevas versiones aparecerán aquí.",
+    whatsNewNew: "Nuevo",
     personalInfo: "Información Personal",
     fullName: "Nombre Completo",
     fullNamePlaceholder: "Tu nombre completo",
@@ -924,6 +927,9 @@ const es: TranslationKeys = {
     traineeUnlinkedTitle: "Alumno desvinculado",
     traineeUnlinkedBody: "{name} ya no está en tu lista de alumnos",
     traineeUnlinkedBodyAnon: "Un alumno dejó tu lista",
+    releaseNoteTitle: "Novedades en Dupla",
+    releaseNoteBody: "La versión {version} ya está disponible. Abre Configuración para ver las novedades.",
+    releaseNoteBodyAnon: "Hay nuevas actualizaciones disponibles",
     notificationFallback: "Notificación",
     messageTitle: "Nuevo mensaje de {name}",
     messageTitleAnon: "Nuevo mensaje",

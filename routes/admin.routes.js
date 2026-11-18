@@ -1,6 +1,8 @@
 // routes/admin.routes.js
 const express = require('express');
 const adminController = require('../controllers/admin.controller');
+const releaseNotesController = require('../controllers/release_notes.controller');
+
 const { requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -18,6 +20,13 @@ router.get('/finance', requireAdmin, adminController.getFinance);
 router.get('/referrals', requireAdmin, adminController.getReferrals);
 router.patch('/referrals/:earningId/pay', requireAdmin, adminController.payReferral);
 router.get('/audit-logs', requireAdmin, adminController.getAuditLogs);
+
+// Release notes ("What's new") — authoring panel
+router.get('/release-notes', requireAdmin, releaseNotesController.listAllReleaseNotes);
+router.post('/release-notes', requireAdmin, releaseNotesController.createReleaseNote);
+router.patch('/release-notes/:id', requireAdmin, releaseNotesController.updateReleaseNote);
+router.delete('/release-notes/:id', requireAdmin, releaseNotesController.deleteReleaseNote);
+
 
 module.exports = router;
 

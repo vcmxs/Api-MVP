@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import {
-  Bell, CheckCircle, Dumbbell, AlertTriangle, XCircle, Megaphone, UserMinus, Clock, MessageCircle,
+  Bell, CheckCircle, Dumbbell, AlertTriangle, XCircle, Megaphone, UserMinus, Clock, MessageCircle, Sparkles,
 } from "lucide-react"
 
 // Shared visual language for notifications: used by the notifications list,
@@ -12,6 +12,9 @@ export interface NotificationVisual {
 
 export function getNotificationConfig(type: string, iconClassName = "h-4 w-4"): NotificationVisual {
   const t = (type ?? "").toLowerCase()
+  // Checked before the generic matches: a release note is an announcement, not
+  // a workout or a reminder, so it gets its own gold sparkle.
+  if (t === "release_note") return { accentColor: "#ffd700", icon: <Sparkles className={iconClassName} /> }
   if (t.includes("completed")) return { accentColor: "#00ff88", icon: <CheckCircle className={iconClassName} /> }
   if (t.includes("assigned") || t.includes("workout")) return { accentColor: "#00ffff", icon: <Dumbbell className={iconClassName} /> }
   if (t.includes("expiring")) return { accentColor: "#ffd700", icon: <AlertTriangle className={iconClassName} /> }

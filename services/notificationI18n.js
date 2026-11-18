@@ -44,6 +44,9 @@ const TEMPLATES = {
         traineeUnlinkedTitle: 'Trainee unlinked',
         traineeUnlinkedBody: '{name} is no longer in your trainee list',
         traineeUnlinkedBodyAnon: 'A trainee left your list',
+        releaseNoteTitle: "What's new in Dupla",
+        releaseNoteBody: 'Version {version} is available. Open Settings to see the latest updates.',
+        releaseNoteBodyAnon: 'There are new updates available',
     },
     es: {
         fallbackTitle: 'Notificación',
@@ -81,6 +84,9 @@ const TEMPLATES = {
         traineeUnlinkedTitle: 'Alumno desvinculado',
         traineeUnlinkedBody: '{name} ya no está en tu lista de alumnos',
         traineeUnlinkedBodyAnon: 'Un alumno dejó tu lista',
+        releaseNoteTitle: 'Novedades en Dupla',
+        releaseNoteBody: 'La versión {version} ya está disponible. Abre Configuración para ver las novedades.',
+        releaseNoteBodyAnon: 'Hay nuevas actualizaciones disponibles',
     },
 };
 
@@ -197,6 +203,14 @@ function buildNotificationText(type, params = {}, language = DEFAULT_LANGUAGE, f
             return {
                 title: t.traineeUnlinkedTitle,
                 body: p.name ? fill(t.traineeUnlinkedBody, p) : t.traineeUnlinkedBodyAnon,
+            };
+
+        case 'release_note':
+            // The note body itself lives in Settings; the notification is only
+            // the pointer, so it stays short.
+            return {
+                title: t.releaseNoteTitle,
+                body: p.version ? fill(t.releaseNoteBody, p) : t.releaseNoteBodyAnon,
             };
 
         default:

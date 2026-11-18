@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { cn, getLocalISOString } from "@/lib/utils"
 import { formatDecimal, formatLoad, isPlatesUnit, type LoadUnit } from "@/lib/format"
 import { normalizeWorkoutStatus } from "@/lib/workout-status"
-import { format, parseISO, type Locale } from "date-fns"
+import { format, parseISO, isValid, type Locale } from "date-fns"
 import { enUS as dateFnsEnUS, es as dateFnsEs } from "date-fns/locale"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { ExerciseNoteEntry, parseExerciseNotes, serializeCoachNote } from "@/lib/exercise-notes"
@@ -26,6 +26,8 @@ import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { LoadUnitToggle } from "./load-unit-toggle"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 import type { AgendaWorkout } from "./workout-row"
+import type { RawNotification } from "@/lib/notifications"
+import { getNotificationTarget } from "@/lib/notification-target"
 import {
   DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
@@ -174,6 +176,30 @@ export function displayWorkoutFromAgenda(workout: AgendaWorkout): DisplayWorkout
     status: status === "completed" ? "completed" : status === "assigned" ? "assigned" : "pending",
     isCoachAssigned: !!workout.isCoachAssigned,
     isCoOp: !!workout.isShared,
+  }
+}
+
+/**
+ * Adapts a workout notification (`workout_completed`, `workout_assigned`) to the
+ * shape `WorkoutDetailSheet` needs, so clicking the row opens that session
+ * instead of dumping the user on the notifications list.
+ *
+ * Only the id is reliable: the row stores the plan id in `related_id` and the
+ * name as a notification param. The date is unknown until the sheet fetches the
+ * plan, so it is left invalid and the header falls back to `rawDetail` (see
+ * `WorkoutDetailSheet`) rather than printing "Invalid Date".
+ */
+export function displayWorkoutFromNotification(n: RawNotification): DisplayWorkout | null {
+  const target = getNotificationTarget(n)
+  if (target.kind !== "workout") return null
+  return {
+    id: target.workoutId,
+    name: target.name ?? "",
+    scheduledDate: new Date(NaN),
+    exercises: [],
+    status: "pending",
+    isCoachAssigned: true,
+    isCoOp: false,
   }
 }
 
@@ -978,6 +1004,18 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   const currentStatus = rawDetail?.status || workout.status
   const sc = getStatusConfig(currentStatus)
   const isCompleted = currentStatus === "completed"
+  // A workout opened from a notification only carries its id, so name and date
+  // fall back to the plan the sheet just fetched (`rawDetail`) instead of
+  // rendering an empty title or "Invalid Date".
+  const detailDate = rawDetail?.scheduledDate ? parseISO(rawDetail.scheduledDate) : null
+  const headerDate = isValid(workout.scheduledDate)
+    ? workout.scheduledDate
+    : detailDate && isValid(detailDate)
+      ? detailDate
+      : null
+  const headerName = workout.name || rawDetail?.name || ""
+  // Single source for the log rows / exercise history below.
+  const workoutDateISO = getLocalISOString(headerDate ?? new Date())
   const exercises = (rawDetail?.exercises ?? [])
     .slice()
     .sort((a, b) => (a.exerciseOrder ?? 0) - (b.exerciseOrder ?? 0))
@@ -1019,10 +1057,12 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                 <Dumbbell className="h-5 w-5 text-[#00ffff]" />
               </div>
               <div className="min-w-0">
-                <SheetTitle className="truncate text-lg font-bold text-white">{workout.name}</SheetTitle>
-                <p className="truncate text-xs text-[#555555]" style={{ opacity: "calc(1 - var(--hp))" }}>
-                  {format(workout.scheduledDate, "EEEE, MMM d yyyy", { locale: dateLocale })}
-                </p>
+                <SheetTitle className="truncate text-lg font-bold text-white">{headerName}</SheetTitle>
+                {headerDate && (
+                  <p className="truncate text-xs text-[#555555]" style={{ opacity: "calc(1 - var(--hp))" }}>
+                    {format(headerDate, "EEEE, MMM d yyyy", { locale: dateLocale })}
+                  </p>
+                )}
               </div>
             </SheetHeader>
           </div>
@@ -1089,7 +1129,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                         key={group.exercise.id}
                         exercise={group.exercise}
                         workoutId={workout.id}
-                        workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
+                        workoutDate={workoutDateISO}
                         coachId={rawDetail?.coach_id ?? rawDetail?.coachId}
                         traineeId={rawDetail?.trainee_id ?? rawDetail?.traineeId}
                         onRefresh={() => fetchDetail(workout.id, true)}
@@ -1102,7 +1142,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                         exercises={group.exercises}
                         index={idx}
                         workoutId={workout.id}
-                        workoutDate={workout.scheduledDate instanceof Date ? getLocalISOString(workout.scheduledDate) : String(workout.scheduledDate).split("T")[0]}
+                        workoutDate={workoutDateISO}
                         coachId={rawDetail?.coach_id ?? rawDetail?.coachId}
                         traineeId={rawDetail?.trainee_id ?? rawDetail?.traineeId}
                         onRefresh={() => fetchDetail(workout.id, true)}

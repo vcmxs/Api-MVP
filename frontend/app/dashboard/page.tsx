@@ -11,7 +11,7 @@ import { TraineesView } from "@/components/dashboard/trainees-view"
 import type { ApiTrainee } from "@/components/dashboard/trainees-view"
 import { TraineeDetail } from "@/components/dashboard/trainee-detail"
 import { TraineeOverview } from "@/components/dashboard/trainee-overview"
-import { WorkoutsView, WorkoutDetailSheet, displayWorkoutFromAgenda, type DisplayWorkout } from "@/components/dashboard/workouts-view"
+import { WorkoutsView, WorkoutDetailSheet, displayWorkoutFromAgenda, displayWorkoutFromNotification, type DisplayWorkout } from "@/components/dashboard/workouts-view"
 import { MessagesView } from "@/components/dashboard/messages-view"
 import { InsightsView } from "@/components/dashboard/insights-view"
 import { ProgressionView } from "@/components/dashboard/progression-view"
@@ -25,7 +25,8 @@ import { BlastMessageModal } from "@/components/dashboard/blast-message-modal"
 import { Users, DollarSign, Bell, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getToken, getUserInfo, apiFetch } from "@/lib/api"
-import { formatNotification } from "@/lib/notifications"
+import { formatNotification, type RawNotification } from "@/lib/notifications"
+import { getNotificationTarget } from "@/lib/notification-target"
 import { formatTimeAgo } from "@/lib/notification-display"
 import { NotificationPopups } from "@/components/notifications/notification-popups"
 import { useT } from "@/lib/i18n"
@@ -58,6 +59,9 @@ export default function Dashboard() {
   const [agendaReloadKey, setAgendaReloadKey] = useState(0)
   const [progressionSubject, setProgressionSubject] = useState<{ id: number; name: string } | null>(null)
   const [messageTargetId, setMessageTargetId] = useState<number | null>(null)
+  // Settings → What's new is opened by release-note notifications; the nonce
+  // re-triggers the scroll/highlight when the same section is requested twice.
+  const [settingsFocus, setSettingsFocus] = useState<{ section: "whatsNew"; nonce: number } | null>(null)
   const [nutritionSubject, setNutritionSubject] = useState<{ id: number; name: string } | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [blastOpen, setBlastOpen] = useState(false)
@@ -130,9 +134,12 @@ export default function Dashboard() {
   }, [])
 
   // Opening the bell clears every non-message notification; message rows stay
-  // unread until the conversation is opened (the API applies the same rule).
+  // unread until the conversation is opened and release-note rows stay unread
+  // until the note itself is read (the API applies the same rule).
   const markBellNotificationsRead = useCallback(async () => {
-    setBellNotifs((prev) => prev.map((n) => n.type === "direct_message" ? n : { ...n, is_read: true }))
+    setBellNotifs((prev) => prev.map((n) =>
+      n.type === "direct_message" || n.type === "release_note" ? n : { ...n, is_read: true }
+    ))
     try { await apiFetch("/notifications/read-all", { method: "PATCH" }) } catch { /* non-critical */ }
   }, [])
 
@@ -159,6 +166,9 @@ export default function Dashboard() {
     setActiveTab(tab)
     setSelectedTrainee(null)
     setBellOpen(false)
+    // Leaving Settings drops a pending "What's new" deep link, so opening
+    // Settings again later does not re-scroll and re-highlight the section.
+    if (tab !== "settings") setSettingsFocus(null)
     if (!opts?.keep) {
       setNutritionSubject(null)
       setProgressionSubject(null)
@@ -178,19 +188,35 @@ export default function Dashboard() {
     markBellNotificationsRead()
   }
 
-  // Bell row click: read it, and jump to the chat for message notifications
-  const handleBellNotifClick = async (n: BellNotif) => {
+  // One routing point for every notification surface (bell, list, popup): a
+  // chat row opens that conversation, a workout row opens the workout sheet and
+  // a release note lands on Settings → What's new. Everything else falls back
+  // to the notifications tab, which is where the row already lives.
+  const openNotificationTarget = async (n: RawNotification) => {
     setBellOpen(false)
     if (!n.is_read) {
-      setBellNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: true } : x))
+      setBellNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)))
       try { await apiFetch(`/notifications/${n.id}/read`, { method: "PATCH" }) } catch { /* non-critical */ }
     }
-    if (n.type === "direct_message" && n.related_id) {
-      setMessageTargetId(n.related_id)
-      changeTab("messages", { keep: true })
-      return
+
+    const target = getNotificationTarget(n)
+    switch (target.kind) {
+      case "message":
+        setMessageTargetId(target.userId)
+        changeTab("messages", { keep: true })
+        return
+      case "workout":
+        // The sheet fetches the plan by id; only the header placeholder comes
+        // from the notification.
+        setAgendaWorkout(displayWorkoutFromNotification(n))
+        return
+      case "whatsNew":
+        setSettingsFocus((prev) => ({ section: "whatsNew", nonce: (prev?.nonce ?? 0) + 1 }))
+        changeTab("settings")
+        return
+      default:
+        changeTab("notifications")
     }
-    changeTab("notifications")
   }
 
   const mainMargin = sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
@@ -262,7 +288,7 @@ export default function Dashboard() {
                         return (
                           <div
                             key={n.id}
-                            onClick={() => handleBellNotifClick(n)}
+                            onClick={() => openNotificationTarget(n)}
                             className="flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-white/[0.03]"
                           >
                             <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.is_read ? "bg-[#333]" : "bg-[#00ffff]"}`} />
@@ -382,13 +408,16 @@ export default function Dashboard() {
             {activeTab === "revenue" && <RevenueView />}
             {activeTab === "winwin" && <WinWinView />}
             {activeTab === "notifications" && (
-              <NotificationsView
-                onOpenMessage={(userId) => { setMessageTargetId(userId); changeTab("messages", { keep: true }) }}
-              />
+              <NotificationsView onOpen={openNotificationTarget} />
             )}
             {activeTab === "nutrition" && <NutritionView targetUser={nutritionSubject} />}
             {activeTab === "programs" && <ProgramsView />}
-            {activeTab === "settings" && <SettingsView />}
+            {activeTab === "settings" && (
+              <SettingsView
+                focusSection={settingsFocus?.section}
+                focusNonce={settingsFocus?.nonce}
+              />
+            )}
           </div>
         </div>
       </main>
@@ -409,14 +438,7 @@ export default function Dashboard() {
       {/* In-app popups for new notifications (top-right, cascading) */}
       <NotificationPopups
         onViewAll={() => changeTab("notifications")}
-        onOpen={(n) => {
-          if (n.type === "direct_message" && n.related_id) {
-            setMessageTargetId(n.related_id)
-            changeTab("messages", { keep: true })
-          } else {
-            changeTab("notifications")
-          }
-        }}
+        onOpen={(n) => { openNotificationTarget(n) }}
         onNew={fetchBellNotifs}
       />
 

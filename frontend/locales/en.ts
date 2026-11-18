@@ -234,6 +234,9 @@ const en = {
 
   // ── Settings ───────────────────────────────────────────────────────────────
   settings: {
+    whatsNew: "What's new",
+    whatsNewEmpty: "No updates yet. New releases will show up here.",
+    whatsNewNew: "New",
     personalInfo: "Personal Information",
     fullName: "Full Name",
     fullNamePlaceholder: "Your full name",
@@ -922,6 +925,9 @@ const en = {
     traineeUnlinkedTitle: "Trainee unlinked",
     traineeUnlinkedBody: "{name} is no longer in your trainee list",
     traineeUnlinkedBodyAnon: "A trainee left your list",
+    releaseNoteTitle: "What's new in Dupla",
+    releaseNoteBody: "Version {version} is available. Open Settings to see the latest updates.",
+    releaseNoteBodyAnon: "There are new updates available",
     notificationFallback: "Notification",
     messageTitle: "New message from {name}",
     messageTitleAnon: "New message",

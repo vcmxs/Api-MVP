@@ -33,6 +33,16 @@ function fill(template: string, params: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => params[key] ?? "")
 }
 
+/**
+ * JSON params stored in `title`/`message` (merged, message wins).
+ *
+ * Exposed for the deep-link resolver: clicking a notification needs the workout
+ * name / chat sender that the formatted copy already hides behind a template.
+ */
+export function parseNotificationParams(n: RawNotification): Record<string, string> {
+  return { ...tryParse(n.title), ...tryParse(n.message ?? n.body) }
+}
+
 export function formatNotification(n: RawNotification, t?: any): Formatted {
   const type = (n.type ?? "").toLowerCase()
   const nv = t?.notificationsView as Record<string, string> | undefined
@@ -156,6 +166,14 @@ export function formatNotification(n: RawNotification, t?: any): Formatted {
       body = params.name
         ? fill(dict("{name} is no longer in your trainee list", "traineeUnlinkedBody"), params)
         : dict("A trainee left your list", "traineeUnlinkedBodyAnon")
+      break
+
+    case "release_note":
+      // The note body lives in Settings → What's new; the row is just a pointer.
+      title = dict("What's new in Dupla", "releaseNoteTitle")
+      body = params.version
+        ? fill(dict("Version {version} is available. Open Settings to see the latest updates.", "releaseNoteBody"), params)
+        : dict("There are new updates available", "releaseNoteBodyAnon")
       break
 
     default:

@@ -7,6 +7,7 @@ import { AdminOverview } from "@/components/admin/admin-overview"
 import { AdminUsersView } from "@/components/admin/admin-users-view"
 import { AdminFinanceView } from "@/components/admin/admin-finance-view"
 import { AdminReferralsView } from "@/components/admin/admin-referrals-view"
+import { AdminReleaseNotesView } from "@/components/admin/admin-release-notes-view"
 import { AdminAuditView } from "@/components/admin/admin-audit-view"
 import { Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -53,6 +54,7 @@ export default function AdminDashboard() {
     users: { title: "User Management", subtitle: "Manage users, coaches, trainees, and subscriptions" },
     finance: { title: "Financials", subtitle: "Revenue metrics and growth" },
     referrals: { title: "Referrals & Payouts", subtitle: "Manage referral commissions" },
+    "release-notes": { title: "Release Notes", subtitle: "Publish what's new for coaches and trainees" },
     audit: { title: "Audit Logs", subtitle: "System activity and modifications" },
   }
 
@@ -104,6 +106,9 @@ export default function AdminDashboard() {
             )}
             {activeTab === "referrals" && (
               <AdminReferralsView />
+            )}
+            {activeTab === "release-notes" && (
+              <AdminReleaseNotesView />
             )}
             {activeTab === "audit" && (
               <AdminAuditView />

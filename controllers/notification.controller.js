@@ -60,26 +60,49 @@ exports.markAsRead = async (req, res) => {
 /**
  * Mark ALL notifications as read for user.
  *
- * Message notifications (`direct_message`) are intentionally excluded: they only
- * become read when the user opens that conversation (or marks them explicitly),
- * so opening the bell / notifications panel does not hide unread chats.
+ * Two types are intentionally excluded from the bulk update:
+ * - `direct_message`: only becomes read when the user opens that conversation
+ *   (or marks it explicitly), so opening the bell does not hide unread chats.
+ * - `release_note`: it is the pointer to Settings → What's new, so it stays
+ *   unread until the note is actually opened.
+ *
+ * `PATCH /notifications/read-all?type=release_note` clears one type only; the
+ * Settings section uses it once the note has been read.
  */
 exports.markAllAsRead = async (req, res) => {
     try {
         const userId = req.user.id;
+        const requestedType = typeof req.query.type === 'string' ? req.query.type.trim().toLowerCase() : '';
+        const autoReadExcluded = ['direct_message', 'release_note'];
+
+        if (requestedType) {
+            const typed = await pool.query(
+                `UPDATE notifications
+                    SET is_read = TRUE
+                  WHERE user_id = $1 AND is_read = FALSE AND type = $2
+                  RETURNING id`,
+                [userId, requestedType]
+            );
+
+            return res.json({
+                message: 'Notifications marked as read',
+                updated: typed.rowCount,
+                type: requestedType,
+            });
+        }
 
         const result = await pool.query(
             `UPDATE notifications 
              SET is_read = TRUE 
-             WHERE user_id = $1 AND is_read = FALSE AND type <> 'direct_message'
+             WHERE user_id = $1 AND is_read = FALSE AND type <> ALL($2::text[])
              RETURNING id`,
-            [userId]
+            [userId, autoReadExcluded]
         );
 
         res.json({
             message: 'Notifications marked as read',
             updated: result.rowCount,
-            skippedType: 'direct_message'
+            skippedTypes: autoReadExcluded
         });
     } catch (err) {
         console.error('Mark all read error:', err);
