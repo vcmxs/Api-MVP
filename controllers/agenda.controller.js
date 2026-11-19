@@ -4,7 +4,8 @@
 //
 // The agenda answers "what is scheduled for this calendar day?" from the
 // perspective of the signed-in user: a trainee sees their own plans, a coach
-// sees the plans of the trainees they follow, an admin sees the whole day.
+// sees the plans of the trainees they follow plus their own routines, an admin
+// sees the whole day.
 // `scheduled_date` is a DATE column and db.js returns it as `YYYY-MM-DD`, so
 // the caller's local day is compared as-is (no UTC conversion).
 
@@ -71,7 +72,8 @@ exports.getTodayAgenda = async (req, res) => {
             scope.traineeId = Number(req.user.id);
         } else if (role !== 'admin') {
             // Coaches (and any other staff role) get the agenda of the trainees
-            // they follow; `coach_trainee` is the source of truth for that.
+            // they follow plus their own routines; `coach_trainee` is the source
+            // of truth for the former, `trainee_id = coach_id` for the latter.
             scope.coachId = Number(req.user.id);
         }
 

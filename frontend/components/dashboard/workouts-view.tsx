@@ -6,7 +6,7 @@ import {
   CheckCircle2, Clock, ClipboardList,
   ChevronRight, Users, Loader2, AlertCircle,
   Calendar, CalendarDays, RefreshCw, Pencil, RotateCcw, Check, Lock,
-  LayoutList, ChevronLeft, Zap
+  LayoutList, ChevronLeft, Zap, User
 } from "lucide-react"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
@@ -108,6 +108,11 @@ interface ApiWorkout {
   coachId?: number
   trainee_id?: number
   traineeId?: number
+  /** Names resolved server-side by `getWorkoutPlanById` (snake_case kept for older payloads). */
+  traineeName?: string | null
+  trainee_name?: string | null
+  coachName?: string | null
+  coach_name?: string | null
   is_shared?: number | boolean
   exercises?: ApiExercise[]
 }
@@ -132,6 +137,12 @@ export interface DisplayWorkout {
   status: "completed" | "assigned" | "pending"
   isCoachAssigned: boolean
   isCoOp: boolean
+  /**
+   * Name of the trainee the session belongs to, when the caller already knows it
+   * (agenda rows). Purely a placeholder for the sheet header: the plan detail
+   * carries the authoritative `traineeName`.
+   */
+  ownerName?: string
 }
 
 function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
@@ -152,6 +163,7 @@ function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
     status: ((w.status ?? "pending").toLowerCase()) as DisplayWorkout["status"],
     isCoachAssigned: !!(w.coach_id || w.coachId) && w.coach_id !== userId,
     isCoOp: w.is_shared === 1 || w.is_shared === true,
+    ownerName: w.traineeName ?? w.trainee_name ?? undefined,
   }
 }
 
@@ -164,7 +176,8 @@ function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
  * `GET /workout-plans/:id`, a route `loadWorkoutPlan` allows for the plan's
  * coach, its trainee and any coach linked to that trainee — and the agenda is
  * scoped to exactly those rows (`coach_trainee` for coaches, own plans for a
- * trainee), so the fetch always has authorization to succeed.
+ * trainee, plus a coach's own routine since `trainee_id = coach_id`), so the
+ * fetch always has authorization to succeed.
  */
 export function displayWorkoutFromAgenda(workout: AgendaWorkout): DisplayWorkout {
   const status = normalizeWorkoutStatus(workout.status)
@@ -176,6 +189,7 @@ export function displayWorkoutFromAgenda(workout: AgendaWorkout): DisplayWorkout
     status: status === "completed" ? "completed" : status === "assigned" ? "assigned" : "pending",
     isCoachAssigned: !!workout.isCoachAssigned,
     isCoOp: !!workout.isShared,
+    ownerName: workout.traineeName || undefined,
   }
 }
 
@@ -1051,6 +1065,16 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   // from the agenda or a notification, so the check lives here, not in callers.
   const sessionOwnerId = rawDetail?.traineeId ?? rawDetail?.trainee_id ?? rawDetail?.coachId ?? rawDetail?.coach_id
   const isSessionOwner = sessionOwnerId != null && me?.id != null && String(sessionOwnerId) === String(me.id)
+  // Whose routine is open. The detail carries the names — a coach opening a
+  // trainee's session from the agenda or a notification only has the plan id —
+  // and the agenda row already knows `traineeName`, so it stands in until the
+  // fetch lands. Own routines read "Tu rutina" instead of the coach's own name.
+  const ownerName = rawDetail?.traineeName ?? rawDetail?.trainee_name ?? workout.ownerName ?? null
+  const ownerLabel = isSessionOwner
+    ? t.workouts.yourRoutine
+    : ownerName
+      ? `${t.workouts.forTrainee}: ${ownerName}`
+      : null
   // While the plan is loading `rawDetail` is unknown, so the button stays hidden
   // rather than flashing for a coach and then disappearing.
   const showCompleteButton = !loading && !loadFailed && !isCompleted && isSessionOwner
@@ -1102,6 +1126,12 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                 {headerDate && (
                   <p className="truncate text-xs text-[#555555]" style={{ opacity: "calc(1 - var(--hp))" }}>
                     {format(headerDate, "EEEE, MMM d yyyy", { locale: dateLocale })}
+                  </p>
+                )}
+                {ownerLabel && (
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-[#00ffff]">
+                    <User className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{ownerLabel}</span>
                   </p>
                 )}
               </div>

@@ -453,3 +453,53 @@ log/complete controls and relies on the same API, so a coach on mobile now gets 
 a hidden button; hide those controls for `workout.trainee_id !== user.id` in the next mobile build.
 A v1.5 release note for this fix has **not** been seeded (same notification fan-out caveat as v1.4).
 
+## Coach's own routine in the agenda + who a session belongs to (2026-11-19)
+
+**Symptom.** A coach's own routine never showed under *Hoy / Today's workouts* on the dashboard, even
+though it listed in *Mis rutinas* and opened fine from there. Trainees' sessions appeared normally,
+which is what made it look like a frontend filter.
+
+**Root cause (backend).** `Workout.findAgenda({ coachId })` — the query behind `GET /agenda/today`
+(`controllers/agenda.controller.js` passes `coachId = req.user.id` for every non-admin, non-trainee
+role) — scoped coaches to
+`wp.trainee_id IN (SELECT trainee_id FROM coach_trainee WHERE coach_id = $3)`. A self-assigned routine
+is created with `trainee_id = coach_id` (`workouts-view.tsx#handleCreate` sends `traineeId: user.id`)
+and `coach_trainee` never links a coach to themself, so the subquery could never match it. It is not
+related to the session-ownership fix (`eb8d3b9`), which only touched the write routes.
+
+**Fix.** `models/Workout.js#findAgenda` adds `OR wp.trainee_id = $3::int` to the coach predicate. The
+`traineeId` scope, the unscoped (admin) path and the `scheduled_date` predicate are unchanged, so the
+migration-013 indexes still apply. `controllers/agenda.controller.js` documents the rule in its header
+and next to the scope assignment.
+
+**Whose routine is open.** `GET /workout-plans/:id` now also returns `traineeName` and `coachName`
+(subqueries on `users`; `null` stays `null`), so the sheet no longer needs a second round-trip.
+`frontend/components/dashboard/workouts-view.tsx`:
+
+- `ApiWorkout` gains `traineeName` / `trainee_name` / `coachName` / `coach_name`, `DisplayWorkout`
+  gains `ownerName`; `apiToDisplay` reads the detail names and `displayWorkoutFromAgenda` seeds it
+  from the agenda row (`AgendaWorkout.traineeName`), so the label is already there while the fetch is
+  in flight (and for notification-opened sheets it comes from the payload).
+- `WorkoutDetailSheet` renders a cyan user-icon line under the date: `workouts.yourRoutine`
+  (*Tu rutina* / *Your routine*) when the viewer owns the session, `Para: <name>` / `For: <name>`
+  otherwise. New keys `workouts.forTrainee` and `workouts.yourRoutine` in `frontend/locales/en.ts` and
+  `es.ts`. The line is not tied to `--hp`, so it stays readable while scrolling through the sets.
+
+**Verification (2026-11-19, staging Railway DB `caboose.proxy.rlwy.net:21099/railway`).** Throwaway
+Node harness (deleted afterwards) with a coach, a linked trainee, an unlinked trainee, three plans
+dated today and one exercise — **14/14 assertions passed**:
+
+- `findAgenda({ coachId })` → own routine **and** the linked trainee's plan; the stranger's plan is
+  absent. Unscoped (admin) returns all three fixtures.
+- `findAgenda({ traineeId: coachId })` → the own routine only; `{ traineeId: linked }` → that plan only.
+- The own row keeps `trainee_name` (the coach, as the agenda row prints it) and `exercise_count = 1`.
+- `getWorkoutPlanById` payload: `traineeName` / `coachName` correct on both plans, a `null`
+  `coach_id` resolves to `null` instead of throwing, and `traineeId` is unchanged so the sheet's owner
+  check keeps working.
+- Cleanup of the fixtures: `PURGED plans=3 links=1 users=3`, `LEFTOVER users=0 plans=0`.
+
+`npx tsc --noEmit` is clean and `npm run build` compiles all 15 routes.
+
+**Follow-up.** Same mobile caveat as the previous section: `Dupla-mobile` renders its own header, so it
+can read the new `traineeName` from the detail payload but does not show it yet.
+

@@ -289,10 +289,20 @@ exports.getWorkoutPlanById = async (req, res) => {
 
         // Attach logs to the root or inside the exercises
         // The frontend expects `workout.logs` flat array for `currentWorkout.logs` OR `ex.logs`
+        // The sheet header names whose routine is open ("Para: <trainee>" / "Tu
+        // rutina"), and a coach reaching it from the agenda only carries the plan
+        // id, so the names travel with the detail instead of another round-trip.
+        const peopleResult = await require('../config/database').query(
+            `SELECT (SELECT name FROM users WHERE id = $1) AS trainee_name,
+                    (SELECT name FROM users WHERE id = $2) AS coach_name`,
+            [workout.trainee_id, workout.coach_id]
+        );
         res.json({
             id: workout.id.toString(),
             traineeId: workout.trainee_id.toString(),
             coachId: workout.coach_id?.toString(),
+            traineeName: peopleResult.rows[0]?.trainee_name || null,
+            coachName: peopleResult.rows[0]?.coach_name || null,
             is_shared: workout.is_shared || null,
             shared_session_id: workout.shared_session_id,
             name: workout.name,

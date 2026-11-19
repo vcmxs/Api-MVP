@@ -527,7 +527,11 @@ class Workout {
      * is DATE and db.js returns it verbatim, so no timezone shifting happens).
      * Scope is optional and additive:
      *   - `traineeId` → that trainee's plans (trainee dashboard)
-     *   - `coachId`   → plans of the trainees linked to that coach
+     *   - `coachId`   → plans of the trainees linked to that coach **plus the
+     *                   coach's own routines**. Own routines are keyed by
+     *                   `trainee_id = coach_id` and `coach_trainee` never links a
+     *                   coach to themself, so they used to be filtered out of the
+     *                   coach's own agenda.
      *   - neither     → the whole day (admin)
      *
      * `exercise_count` comes from a correlated subquery so the agenda needs a
@@ -552,7 +556,9 @@ class Workout {
                JOIN users u ON u.id = wp.trainee_id
               WHERE wp.scheduled_date = $1::date
                 AND ($2::int IS NULL OR wp.trainee_id = $2::int)
-                AND ($3::int IS NULL OR wp.trainee_id IN (
+                AND ($3::int IS NULL
+                     OR wp.trainee_id = $3::int
+                     OR wp.trainee_id IN (
                         SELECT ct.trainee_id
                           FROM coach_trainee ct
                          WHERE ct.coach_id = $3::int))
