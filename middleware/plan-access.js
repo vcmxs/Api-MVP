@@ -29,6 +29,47 @@ async function isLinkedCoach(user, traineeId) {
 const isCompleted = (plan) => String(plan?.status || '').toLowerCase() === 'completed';
 
 /**
+ * The account that *executes* a session: whoever trains it. `trainee_id` is the
+ * trainee the plan was written for; plans created before that column existed
+ * fall back to `coach_id`. A coach logging their own routine keeps working
+ * because the builder stores `trainee_id = coach.id` for self-assigned plans.
+ */
+function sessionOwnerId(plan) {
+    if (!plan) return null;
+    if (plan.trainee_id != null) return plan.trainee_id;
+    if (plan.coach_id != null) return plan.coach_id;
+    return null;
+}
+
+/**
+ * Read access is deliberately broader than write access. A coach may *see* a
+ * trainee's session (agenda, history, notes) but must not log sets or complete
+ * it: that would fabricate training volume under the trainee's name and make
+ * the coach notify themself about a session they "finished".
+ */
+function isSessionOwner(plan, user) {
+    if (!plan || !user || user.id == null) return false;
+    const ownerId = sessionOwnerId(plan);
+    return ownerId != null && String(ownerId) === String(user.id);
+}
+
+/**
+ * Must run after `loadWorkoutPlan` (it reads `req.workoutPlan`). Responds 403
+ * when the caller can read the plan but is not the trainee it belongs to.
+ * Admins are not exempt: nobody executes someone else's session.
+ */
+function requireSessionOwner() {
+    return (req, res, next) => {
+        if (isSessionOwner(req.workoutPlan, req.user)) return next();
+
+        return res.status(403).json({
+            error: 'Forbidden',
+            message: 'Only the trainee this session belongs to can log sets or complete it'
+        });
+    };
+}
+
+/**
  * Loads the plan named by `:workoutPlanId` / `:planId` and checks the signed-in
  * user may touch it. Must run after `authenticateToken`.
  *
@@ -80,4 +121,10 @@ function loadWorkoutPlan({ blockCompleted = false } = {}) {
     };
 }
 
-module.exports = { loadWorkoutPlan, canAccessPlan };
+module.exports = {
+    loadWorkoutPlan,
+    canAccessPlan,
+    sessionOwnerId,
+    isSessionOwner,
+    requireSessionOwner
+};

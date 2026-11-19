@@ -411,6 +411,8 @@ const es: TranslationKeys = {
     logSet: "Registrar serie",
     roundLabel: "Ronda {round}",
     completeWorkout: "Completar rutina",
+    viewOnly: "Solo lectura",
+    viewOnlyHint: "Solo el alumno al que pertenece esta sesión puede registrar series o completarla.",
     incompleteTitle: "Rutina incompleta",
     incompleteBody: "Tienes {count} serie(s) sin registrar de {total}. Si completas ahora, quedarán sin registrar. ¿Completar de todos modos?",
     completeError: "No se pudo completar la rutina.",

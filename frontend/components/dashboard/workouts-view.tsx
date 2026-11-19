@@ -396,13 +396,15 @@ function WorkoutCard({ workout, onClick, onDelete, onAssign, isExpired }: {
 
 // ── Set log row (interactive) ─────────────────────────────────────────────
 
-function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory }: {
+function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory, readOnly = false }: {
   setNumber: number
   log: ApiSetLog | undefined
   exercise: ApiExercise
   workoutId: number
   onRefresh: () => void
   lastHistory?: string
+  /** Viewer is not the trainee this session belongs to (or it is completed). */
+  readOnly?: boolean
 }) {
   const isDone = !!(log?.completed || log?.is_completed)
   const { t } = useT()
@@ -489,6 +491,26 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
     } finally {
       setSaving(false)
     }
+  }
+
+  // Spectator row: a coach (or admin) reviewing a trainee's session sees the
+  // logged values but no inputs and no actions. The API rejects the writes
+  // anyway — this only keeps the UI from offering them.
+  if (readOnly) {
+    const roWeight = log?.weight_used ?? log?.weightUsed
+    const roReps = log?.reps_completed ?? log?.repsCompleted
+    const roWeightCell = roWeight == null
+      ? "—"
+      : isPlatesUnit(weightUnit) ? formatDecimal(roWeight) : formatLoad(roWeight, weightUnit, t.workouts.loadPlates)
+    return (
+      <div className={cn(SET_TABLE_GRID, "rounded-lg px-2 py-2 sm:px-3")} style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
+        <span className="truncate text-sm font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNumber}</span>
+        <span className="truncate text-center text-[10px] font-bold" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
+        <span className="truncate text-center text-sm font-medium text-white" title={roWeight != null ? formatLoad(roWeight, weightUnit, t.workouts.loadPlates) : undefined}>{roWeightCell}</span>
+        <span className="truncate text-center text-sm font-medium text-white">{roReps ?? "—"}</span>
+        <span aria-hidden />
+      </div>
+    )
   }
 
   // Completed, read-only row
@@ -689,7 +711,7 @@ function ExerciseNotesPanel({ exercise, workoutId, coachId, traineeId, onRefresh
 
 // ── Superset Section ───────────────────────────────────────────────────────
 
-function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coachId, traineeId, onRefresh }: {
+function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coachId, traineeId, onRefresh, readOnly = false }: {
   setNum: number
   log: ApiSetLog | undefined
   exercise: ApiExercise
@@ -698,6 +720,7 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
   coachId?: number
   traineeId?: number
   onRefresh: () => void
+  readOnly?: boolean
 }) {
   const lastHistory = useLastSessionHistory(exercise.name, workoutDate, traineeId)
   const isCardio = !!(exercise.is_cardio || exercise.isCardio)
@@ -746,13 +769,14 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
            workoutId={workoutId}
            onRefresh={onRefresh}
            lastHistory={lastHistory[setNum]}
+           readOnly={readOnly}
          />
       )}
     </div>
   )
 }
 
-function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, traineeId, onRefresh }: {
+function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, traineeId, onRefresh, readOnly = false }: {
   exercises: ApiExercise[]
   index: number
   workoutId: number
@@ -760,6 +784,7 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
   coachId?: number
   traineeId?: number
   onRefresh: () => void
+  readOnly?: boolean
 }) {
   const { t } = useT()
 
@@ -807,6 +832,7 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
                     coachId={coachId}
                     traineeId={traineeId}
                     onRefresh={onRefresh}
+                    readOnly={readOnly}
                   />
                 )
               })}
@@ -820,13 +846,14 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
 
 // ── Exercise set section ───────────────────────────────────────────────────
 
-function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, traineeId, onRefresh }: {
+function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, traineeId, onRefresh, readOnly = false }: {
   exercise: ApiExercise
   workoutId: number
   workoutDate?: string
   coachId?: number
   traineeId?: number
   onRefresh: () => void
+  readOnly?: boolean
 }) {
   const logs = (exercise.logs ?? []).slice().sort(
     (a, b) => (a.set_number ?? a.setNumber ?? 0) - (b.set_number ?? b.setNumber ?? 0)
@@ -903,6 +930,7 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
               workoutId={workoutId}
               onRefresh={onRefresh}
               lastHistory={lastHistory[setNum]}
+              readOnly={readOnly}
             />
           )
         })}
@@ -922,6 +950,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
 }) {
   const { t } = useT()
   const dateLocale = useDateLocale()
+  const me = getUserInfo()
   const [rawDetail, setRawDetail] = useState<ApiWorkout | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -1014,6 +1043,17 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
       ? detailDate
       : null
   const headerName = workout.name || rawDetail?.name || ""
+  // Executing a session is owner-only — the same rule the API enforces on
+  // start/complete/log routes. A coach reaches this sheet from the agenda or a
+  // notification, so the ownership check lives here instead of in the caller.
+  // Mirrors `sessionOwnerId()` in middleware/plan-access.js: the trainee the plan
+  // belongs to, falling back to `coach_id` for plans created before `trainee_id`
+  // existed (a coach's own routine stores trainee_id = coach.id anyway).
+  const sessionOwnerId = rawDetail?.traineeId ?? rawDetail?.trainee_id ?? rawDetail?.coachId ?? rawDetail?.coach_id
+  const isSessionOwner = sessionOwnerId != null && me?.id != null && String(sessionOwnerId) === String(me.id)
+  // While the plan is loading `rawDetail` is unknown, so the button stays hidden
+  // rather than flashing for a coach and then disappearing.
+  const showCompleteButton = !loading && !loadFailed && !isCompleted && isSessionOwner
   // Single source for the log rows / exercise history below.
   const workoutDateISO = getLocalISOString(headerDate ?? new Date())
   const exercises = (rawDetail?.exercises ?? [])
@@ -1034,9 +1074,10 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
           onScroll={handleScroll}
           className={cn(
             "min-h-0 flex-1 overflow-y-auto overscroll-contain",
-            // Leave room for the floating button; without it (completed or
-            // still loading) a small bottom padding is enough.
-            isCompleted || loading || loadFailed ? "pb-6" : "pb-32",
+            // Leave room for the floating button; without it (completed, still
+            // loading, or a session the viewer does not own) a small bottom
+            // padding is enough.
+            showCompleteButton ? "pb-32" : "pb-6",
           )}
           style={{ "--hp": 0 } as React.CSSProperties}
         >
@@ -1070,6 +1111,15 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
           <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
             <span className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider" style={{ backgroundColor: sc.bg, color: sc.color }}>{t.workouts[sc.labelKey]}</span>
             {workout.isCoOp && <span className="rounded px-2 py-1 text-[10px] font-bold uppercase" style={{ backgroundColor: "rgba(255,68,68,0.12)", color: "#ff4444" }}>{t.workouts.coOp}</span>}
+            {!loading && !loadFailed && !isSessionOwner && (
+              <span
+                className="flex items-center gap-1 rounded-full border border-white/[0.12] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#888888]"
+                title={t.workouts.viewOnlyHint}
+              >
+                <Lock className="h-3 w-3" />
+                {t.workouts.viewOnly}
+              </span>
+            )}
           </div>
           {workout.description && <p className="border-t border-white/[0.04] px-4 py-3 text-sm text-[#888888] sm:px-6">{workout.description}</p>}
 
@@ -1133,6 +1183,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                         coachId={rawDetail?.coach_id ?? rawDetail?.coachId}
                         traineeId={rawDetail?.trainee_id ?? rawDetail?.traineeId}
                         onRefresh={() => fetchDetail(workout.id, true)}
+                        readOnly={!isSessionOwner || isCompleted}
                       />
                     )
                   } else {
@@ -1146,6 +1197,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                         coachId={rawDetail?.coach_id ?? rawDetail?.coachId}
                         traineeId={rawDetail?.trainee_id ?? rawDetail?.traineeId}
                         onRefresh={() => fetchDetail(workout.id, true)}
+                        readOnly={!isSessionOwner || isCompleted}
                       />
                     )
                   }
@@ -1157,8 +1209,9 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
         </div>
 
         {/* Floating footer: the wrapper ignores pointer events so the content
-            behind the blur stays scrollable; only the button is interactive. */}
-        {!loading && !loadFailed && !isCompleted && (
+            behind the blur stays scrollable; only the button is interactive.
+            Owner-only — a coach reviewing a trainee's session gets no action. */}
+        {showCompleteButton && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
             <div
               className="absolute inset-0"

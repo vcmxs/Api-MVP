@@ -409,6 +409,8 @@ const en = {
     logSet: "Log set",
     roundLabel: "Round {round}",
     completeWorkout: "Complete Workout",
+    viewOnly: "View only",
+    viewOnlyHint: "Only the trainee this session belongs to can log sets or complete it.",
     incompleteTitle: "Incomplete workout",
     incompleteBody: "You have {count} unlogged set(s) out of {total}. If you complete now, those sets will remain unlogged. Complete anyway?",
     completeError: "Could not complete the workout.",

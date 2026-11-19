@@ -383,3 +383,73 @@ Verified live after the deploy:
   the key is missing. Nothing breaks, but add the key and ship a build so the bell copy reads properly;
   the mobile app cannot open `/novedades` yet either.
 
+
+## Session ownership — only the trainee may execute a workout (2026-11-18)
+
+**Bug.** The dashboard's *Today's workouts* row let a coach open a trainee's session in
+`WorkoutDetailSheet` and log sets or press *Complete Workout*. The API accepted those writes:
+`loadWorkoutPlan` only enforces **read** access (trainee, their coach, admin) and the
+start/complete/log routes reused it. Completing someone else's session wrote training volume
+under the trainee's name, froze their plan as `completed` and fired `notifyCoachOnCompletion`
+back at the coach — a coach notifying themself about a session they "finished".
+
+**Backend fix.** `middleware/plan-access.js` exports three helpers:
+
+- `sessionOwnerId(plan)` → `trainee_id`, falling back to `coach_id` for plans created before that
+  column existed. A coach's own routine keeps working because the builder stores
+  `trainee_id = coach.id` for self-assigned plans.
+- `isSessionOwner(plan, user)` → id comparison as strings (`req.user.id` is an int, the DB row may
+  be a bigint).
+- `requireSessionOwner()` → `403 {"message":"Only the trainee this session belongs to can log sets
+  or complete it"}`. Admins are **not** exempt: nobody executes someone else's session.
+
+`routes/workout.routes.js` mounts it on `POST /:workoutPlanId/start`,
+`POST /:workoutPlanId/complete` and on `POST`/`PUT`/`DELETE` of
+`/:workoutPlanId/exercises/:exerciseId/logs(/:logId)`. The three log routes also moved from
+`loadWorkoutPlan()` to `loadWorkoutPlan({ blockCompleted: true })`, so a finished session now
+rejects logs with `409` (that matches what the v1.4 note promised). The `GET` routes were left on
+plain `loadWorkoutPlan()`, so a coach keeps full read access to agenda, history and logs.
+
+**Web fix.** In `frontend/components/dashboard/workouts-view.tsx`, `SetLogRow`,
+`SupersetRowWrapper`, `SupersetSection` and `ExerciseSetSection` take a `readOnly` prop; when it is
+set `SetLogRow` renders a static row (set number, previous session, weight, reps, no inputs and no
+save/uncheck buttons). `WorkoutDetailSheet` derives
+
+```ts
+const sessionOwnerId = rawDetail?.traineeId ?? rawDetail?.trainee_id ?? rawDetail?.coachId ?? rawDetail?.coach_id
+const isSessionOwner = sessionOwnerId != null && me?.id != null && String(sessionOwnerId) === String(me.id)
+const showCompleteButton = !loading && !loadFailed && !isCompleted && isSessionOwner
+```
+
+and hides the floating *Complete Workout* button plus the `pb-32` spacer (now `pb-6`), adds a lock
+icon + *View only* / *Solo lectura* chip next to the status badge (`workouts.viewOnly` and
+`workouts.viewOnlyHint` added to `frontend/locales/en.ts` and `es.ts`), and passes
+`readOnly={!isSessionOwner || isCompleted}` to both set sections. Completed sessions were already
+read-only in the sheet; the new flag keeps that path unchanged.
+
+**Verification (2026-11-18, staging Railway DB `caboose.proxy.rlwy.net:21099/railway`).** A throwaway
+Express harness mounted only `routes/workout.routes` and created disposable coach/trainee/admin users
+(no push tokens, so nothing real could be notified) plus three plans; **25/25 assertions passed** and
+every row was deleted afterwards (`PURGED plans=0 users=0`):
+
+| Caller | GET plan | start | log set | edit/uncheck log | complete |
+| --- | --- | --- | --- | --- | --- |
+| anonymous | `401` | — | — | — | — |
+| coach, trainee's plan | `200` | `403` | `403` | `403`* | `403` |
+| admin, trainee's plan | `200` | — | `403` | — | `403` |
+| trainee, own plan | `200` | `200` | `201` | `200` | `200` |
+| coach, own plan | — | — | `201` | — | `200` |
+| trainee, completed plan | — | — | `409` | `409` | — |
+
+\* *edit/uncheck as coach was not part of the run; those two routes carry the identical
+`requireSessionOwner()` guard, verified in the route diff.*
+
+Also checked: the rejected writes left the plan at `status = assigned` with zero logs, the
+unrelated trainee gets `403` on the coach's own plan, `npx tsc --noEmit` is clean and
+`npm run build` in `frontend` compiles all 15 routes.
+
+**Follow-up.** The mobile app (`Dupla-mobile/src/screens/WorkoutDetailScreen.js`) still shows its own
+log/complete controls and relies on the same API, so a coach on mobile now gets a 403 toast instead of
+a hidden button; hide those controls for `workout.trainee_id !== user.id` in the next mobile build.
+A v1.5 release note for this fix has **not** been seeded (same notification fan-out caveat as v1.4).
+
