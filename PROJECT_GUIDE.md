@@ -194,9 +194,11 @@ Behaviour worth remembering:
 - Every `GET /workout-plans*` route now authenticates; plan ids are sequential, so they were readable
   anonymously before this rollout.
 
-Verified live on 2026-11-18: `/release-notes` `200 {"notes":[]}` unauthenticated, `/agenda/today` and
-`/workout-plans/1` `401` (they answered `404` and an anonymous `200` before), `/notifications` `401`, and
-`https://duplagym.vercel.app/novedades` `200` with the new heading in the served HTML.
+Verified live on 2026-11-18: `/release-notes` `200` unauthenticated (empty list at that moment; the v1.4
+note was seeded right after and the route answers `access-control-allow-origin:
+https://duplagym.vercel.app`), `/agenda/today` and `/workout-plans/1` `401` (they answered `404` and an
+anonymous `200` before), `/notifications` `401`, and `https://duplagym.vercel.app/novedades` `200` with
+the new heading in the served HTML.
 
 ## Web app (`frontend/`)
 

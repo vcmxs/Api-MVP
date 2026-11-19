@@ -358,8 +358,8 @@ Vercel automatically.
 
 Verified live after the deploy:
 
-- `GET /api/v1/release-notes` → `200 {"notes":[]}` **without** a token; the route is public on purpose
-  because the notes are global.
+- `GET /api/v1/release-notes` → `200` with an empty list, **without** a token; the route is public on
+  purpose because the notes are global (the v1.4 note was seeded afterwards, see the pending list below).
 - `GET /api/v1/agenda/today` → `401` (it answered `404` before).
 - `GET /api/v1/workout-plans/1` → `401` (it used to answer anonymously; `loadWorkoutPlan` now scopes a
   plan to its trainee, its coach or an admin and freezes completed sessions for writes).
@@ -369,10 +369,15 @@ Verified live after the deploy:
 
 **Still manual / pending (2026-11-18)**
 
-- Publish the first note from Admin → Release Notes (version `1.4`; the ready-to-paste ES/EN copy is in
-  the session that shipped it). `POST /admin/release-notes` fans out one `release_note` row per active
-  coach/trainee when *Notify* is checked, and the response reports `notified`; leave the checkbox off to
-  publish without notifying anyone.
+- The first note (**v1.4**, `release_notes.id = 1`, created `2026-11-19T00:09:41Z`) was seeded straight into
+  the production table with a one-off script, **without** the notification fan-out (`notified_at` is NULL).
+  `GET /release-notes` returns it and the route answers
+  `access-control-allow-origin: https://duplagym.vercel.app`, so the Vercel page can render it.
+- To ping the bell the note must be re-created: delete it in Admin → Release Notes and publish the same
+  copy from the panel with *Notify* checked (`POST /admin/release-notes` inserts one `release_note` row per
+  active coach/trainee and reports `notified`). It was left silent on purpose — the mobile app still has no
+  `notifications.release_note` key, so a fan-out today would show every mobile user the raw
+  `{"version":"1.4"}` params in the bell.
 - Mobile: `Dupla-mobile/src/locales/{en,es}.json` still has no `notifications.release_note` key (nor
   `direct_message`), and `NotificationScreen` falls back to the raw JSON params (`{"version":"…"}`) when
   the key is missing. Nothing breaks, but add the key and ship a build so the bell copy reads properly;
