@@ -1043,12 +1043,12 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
       ? detailDate
       : null
   const headerName = workout.name || rawDetail?.name || ""
-  // Executing a session is owner-only — the same rule the API enforces on
-  // start/complete/log routes. A coach reaches this sheet from the agenda or a
-  // notification, so the ownership check lives here instead of in the caller.
-  // Mirrors `sessionOwnerId()` in middleware/plan-access.js: the trainee the plan
-  // belongs to, falling back to `coach_id` for plans created before `trainee_id`
-  // existed (a coach's own routine stores trainee_id = coach.id anyway).
+  // Executing a session is owner-only — the same rule the API enforces on the
+  // start/complete/log routes. Mirrors `sessionOwnerId()` in
+  // middleware/plan-access.js: the trainee the plan belongs to, falling back to
+  // `coach_id` for plans created before `trainee_id` existed (a coach's own
+  // routine stores trainee_id = coach.id anyway). A coach reaches this sheet
+  // from the agenda or a notification, so the check lives here, not in callers.
   const sessionOwnerId = rawDetail?.traineeId ?? rawDetail?.trainee_id ?? rawDetail?.coachId ?? rawDetail?.coach_id
   const isSessionOwner = sessionOwnerId != null && me?.id != null && String(sessionOwnerId) === String(me.id)
   // While the plan is loading `rawDetail` is unknown, so the button stays hidden
