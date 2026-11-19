@@ -144,6 +144,10 @@ export function TodayWorkouts({ onOpenWorkout, onViewAll, reloadKey = 0 }: Today
                 <WorkoutRow
                   key={workout.id}
                   workout={workout}
+                  // "Mi rutina" only makes sense when the day mixes owners: a
+                  // trainee sees nothing but their own plans, so there the
+                  // routine name has to stay the headline.
+                  labelMine={workouts.some((w) => w.isMine !== true)}
                   onOpen={onOpenWorkout ? () => onOpenWorkout(workout) : undefined}
                 />
               ))}

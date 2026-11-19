@@ -524,9 +524,10 @@ because a trainee's self-made plan and a coach's own routine are indistinguishab
 
 **Row — `frontend/components/dashboard/workout-row.tsx`.**
 - `AgendaWorkout.isMine`; `showOwnerFirst = !isMine`.
-- Primary line: **trainee name** for someone else's session, **routine name** for your own (your own
-  name would only repeat what the cyan icon says). Secondary line: `<routine> · N ejercicios` vs
-  `N ejercicios`.
+- Primary line: **trainee name** for someone else's session; **`workouts.myRoutine`** (*Mi rutina* /
+  *My routine*) for your own routine, with the real routine name on the secondary line. `labelMine`
+  comes from `TodayWorkouts` and is only `true` when the day mixes owners — a trainee's listing is all
+  theirs, so there the routine name stays the headline and the secondary line is just `N ejercicios`.
 - Icons: `Lock` → `Users` (same glyph as *Alumnos*) on coach-prescribed rows, keeping the status tint
   (gold while pending, `CheckCircle2` green when done). Own rows always use the cyan palette
   (`#00ffff` on `rgba(0,255,255,0.10)`) with `Dumbbell`, or a cyan check when completed.

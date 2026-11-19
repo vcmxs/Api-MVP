@@ -25,20 +25,28 @@ interface WorkoutRowProps {
   workout: AgendaWorkout
   /** Omit to render a non-interactive row. */
   onOpen?: () => void
+  /**
+   * Label the caller's own routine "Mi rutina" and move the real routine name
+   * underneath. Only meaningful when the list mixes owners — on a trainee's
+   * dashboard every row is theirs and the routine name must stay the headline.
+   */
+  labelMine?: boolean
 }
 
-export function WorkoutRow({ workout, onOpen }: WorkoutRowProps) {
+export function WorkoutRow({ workout, onOpen, labelMine = false }: WorkoutRowProps) {
   const { t } = useT()
   const status = normalizeWorkoutStatus(workout.status)
   const style = getWorkoutStatusStyle(workout.status)
   const isDone = status === "completed"
   const exerciseLabel = workout.exerciseCount === 1 ? t.workouts.exercise : t.workouts.exercises
 
-  // The caller's own routine leads with the routine name (their own name would
-  // just repeat the cyan icon); every other row leads with the trainee it
-  // belongs to, which is the piece of information you scan for.
+  // Whose name leads the row. The caller's own routine reads "Mi rutina" with
+  // the real routine name underneath (only when the list mixes owners, see
+  // `labelMine`); rows of other trainees lead with the trainee name.
   const isMine = workout.isMine === true
-  const showOwnerFirst = !isMine
+  const mineLabel = isMine && labelMine
+  const primaryLabel = mineLabel ? t.workouts.myRoutine : isMine ? workout.name : workout.traineeName
+  const routineInSecondary = !isMine || mineLabel
 
   // Same convention as the workout cards: gold edge while a coach prescription
   // is still pending, green once finished, neutral otherwise.
@@ -80,9 +88,7 @@ export function WorkoutRow({ workout, onOpen }: WorkoutRowProps) {
 
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-bold text-white">
-            {showOwnerFirst ? workout.traineeName : workout.name}
-          </span>
+          <span className="truncate text-sm font-bold text-white">{primaryLabel}</span>
           {workout.isShared && (
             <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "rgba(255,68,68,0.15)", color: "#ff4444" }}>
               {t.workouts.coOp}
@@ -90,7 +96,7 @@ export function WorkoutRow({ workout, onOpen }: WorkoutRowProps) {
           )}
         </span>
         <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-[#888888]">
-          {showOwnerFirst && (
+          {routineInSecondary && (
             <>
               <span className="truncate">{workout.name}</span>
               <span aria-hidden="true" className="text-[#444444]">·</span>
