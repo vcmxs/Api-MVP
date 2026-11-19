@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle2, ChevronRight, Dumbbell, Lock } from "lucide-react"
+import { CheckCircle2, ChevronRight, Dumbbell, Users } from "lucide-react"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { getWorkoutStatusStyle, normalizeWorkoutStatus } from "@/lib/workout-status"
@@ -17,6 +17,8 @@ export interface AgendaWorkout {
   exerciseCount: number
   isCoachAssigned?: boolean
   isShared?: boolean
+  /** True when the signed-in user is the trainee of this plan. */
+  isMine?: boolean
 }
 
 interface WorkoutRowProps {
@@ -32,6 +34,12 @@ export function WorkoutRow({ workout, onOpen }: WorkoutRowProps) {
   const isDone = status === "completed"
   const exerciseLabel = workout.exerciseCount === 1 ? t.workouts.exercise : t.workouts.exercises
 
+  // The caller's own routine leads with the routine name (their own name would
+  // just repeat the cyan icon); every other row leads with the trainee it
+  // belongs to, which is the piece of information you scan for.
+  const isMine = workout.isMine === true
+  const showOwnerFirst = !isMine
+
   // Same convention as the workout cards: gold edge while a coach prescription
   // is still pending, green once finished, neutral otherwise.
   const edgeColor = isDone
@@ -39,6 +47,10 @@ export function WorkoutRow({ workout, onOpen }: WorkoutRowProps) {
     : workout.isCoachAssigned
       ? "#ffd700"
       : "rgba(255,255,255,0.06)"
+
+  // Own routines are always cyan so "that one is mine" reads before the status.
+  const iconColor = isMine ? "#00ffff" : style.text
+  const iconBg = isMine ? "rgba(0,255,255,0.10)" : `${style.text}18`
 
   return (
     <button
@@ -55,14 +67,22 @@ export function WorkoutRow({ workout, onOpen }: WorkoutRowProps) {
     >
       <span
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-        style={{ backgroundColor: `${style.text}18`, color: style.text }}
+        style={{ backgroundColor: iconBg, color: iconColor }}
       >
-        {isDone ? <CheckCircle2 className="h-5 w-5" /> : workout.isCoachAssigned ? <Lock className="h-4 w-4" /> : <Dumbbell className="h-5 w-5" />}
+        {isDone ? (
+          <CheckCircle2 className="h-5 w-5" />
+        ) : workout.isCoachAssigned ? (
+          <Users className="h-4 w-4" />
+        ) : (
+          <Dumbbell className="h-5 w-5" />
+        )}
       </span>
 
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-bold text-white">{workout.name}</span>
+          <span className="truncate text-sm font-bold text-white">
+            {showOwnerFirst ? workout.traineeName : workout.name}
+          </span>
           {workout.isShared && (
             <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "rgba(255,68,68,0.15)", color: "#ff4444" }}>
               {t.workouts.coOp}
@@ -70,8 +90,12 @@ export function WorkoutRow({ workout, onOpen }: WorkoutRowProps) {
           )}
         </span>
         <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-[#888888]">
-          <span className="truncate">{workout.traineeName}</span>
-          <span aria-hidden="true" className="text-[#444444]">·</span>
+          {showOwnerFirst && (
+            <>
+              <span className="truncate">{workout.name}</span>
+              <span aria-hidden="true" className="text-[#444444]">·</span>
+            </>
+          )}
           <span className="shrink-0">{workout.exerciseCount} {exerciseLabel}</span>
         </span>
       </span>

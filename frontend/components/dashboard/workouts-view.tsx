@@ -143,6 +143,12 @@ export interface DisplayWorkout {
    * carries the authoritative `traineeName`.
    */
   ownerName?: string
+  /**
+   * Trainee id when the caller already knows it (agenda rows), so the sheet can
+   * tell whether the session is yours before `GET /workout-plans/:id` lands —
+   * otherwise the header would briefly title itself with your own name.
+   */
+  ownerId?: number
 }
 
 function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
@@ -164,6 +170,7 @@ function apiToDisplay(w: ApiWorkout, currentUserId?: number): DisplayWorkout {
     isCoachAssigned: !!(w.coach_id || w.coachId) && w.coach_id !== userId,
     isCoOp: w.is_shared === 1 || w.is_shared === true,
     ownerName: w.traineeName ?? w.trainee_name ?? undefined,
+    ownerId: w.trainee_id ?? w.traineeId,
   }
 }
 
@@ -190,6 +197,7 @@ export function displayWorkoutFromAgenda(workout: AgendaWorkout): DisplayWorkout
     isCoachAssigned: !!workout.isCoachAssigned,
     isCoOp: !!workout.isShared,
     ownerName: workout.traineeName || undefined,
+    ownerId: workout.traineeId ? Number(workout.traineeId) : undefined,
   }
 }
 
@@ -1063,18 +1071,25 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   // `coach_id` for plans created before `trainee_id` existed (a coach's own
   // routine stores trainee_id = coach.id anyway). A coach reaches this sheet
   // from the agenda or a notification, so the check lives here, not in callers.
-  const sessionOwnerId = rawDetail?.traineeId ?? rawDetail?.trainee_id ?? rawDetail?.coachId ?? rawDetail?.coach_id
+  const sessionOwnerId =
+    rawDetail?.traineeId ??
+    rawDetail?.trainee_id ??
+    rawDetail?.coachId ??
+    rawDetail?.coach_id ??
+    workout.ownerId
   const isSessionOwner = sessionOwnerId != null && me?.id != null && String(sessionOwnerId) === String(me.id)
   // Whose routine is open. The detail carries the names — a coach opening a
   // trainee's session from the agenda or a notification only has the plan id —
   // and the agenda row already knows `traineeName`, so it stands in until the
-  // fetch lands. Own routines read "Tu rutina" instead of the coach's own name.
+  // fetch lands.
   const ownerName = rawDetail?.traineeName ?? rawDetail?.trainee_name ?? workout.ownerName ?? null
-  const ownerLabel = isSessionOwner
-    ? t.workouts.yourRoutine
-    : ownerName
-      ? `${t.workouts.forTrainee}: ${ownerName}`
-      : null
+  // The header hierarchy mirrors the agenda row: someone else's session leads
+  // with the trainee name and keeps the routine name as a subtitle, while your
+  // own session keeps the routine name as the title and summarises the owner as
+  // "Tu rutina" instead of repeating your own name.
+  const showOwnerInHeader = !isSessionOwner && Boolean(ownerName)
+  const headerTitle = showOwnerInHeader ? String(ownerName) : headerName
+  const ownerLabel = isSessionOwner ? t.workouts.yourRoutine : null
   // While the plan is loading `rawDetail` is unknown, so the button stays hidden
   // rather than flashing for a coach and then disappearing.
   const showCompleteButton = !loading && !loadFailed && !isCompleted && isSessionOwner
@@ -1119,10 +1134,17 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
             />
             <SheetHeader className="relative flex-row items-center gap-3 px-4 py-4 pr-14 sm:px-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00ffff]/10">
-                <Dumbbell className="h-5 w-5 text-[#00ffff]" />
+                {showOwnerInHeader ? (
+                  <Users className="h-5 w-5 text-[#00ffff]" />
+                ) : (
+                  <Dumbbell className="h-5 w-5 text-[#00ffff]" />
+                )}
               </div>
               <div className="min-w-0">
-                <SheetTitle className="truncate text-lg font-bold text-white">{headerName}</SheetTitle>
+                <SheetTitle className="truncate text-lg font-bold text-white">{headerTitle}</SheetTitle>
+                {showOwnerInHeader && (
+                  <p className="truncate text-xs font-medium text-[#cfcfcf]">{headerName}</p>
+                )}
                 {headerDate && (
                   <p className="truncate text-xs text-[#555555]" style={{ opacity: "calc(1 - var(--hp))" }}>
                     {format(headerDate, "EEEE, MMM d yyyy", { locale: dateLocale })}

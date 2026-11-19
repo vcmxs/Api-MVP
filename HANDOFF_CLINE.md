@@ -484,6 +484,8 @@ and next to the scope assignment.
   (*Tu rutina* / *Your routine*) when the viewer owns the session, `Para: <name>` / `For: <name>`
   otherwise. New keys `workouts.forTrainee` and `workouts.yourRoutine` in `frontend/locales/en.ts` and
   `es.ts`. The line is not tied to `--hp`, so it stays readable while scrolling through the sets.
+  *(Superseded the same day: the header now titles itself with the trainee name, so `forTrainee` was
+  removed again — see the next section.)*
 
 **Verification (2026-11-19, staging Railway DB `caboose.proxy.rlwy.net:21099/railway`).** Throwaway
 Node harness (deleted afterwards) with a coach, a linked trainee, an unlinked trainee, three plans
@@ -502,4 +504,58 @@ dated today and one exercise — **14/14 assertions passed**:
 
 **Follow-up.** Same mobile caveat as the previous section: `Dupla-mobile` renders its own header, so it
 can read the new `traineeName` from the detail payload but does not show it yet.
+
+## Agenda rows: own routine first, owner-first labels, trainee in the sheet header (2026-11-19, follow-up)
+
+**Product goal.** In *Hoy / Today's workouts*: the coach's own routine comes first and its icon is
+cyan; trainee rows swap the padlock for the two-people icon; the trainee **name** leads and the routine
+name moves underneath. Opening a session shows whose it is.
+
+**Ordering — `models/Workout.js#findAgenda`.**
+`ORDER BY (wp.trainee_id = $3::int) DESC NULLS LAST, u.name ASC, wp.created_at ASC`. `$3` is the coach
+id, so the own routine leads and the trainees follow alphabetically. `NULLS LAST` is deliberate: in the
+trainee and admin scopes `$3` is NULL, so every row evaluates the boolean to NULL and the day must stay
+plain-alphabetical (own routine *not* pinned — an admin has no "own" row in that listing).
+
+**`isMine` — `controllers/agenda.controller.js`.** `toAgendaItem(row, viewerId)` adds
+`isMine: traineeId === viewerId`, and `getTodayAgenda` passes `Number(req.user.id)`. The row needs it
+because a trainee's self-made plan and a coach's own routine are indistinguishable through
+`isCoachAssigned` alone (both `false`). Additive: mobile ignores the field.
+
+**Row — `frontend/components/dashboard/workout-row.tsx`.**
+- `AgendaWorkout.isMine`; `showOwnerFirst = !isMine`.
+- Primary line: **trainee name** for someone else's session, **routine name** for your own (your own
+  name would only repeat what the cyan icon says). Secondary line: `<routine> · N ejercicios` vs
+  `N ejercicios`.
+- Icons: `Lock` → `Users` (same glyph as *Alumnos*) on coach-prescribed rows, keeping the status tint
+  (gold while pending, `CheckCircle2` green when done). Own rows always use the cyan palette
+  (`#00ffff` on `rgba(0,255,255,0.10)`) with `Dumbbell`, or a cyan check when completed.
+- The left status edge is untouched on purpose: tinting it cyan would have removed the trainee's
+  "prescribed by your coach" gold cue.
+
+**Sheet header — `frontend/components/dashboard/workouts-view.tsx`.** For a session that is not yours:
+`Users` badge → **trainee name as `SheetTitle`** → routine name (gray) → date (still fades with
+`--hp`). The old `Para: <name>` line is gone, so `workouts.forTrainee` was removed from `en.ts` /
+`es.ts` (only `yourRoutine` remains). Your own session keeps routine name + cyan `<User /> Tu rutina`.
+New `DisplayWorkout.ownerId`, filled by `displayWorkoutFromAgenda` (and `apiToDisplay`), joins the
+`sessionOwnerId` chain — without it the header would briefly title itself with your own name until
+`GET /workout-plans/:id` landed.
+
+**Verification (2026-11-19, staging Railway DB).** Throwaway Node harness (deleted afterwards) with a
+coach, two linked trainees, one unlinked trainee and four plans dated today — names chosen so
+alphabetical order (`Ana`, `Beto`, `Cira`, `Zoe`) differs from own-first. **17/17 assertions passed:**
+
+- `findAgenda({ coachId })` → own routine first, then `Ana`, `Beto`; the unlinked `Cira` excluded.
+- `findAgenda({ date })` (admin) → `Ana, Beto, Cira, Zoe`: alphabetical, own routine not pinned.
+- `GET /agenda/today` as the coach (fake `req.user`) → own row first, `isMine: true` only on it,
+  `isCoachAssigned: true` on `Ana`'s row, `traineeName` correct, `summary.total = 3`.
+- As `Ana` (trainee) → single row, `isMine: true` (so her list keeps routine-name-first).
+- As an admin → four fixtures, `isMine: false` everywhere.
+- Cleanup: `PURGED plans=4 users=4`, `LEFTOVER users=0 plans=0`.
+
+`npx tsc --noEmit` clean, `npm run build` compiles all 15 routes.
+
+**Follow-up.** `Dupla-mobile`'s agenda screen keeps its own labels: it inherits the new order from the
+API but ignores `isMine` until it renders it.
+
 

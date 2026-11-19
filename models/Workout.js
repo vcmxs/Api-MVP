@@ -536,6 +536,11 @@ class Workout {
      *
      * `exercise_count` comes from a correlated subquery so the agenda needs a
      * single round-trip instead of one extra query per row.
+     *
+     * Ordering: the caller's own routines first (`trainee_id = coachId`), then
+     * everyone alphabetically by trainee name. `NULLS LAST` keeps the admin /
+     * trainees-only listings plain-alphabetical, because `$3` is NULL there and
+     * every row would evaluate the boolean to NULL.
      */
     static async findAgenda({ date, traineeId = null, coachId = null } = {}) {
         const result = await pool.query(
@@ -562,7 +567,9 @@ class Workout {
                         SELECT ct.trainee_id
                           FROM coach_trainee ct
                          WHERE ct.coach_id = $3::int))
-              ORDER BY u.name ASC, wp.created_at ASC
+              ORDER BY (wp.trainee_id = $3::int) DESC NULLS LAST,
+                       u.name ASC,
+                       wp.created_at ASC
               LIMIT 200`,
             [date, traineeId, coachId]
         );

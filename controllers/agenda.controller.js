@@ -6,6 +6,9 @@
 // perspective of the signed-in user: a trainee sees their own plans, a coach
 // sees the plans of the trainees they follow plus their own routines, an admin
 // sees the whole day.
+// Rows arrive own-first, then alphabetically by trainee name (see
+// Workout.findAgenda); each row carries `isMine` so the UI can distinguish the
+// caller's own routine from one written for a trainee.
 // `scheduled_date` is a DATE column and db.js returns it as `YYYY-MM-DD`, so
 // the caller's local day is compared as-is (no UTC conversion).
 
@@ -27,8 +30,14 @@ function todayUTC() {
 
 const roleOf = (user) => String(user?.role || '').toLowerCase();
 
-/** Maps a `workout_plans` + `users` row to the agenda JSON contract. */
-function toAgendaItem(row) {
+/**
+ * Maps a `workout_plans` + `users` row to the agenda JSON contract.
+ *
+ * `viewerId` is the signed-in user: `isMine` lets the UI mark the caller's own
+ * routine (cyan icon, routine name as the primary label) without re-deriving
+ * the identity on the client. Rows of other trainees lead with the trainee name.
+ */
+function toAgendaItem(row, viewerId) {
     const coachId = row.coach_id == null ? null : Number(row.coach_id);
     const traineeId = row.trainee_id == null ? null : Number(row.trainee_id);
 
@@ -46,6 +55,7 @@ function toAgendaItem(row) {
         // the column alone.
         isCoachAssigned: coachId != null && coachId !== traineeId,
         isShared: row.shared_session_id != null,
+        isMine: viewerId != null && traineeId === viewerId,
     };
 }
 
@@ -77,8 +87,11 @@ exports.getTodayAgenda = async (req, res) => {
             scope.coachId = Number(req.user.id);
         }
 
+        const viewerId = req.user?.id == null ? null : Number(req.user.id);
         const rows = await Workout.findAgenda({ date, ...scope });
-        const workouts = rows.map(toAgendaItem);
+        // `isMine` is resolved against the caller, not the row's coach_id: the
+        // same plan is "mine" for its trainee and "someone else's" for a coach.
+        const workouts = rows.map((row) => toAgendaItem(row, viewerId));
         const completed = workouts.filter((w) => w.status === 'completed').length;
 
         res.json({
