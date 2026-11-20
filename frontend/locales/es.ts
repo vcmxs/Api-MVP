@@ -571,6 +571,7 @@ const es: TranslationKeys = {
     dragToReorder: "Arrastra para reordenar",
     moveUp: "Subir",
     moveDown: "Bajar",
+    moveToDay: "Mover a…",
     newWorkoutTitle: "Nueva Rutina",
     editWorkoutTitle: "Editar Rutina Preestablecida",
     editPlanTitle: "Editar Plan de Entrenamiento",

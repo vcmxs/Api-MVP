@@ -429,6 +429,101 @@ read-only in the sheet; the new flag keeps that path unchanged.
 
 **Verification (2026-11-18, staging Railway DB `caboose.proxy.rlwy.net:21099/railway`).** A throwaway
 Express harness mounted only `routes/workout.routes` and created disposable coach/trainee/admin users
+
+## Touch reordering on web — pointer events instead of HTML5 drag (2026-11-19)
+
+**Bug.** Reordering exercises worked with a mouse only. `useExerciseReorder`
+(`frontend/components/dashboard/exercise-reorder.tsx`) and the plan timeline in
+`programs-view.tsx` were built on the HTML5 drag-and-drop API (`draggable`,
+`onDragStart/Over/Drop`), which iOS Safari and Android Chrome never fire for a
+finger — the grip and the day cards were dead controls on phones. It was not a
+scroll/`touch-action` regression; the events simply do not exist for touch.
+
+**Fix — engine swapped inside the hook, public API untouched.** `rowProps`,
+`handleProps`, `isDragging`, `isDropTarget`, `moveUp`, `moveDown` keep their
+signatures, so the four builders (`workouts-view` `WorkoutBuilderSheet`,
+`assign-workout-modal`, `programs-view` `WorkoutBuilderSheet` and
+`PlanDayEditorSheet`) changed by zero lines. The engine is now Pointer Events:
+
+- The grip drags immediately (`onPointerDown/Move/Up/Cancel` +
+  `setPointerCapture`), so row clicks, inputs and pickers keep working.
+- `touch-action: none` + `select-none` live on the grip only (`handleProps().style`),
+  so the sheet still scrolls everywhere else. This is the first `touch-action` in
+  the repo.
+- A press becomes a drag after `DRAG_THRESHOLD_PX` (6 px), so taps and vertical
+  scroll attempts still behave.
+- Rows expose only `data-reorder-row={index}` (`rowProps`); because the pointer
+  is captured, the drop target is resolved with
+  `document.elementFromPoint(x, y).closest("[data-reorder-row]")`. A miss (gap
+  between rows, sticky header) keeps the last valid target instead of cancelling.
+- Auto-scroll: `scrollableAncestors()` collects the sheet's own `overflow-y`
+  scrollers and an rAF loop scrolls them by 12 px inside a 56 px top/bottom edge
+  band. `reset()`/unmount cancels the frame.
+- `pointercancel` and a spontaneous `lostpointercapture` abort without moving
+  rows; only `pointerup` commits. ▲/▼ arrows and `ArrowUp`/`ArrowDown` on the
+  grip are unchanged.
+- Hit sizes: grip `h-8 w-6` on phones (compact `h-6 w-4` from `md`), arrows
+  `h-6 w-6` (`md:h-3.5 md:w-4`), grip tinted `#777777` on a faint background so
+  it reads as draggable.
+
+**Long press on the whole card (same session).** Aiming at a 24×32 px grip while
+holding a phone was still uncomfortable, so any touch held on the card for
+`LONG_PRESS_MS` (350 ms) arms the same engine and drags the row:
+
+- The row keeps `touch-action: auto` on purpose. A hold timer is started on
+  `pointerdown`; a finger that travels more than `LONG_PRESS_CANCEL_PX` (10 px)
+  before the timer fires cancels it, so a quick swipe still pans the sheet.
+- When the hold completes the row calls `setPointerCapture`, adopts the pointer
+  id, starts auto-scroll, and installs a **non-passive** `document` `touchmove`
+  listener that calls `preventDefault()`. React registers `touchmove` as passive,
+  so a JSX handler could not veto the pan that would otherwise start mid-drag.
+  The listener is removed by `reset()`, the unmount cleanup and `clearTouchGuard()`.
+- Presses inside `INTERACTIVE_SELECTOR` never arm: `input`, `textarea`, `select`,
+  `label`, `a`, `[aria-haspopup]` (Radix triggers open on `pointerdown`, long
+  before a hold could win), `[role="slider"]`, `[contenteditable="true"]` and the
+  `[data-no-long-press]` escape hatch. Plain buttons (exercise name, trash, ▲/▼,
+  superset pill) do arm, so the card is draggable almost anywhere.
+- Feedback: `navigator.vibrate(8)` where supported plus a 2 px white outline on
+  the grabbed row (`rowProps().style`), removed on drop.
+- The release of a hold must not also click the row, so `suppressClickRef` makes
+  `onClickCapture` swallow that one click; `onContextMenu` is vetoed while a hold
+  or drag is live and rows carry `-webkit-touch-callout: none` (selection inside
+  inputs is untouched because `user-select` is only set while dragging).
+- The grip keeps its instant 6 px behaviour; the row handler bails whenever
+  `pointerIdRef` is already set, so the two surfaces never fight.
+
+**Plan timeline (`AssignPlanModal` in `programs-view.tsx`).** A 7-column grid
+that scrolls horizontally is a bad touch-drag surface, so the card drag stayed
+mouse-only and a new **Mover a… / Move to…** menu (existing Radix
+`DropdownMenu`, 32 px trigger under each day card) does the move on touch. The
+old `handleDrop(targetDay)` was split into `moveSlot(fromDay, toDay)` (swap when
+the destination is occupied, move otherwise, same semantics as before) plus a
+thin `handleDrop` for the desktop path. `draggable` is now gated behind
+`matchMedia("(pointer: fine)")`, evaluated in an effect (SSR keeps `false`, so
+hydration stays stable). The column header label also stopped using
+`(t.programs as any).daysShort` — a typed `shortDay()` helper replaces it.
+
+**i18n.** `programs.moveToDay` — *Move to…* / *Mover a…* — in `en.ts` and `es.ts`.
+
+**Validation run.** `cd frontend && npx tsc --noEmit` → clean (twice: after the
+pointer-events engine and after the long press). `npm run build` was run for the
+first pass (Next 16 / Turbopack, 15 routes); it was deliberately not re-run for
+the long press because `next build` would wipe the `.next` directory the
+developer's `next dev` server was serving from at the time — `tsc` plus the dev
+server's on-demand compile (`GET /` and `GET /dashboard` → 200) covered it.
+
+**Confirmed by the user.** The pointer-events engine works in the local build
+(`localhost:3000` + API on `:3001`); the earlier "still dead" report came from
+testing the deployed site, which does not have this change yet because nothing
+has been pushed.
+
+**Still manual / pending.** Chrome DevTools touch emulation and a real phone:
+hold a card for ~350 ms in each of the four builders, confirm the sheet keeps
+scrolling on a quick swipe and that inputs/trash/pickers still respond to a tap,
+drag to the top/bottom edge to check auto-scroll, and check "Mover a…" in ES and
+EN (move to an empty day and swap with an occupied one). Nothing is committed yet
+for this change.
+
 (no push tokens, so nothing real could be notified) plus three plans; **25/25 assertions passed** and
 every row was deleted afterwards (`PURGED plans=0 users=0`):
 

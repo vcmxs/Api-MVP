@@ -5,10 +5,13 @@ import { createPortal } from "react-dom"
 import {
   Plus, ClipboardList, Dumbbell, X,
   FolderOpen, Folder, Trash2, Pencil,
-  ArrowLeft, Search, ChevronRight, Loader2, AlertCircle, Check,
+  ArrowLeft, ArrowLeftRight, Search, ChevronRight, Loader2, AlertCircle, Check,
   CalendarDays, Users, LayoutList,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn, getLocalISOString } from "@/lib/utils"
 import { formatLoad, normalizeLoadUnit, type LoadUnit } from "@/lib/format"
 import { format } from "date-fns"
@@ -1394,6 +1397,22 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
   // Local schedule for drag-and-drop
   const [localSchedule, setLocalSchedule] = useState<Partial<Record<number, DaySlot>>>({})
   const [draggedDay, setDraggedDay] = useState<number | null>(null)
+
+  // HTML5 drag only exists for fine pointers: on a phone the card is not
+  // draggable and never fires `dragstart`, so the "Mover a…" menu takes over.
+  const [canNativeDrag, setCanNativeDrag] = useState(false)
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return
+    const query = window.matchMedia("(pointer: fine)")
+    const sync = () => setCanNativeDrag(query.matches)
+    sync()
+    query.addEventListener("change", sync)
+    return () => query.removeEventListener("change", sync)
+  }, [])
+
+  /** Localised short day name; the locale table is keyed by day number. */
+  const shortDay = (day: number): string =>
+    (t.programs.daysShort as Record<number, string | undefined>)[day] ?? DAY_SHORT[day]
   
   // Per-workout exercise overrides by Day Number (1-7)
   const [editedExercises, setEditedExercises] = useState<Map<number, (ProgramExercise & { weightIncrement?: number })[]>>(new Map())
@@ -1526,17 +1545,24 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     }
   }, [open, plan]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDrop = (targetDay: number) => {
-    if (draggedDay === null || draggedDay === targetDay) return
+  /** Moves — or swaps — the workout sitting on `fromDay` into `toDay`. */
+  const moveSlot = (fromDay: number, toDay: number) => {
+    if (fromDay === toDay) return
     setLocalSchedule(prev => {
       const next = { ...prev }
-      const moving = next[draggedDay]
-      const existing = next[targetDay]
-      if (existing) { next[draggedDay] = existing; next[targetDay] = moving }
-      else { next[targetDay] = moving; delete next[draggedDay] }
+      const moving = next[fromDay]
+      if (!moving) return prev
+      const existing = next[toDay]
+      if (existing) { next[fromDay] = existing; next[toDay] = moving }
+      else { next[toDay] = moving; delete next[fromDay] }
       return next
     })
     setDraggedDay(null)
+  }
+
+  const handleDrop = (targetDay: number) => {
+    if (draggedDay === null) return
+    moveSlot(draggedDay, targetDay)
   }
 
   const handleAssign = async () => {
@@ -1704,27 +1730,54 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                           onDragOver={e => { e.preventDefault() }}
                           onDrop={() => handleDrop(day)}>
                           <div className="rounded-t-lg bg-[#161b22] py-2 text-center border-b border-[#a78bfa]/20">
-                            <span className="text-xs font-bold text-[#a78bfa]">{((t.programs as any).daysShort?.[day] || DAY_SHORT[day])}</span>
+                            <span className="text-xs font-bold text-[#a78bfa]">{shortDay(day)}</span>
                           </div>
                           <div className={cn("min-h-[120px] rounded-xl border border-white/[0.08] p-2 transition-colors",
                             !slot ? "bg-[#161b22]/50 border-dashed" : "bg-[#161b22]",
                             isDraggedOver && "border-[#a78bfa]/50 bg-[#a78bfa]/5")}>
                             
                             {slot ? (
-                              <div draggable onDragStart={() => setDraggedDay(day)} onDragEnd={() => setDraggedDay(null)}
-                                onClick={() => setExpandedDay(day)}
-                                className="group relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#1c2128] p-3 shadow-md hover:border-[#a78bfa]/40 hover:bg-[#22272e] transition-all">
-                                <div className="mb-2 flex items-center justify-between">
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#a78bfa]/10">
-                                    <Dumbbell className="h-3 w-3 text-[#a78bfa]" />
+                              <>
+                                <div draggable={canNativeDrag} onDragStart={() => setDraggedDay(day)} onDragEnd={() => setDraggedDay(null)}
+                                  onClick={() => setExpandedDay(day)}
+                                  className="group relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#1c2128] p-3 shadow-md hover:border-[#a78bfa]/40 hover:bg-[#22272e] transition-all">
+                                  <div className="mb-2 flex items-center justify-between">
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#a78bfa]/10">
+                                      <Dumbbell className="h-3 w-3 text-[#a78bfa]" />
+                                    </div>
+                                    {editedExercises.has(day) && (
+                                      <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">{t.programs.edited}</span>
+                                    )}
                                   </div>
-                                  {editedExercises.has(day) && (
-                                    <span className="rounded bg-[#00ff88]/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#00ff88]">{t.programs.edited}</span>
-                                  )}
+                                  <p className="text-sm font-bold text-white leading-tight">{getSlotName(slot)}</p>
+                                  <p className="mt-1 text-[10px] text-[#888888]">{t.programs.clickToEdit}</p>
                                 </div>
-                                <p className="text-sm font-bold text-white leading-tight">{getSlotName(slot)}</p>
-                                <p className="mt-1 text-[10px] text-[#888888]">{t.programs.clickToEdit}</p>
-                              </div>
+                                {/* Touch-safe alternative to dragging the card between days. */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button type="button" title={t.programs.moveToDay}
+                                      className="flex h-8 w-full items-center justify-center gap-1 rounded-lg border border-white/[0.06] bg-[#0a0a0f] text-[10px] font-bold uppercase tracking-wide text-[#888888] transition-colors hover:border-[#a78bfa]/40 hover:text-[#a78bfa]">
+                                      <ArrowLeftRight className="h-3 w-3" />
+                                      {t.programs.moveToDay}
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="center" className="min-w-[10rem] border-white/[0.08] bg-[#161b22] text-white">
+                                    {DAY_ORDER.filter(target => target !== day).map(target => {
+                                      const targetSlot = localSchedule[target]
+                                      return (
+                                        <DropdownMenuItem key={target} onSelect={() => moveSlot(day, target)}
+                                          className="gap-2 text-xs focus:bg-[#a78bfa]/15 focus:text-white">
+                                          <ArrowLeftRight className="h-3 w-3 shrink-0 text-[#a78bfa]" />
+                                          <span className="font-bold">{shortDay(target)}</span>
+                                          <span className="ml-auto max-w-[6.5rem] truncate text-[10px] text-[#666666]">
+                                            {targetSlot ? getSlotName(targetSlot) : t.programs.restDay}
+                                          </span>
+                                        </DropdownMenuItem>
+                                      )
+                                    })}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </>
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-center opacity-50">
                                 <span className="text-[10px] text-[#555555]">{t.programs.restDay}</span>

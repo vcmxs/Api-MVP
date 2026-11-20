@@ -569,6 +569,7 @@ const en = {
     dragToReorder: "Drag to reorder",
     moveUp: "Move up",
     moveDown: "Move down",
+    moveToDay: "Move to…",
     newWorkoutTitle: "New Workout",
     editWorkoutTitle: "Edit Workout Template",
     editPlanTitle: "Edit Training Plan",
