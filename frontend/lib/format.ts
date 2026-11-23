@@ -37,6 +37,19 @@ export function formatWeight(
 }
 
 /**
+ * Coerces whatever the API returns for a numeric column into a finite number.
+ * `DECIMAL(10, 2)` columns come back as numbers *or* as strings ("2.50"), and
+ * `Number(undefined)` is `NaN` — both would reach a controlled input as an
+ * unusable value, so every field seed and log payload goes through this guard.
+ */
+export function toFiniteNumber(value: number | string | null | undefined): number {
+  if (value === null || value === undefined || value === "") return 0
+
+  const num = typeof value === "string" ? parseFloat(value) : value
+  return Number.isFinite(num) ? num : 0
+}
+
+/**
  * Load types we store in `exercises.weight_unit` / `exercise_logs.weight_unit`.
  *
  * `plates` is a machine-plate stack: the stored number is a plate count, not a

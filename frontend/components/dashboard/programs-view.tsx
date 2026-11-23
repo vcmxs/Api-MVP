@@ -12,8 +12,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { NumberField } from "@/components/ui/number-field"
 import { cn, getLocalISOString } from "@/lib/utils"
-import { formatLoad, normalizeLoadUnit, type LoadUnit } from "@/lib/format"
+import { formatDecimal, formatLoad, normalizeLoadUnit, toFiniteNumber, type LoadUnit } from "@/lib/format"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
@@ -1336,26 +1337,34 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
                     { label: t.programs.reps, field: "reps" as const, value: ex.reps },
                     { label: "", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
                     { label: "+ / " + t.programs.week.slice(0, 2).toUpperCase(), field: "weightIncrement" as const, value: ex.weightIncrement ?? 0 },
-                  ].map(({ label, field, value }) => (
-                    <div key={field}>
-                      <div className="mb-1 flex h-5 items-center">
-                        {field === "targetWeight" ? (
-                          <LoadUnitToggle
-                            accent="violet"
-                            value={ex.weightUnit ?? ex.weight_unit}
-                            onChange={unit => updateLoadUnit(i, unit)}
-                          />
-                        ) : (
-                          <label className="truncate text-[10px] uppercase text-[#555555]">{label}</label>
-                        )}
+                  ].map(({ label, field, value }) => {
+                    // Sets and reps are counts; the target load and the weekly
+                    // increment are DECIMAL(10, 2) and must accept 2.5.
+                    const whole = field === "sets" || field === "reps"
+                    return (
+                      <div key={field}>
+                        <div className="mb-1 flex h-5 items-center">
+                          {field === "targetWeight" ? (
+                            <LoadUnitToggle
+                              accent="violet"
+                              value={ex.weightUnit ?? ex.weight_unit}
+                              onChange={unit => updateLoadUnit(i, unit)}
+                            />
+                          ) : (
+                            <label className="truncate text-[10px] uppercase text-[#555555]">{label}</label>
+                          )}
+                        </div>
+                        <NumberField
+                          value={toFiniteNumber(value)}
+                          onChange={next => updateField(i, field, next)}
+                          decimal={!whole}
+                          min={0}
+                          aria-label={label || field}
+                          className="bg-[#161b22] px-3 py-2 text-sm focus:border-[#a78bfa]/50"
+                        />
                       </div>
-                      <input type="number" defaultValue={value as number} min={0}
-                        step={field === "sets" || field === "reps" ? "1" : "any"}
-                        inputMode={field === "sets" || field === "reps" ? "numeric" : "decimal"}
-                        onChange={e => updateField(i, field, parseFloat(e.target.value) || 0)}
-                        className="w-full rounded-lg border border-white/[0.08] bg-[#161b22] px-3 py-2 text-sm text-white focus:border-[#a78bfa]/50 focus:outline-none" />
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -1459,8 +1468,9 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
             const setNum = l.setNumber ?? l.set_number
             const w = l.weight ?? l.weightUsed ?? l.weight_used
             const r = l.reps ?? l.repsCompleted ?? l.reps_completed
-            const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-            if (setNum != null && w != null && r != null) setMap[setNum] = `${formatLoad(w, unit, t.workouts.loadPlates)}×${r}`
+            // Compact `62.5×12` to match the log table: the load unit is
+            // already implied by the exercise row it is shown next to.
+            if (setNum != null && w != null && r != null) setMap[setNum] = `${formatDecimal(w)}×${r}`
           }
           map[ex.name] = setMap
         }

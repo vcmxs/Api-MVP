@@ -13,7 +13,7 @@ import { ManageSubscriptionModal } from "./manage-subscription-modal"
 import { apiFetch, getUserInfo } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { cn, getLocalISOString } from "@/lib/utils"
-import { formatLoad, isPlatesUnit } from "@/lib/format"
+import { formatDecimal, formatLoad, isPlatesUnit } from "@/lib/format"
 import { parseExerciseNotes, type ExerciseNoteEntry } from "@/lib/exercise-notes"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 import type { ApiTrainee } from "./trainees-view"
@@ -381,8 +381,10 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
             const setNum = l.setNumber ?? l.set_number
             const w = l.weight ?? l.weightUsed ?? l.weight_used
             const r = l.reps ?? l.repsCompleted ?? l.reps_completed
-            const unit = l.weightUnit ?? l.weight_unit ?? "kg"
-            if (setNum != null && w != null && r != null) setMap[setNum] = `${formatLoad(w, unit, t.workouts.loadPlates)}×${r}`
+            // Compact `62.5×12`: the column header already says kg or plates,
+            // and `formatLoad` ("12 plates×10") is what used to overflow the
+            // narrow "Last" column and get cut with an ellipsis.
+            if (setNum != null && w != null && r != null) setMap[setNum] = `${formatDecimal(w)}×${r}`
           }
           map[ex.name] = setMap
         }
@@ -1248,7 +1250,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                       </>
                                     ) : (
                                       <>
-                                        <span className="truncate text-center text-[10px] font-bold" style={{ color: lastVal ? "#00ffff" : "#444444" }}>
+                                        <span className="whitespace-normal break-words text-center text-[10px] font-bold leading-tight tabular-nums" style={{ color: lastVal ? "#00ffff" : "#444444" }}>
                                           {lastVal ?? "—"}
                                         </span>
                                         <span className="truncate text-center font-medium text-white">
@@ -1355,7 +1357,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                       {!isCardio && (
                                         <div className="mb-1 flex min-w-0 items-center gap-1.5 px-2 text-[9px] font-bold uppercase tracking-normal text-[#888888] sm:gap-2 sm:text-[10px] sm:tracking-wider">
                                           <span className="w-7 shrink-0 truncate">{t.workouts?.setColumn || "Set"}</span>
-                                          <span className="w-11 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
+                                          <span className="w-12 shrink-0 truncate text-center sm:w-16">{t.workouts?.lastColumn || "Last"}</span>
                                           <span className="min-w-0 flex-1 truncate text-center sm:w-20 sm:flex-none">
                                             {isPlatesUnit(ex.weight_unit ?? ex.weightUnit) ? t.workouts.loadPlates : (t.workouts?.weightColumn || "Weight")}
                                           </span>
@@ -1375,7 +1377,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                       ) : (
                                         <div className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm sm:gap-2" style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
                                           <span className="w-7 shrink-0 font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNum}</span>
-                                          <span className="w-11 shrink-0 truncate text-center text-[10px] font-bold sm:w-16" style={{ color: lastVal ? "#00ffff" : "#444444" }}>{lastVal ?? "—"}</span>
+                                          <span className="w-12 shrink-0 whitespace-normal break-words text-center text-[10px] font-bold leading-tight tabular-nums sm:w-16" style={{ color: lastVal ? "#00ffff" : "#444444" }}>{lastVal ?? "—"}</span>
                                           <span className="min-w-0 flex-1 truncate text-center font-medium text-white sm:w-20 sm:flex-none">{weight != null ? formatLoad(weight, ex.weight_unit ?? ex.weightUnit, t.workouts.loadPlates) : "—"}</span>
                                           <span className="w-12 shrink-0 text-center font-medium text-white sm:w-14">{reps != null ? `${reps}` : "—"}</span>
                                           {showRpe && <span className="w-8 shrink-0 text-center text-[#888888] sm:w-10">{log?.rpe != null ? log.rpe : "—"}</span>}

@@ -14,7 +14,7 @@ import { NumberField } from "@/components/ui/number-field"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn, getLocalISOString } from "@/lib/utils"
-import { formatDecimal, formatLoad, isPlatesUnit, type LoadUnit } from "@/lib/format"
+import { formatDecimal, formatLoad, isPlatesUnit, toFiniteNumber, type LoadUnit } from "@/lib/format"
 import { normalizeWorkoutStatus } from "@/lib/workout-status"
 import { format, parseISO, isValid, type Locale } from "date-fns"
 import { enUS as dateFnsEnUS, es as dateFnsEs } from "date-fns/locale"
@@ -42,12 +42,13 @@ import {
  * It used to be a flex row where the weight field was `flex-1`: the input ate
  * every spare pixel while reps sat at a fixed 48px and "anterior" was squeezed
  * into 44px. Two proportional tracks keep peso/reps equally wide — reps is as
- * easy to type in as weight — and the history column only needs room for its
- * compact `20×10` label. The trailing 50/60px block matches the two icon
- * buttons of a completed row, which the old header under-reserved by 2px.
+ * easy to type in as weight — and the history track is `max-content`, so it
+ * grows to fit the widest `102.5×12` on the table (and its own header) instead
+ * of cutting the value with an ellipsis. The trailing 50/60px block matches the
+ * two icon buttons of a completed row, which the old header under-reserved by 2px.
  */
 const SET_TABLE_GRID =
-  "grid min-w-0 grid-cols-[24px_42px_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-1 sm:grid-cols-[28px_56px_minmax(0,1fr)_minmax(0,0.8fr)_60px] sm:gap-2"
+  "grid min-w-0 grid-cols-[24px_minmax(42px,max-content)_minmax(0,1fr)_minmax(0,1fr)_50px] items-center gap-1 sm:grid-cols-[28px_minmax(48px,max-content)_minmax(0,1fr)_minmax(0,0.8fr)_60px] sm:gap-2"
 
 /**
  * Header of the weight column. A plate-stack load is a plate *count*, not a
@@ -433,8 +434,11 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   const weightUnit = exercise.weight_unit ?? exercise.weightUnit
   const weightLabel = weightColumnLabel(exercise, t)
   const [editing, setEditing] = useState(false)
-  const [weight, setWeight] = useState("")
-  const [reps, setReps] = useState("")
+  // Numeric state, not the raw input string: `NumberField` keeps its own text
+  // draft while typing, so "2." is never collapsed to "2" and `parseFloat("")`
+  // can no longer silently turn a decimal attempt into 0.
+  const [weight, setWeight] = useState(0)
+  const [reps, setReps] = useState(0)
   const [saving, setSaving] = useState(false)
 
   // Track whether the user has manually edited either input.
@@ -451,8 +455,8 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   useEffect(() => {
     const logWeight = log?.weight_used ?? log?.weightUsed
     const logReps   = log?.reps_completed ?? log?.repsCompleted
-    setWeight(logWeight != null ? String(logWeight) : String(exercise.target_weight ?? exercise.targetWeight ?? ""))
-    setReps(logReps != null ? String(logReps) : String(exercise.reps ?? ""))
+    setWeight(logWeight != null ? toFiniteNumber(logWeight) : toFiniteNumber(exercise.target_weight ?? exercise.targetWeight))
+    setReps(logReps != null ? toFiniteNumber(logReps) : toFiniteNumber(exercise.reps))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // On subsequent renders, only sync if:
@@ -467,8 +471,8 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
     if (!userEdited.current || justCompleted) {
       const logWeight = log?.weight_used ?? log?.weightUsed
       const logReps   = log?.reps_completed ?? log?.repsCompleted
-      setWeight(logWeight != null ? String(logWeight) : String(exercise.target_weight ?? exercise.targetWeight ?? ""))
-      setReps(logReps != null ? String(logReps) : String(exercise.reps ?? ""))
+      setWeight(logWeight != null ? toFiniteNumber(logWeight) : toFiniteNumber(exercise.target_weight ?? exercise.targetWeight))
+      setReps(logReps != null ? toFiniteNumber(logReps) : toFiniteNumber(exercise.reps))
       if (justCompleted) userEdited.current = false // reset dirty flag after confirmed save
     }
   }, [log, exercise, isDone]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -478,8 +482,10 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
     try {
       const payload = {
         setNumber,
-        weightUsed: parseFloat(weight) || 0,
-        repsCompleted: parseInt(reps) || 0,
+        // Exactly what the field shows: 62.5 stays 62.5 all the way to
+        // DECIMAL(10, 2). Reps are a count, so they get truncated.
+        weightUsed: weight,
+        repsCompleted: Math.round(reps),
         weightUnit: exercise.weightUnit ?? exercise.weight_unit ?? "kg",
         completed: true,
       }
@@ -527,7 +533,7 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
     return (
       <div className={cn(SET_TABLE_GRID, "rounded-lg px-2 py-2 sm:px-3")} style={{ backgroundColor: isDone ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.03)" }}>
         <span className="truncate text-sm font-bold" style={{ color: isDone ? "#00ff88" : "#888888" }}>{setNumber}</span>
-        <span className="truncate text-center text-[10px] font-bold" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
+        <span className="whitespace-normal break-words text-center text-[10px] font-bold leading-tight tabular-nums" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
         <span className="truncate text-center text-sm font-medium text-white" title={roWeight != null ? formatLoad(roWeight, weightUnit, t.workouts.loadPlates) : undefined}>{roWeightCell}</span>
         <span className="truncate text-center text-sm font-medium text-white">{roReps ?? "—"}</span>
         <span aria-hidden />
@@ -547,7 +553,7 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
     return (
       <div className={cn(SET_TABLE_GRID, "rounded-lg px-2 py-2 sm:px-3")} style={{ backgroundColor: "rgba(0,255,136,0.06)" }}>
         <span className="truncate text-sm font-bold text-[#00ff88]">{setNumber}</span>
-        <span className="truncate text-center text-[10px] font-bold" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
+        <span className="whitespace-normal break-words text-center text-[10px] font-bold leading-tight tabular-nums" style={{ color: lastHistory ? "#00ffff" : "#444444" }}>{lastHistory ?? "—"}</span>
         <span className="truncate text-center text-sm font-medium text-white" title={w != null ? formatLoad(w, weightUnit, t.workouts.loadPlates) : undefined}>{weightCell}</span>
         <span className="truncate text-center text-sm font-medium text-white">{r ?? "—"}</span>
         <div className="flex items-center justify-end gap-0.5 sm:gap-1">
@@ -566,27 +572,25 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
   return (
     <div className={cn(SET_TABLE_GRID, "rounded-lg px-2 py-1.5 sm:px-3")} style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
       <span className="truncate text-sm font-bold text-[#888888]">{setNumber}</span>
-      <span className="truncate text-center text-[10px] font-bold text-[#555555]">{lastHistory ?? "—"}</span>
-      <input
-        type="number"
-        step="any"
-        inputMode="decimal"
+      <span className="whitespace-normal break-words text-center text-[10px] font-bold leading-tight tabular-nums text-[#555555]">{lastHistory ?? "—"}</span>
+      <NumberField
         value={weight}
-        onChange={(e) => { userEdited.current = true; setWeight(e.target.value) }}
-        placeholder={String(exercise.target_weight ?? exercise.targetWeight ?? "0")}
+        onChange={(next) => { userEdited.current = true; setWeight(next) }}
+        decimal
+        maxDecimals={2}
+        min={0}
+        placeholder={formatDecimal(exercise.target_weight ?? exercise.targetWeight)}
         aria-label={weightLabel}
-        title={weightLabel}
-        className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-1.5 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
+        className="min-w-0 px-1.5 py-1.5 text-center text-sm"
       />
-      <input
-        type="number"
-        step="1"
-        inputMode="numeric"
+      <NumberField
         value={reps}
-        onChange={(e) => { userEdited.current = true; setReps(e.target.value) }}
-        placeholder={String(exercise.reps ?? "0")}
+        onChange={(next) => { userEdited.current = true; setReps(next) }}
+        decimal={false}
+        min={0}
+        placeholder={exercise.reps != null ? String(exercise.reps) : ""}
         aria-label={t.workouts.repsColumn}
-        className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0a0a0f] px-1.5 py-1.5 text-center text-sm text-white focus:border-[#00ffff]/50 focus:outline-none"
+        className="min-w-0 px-1.5 py-1.5 text-center text-sm"
       />
       <div className="flex items-center justify-end gap-0.5 sm:gap-1">
         {editing && (
@@ -596,7 +600,9 @@ function SetLogRow({ setNumber, log, exercise, workoutId, onRefresh, lastHistory
         )}
         <button
           onClick={handleLog}
-          disabled={saving || !weight || !reps}
+          // 0 kg is a valid log (bodyweight work), 0 reps is not: the old
+          // `!weight` check only worked because the state was the string "0".
+          disabled={saving || reps <= 0}
           className="flex h-6 w-6 items-center justify-center rounded-full bg-[#00ffff] text-black transition-opacity disabled:opacity-40 sm:h-7 sm:w-7"
           title={t.workouts.logSet}
         >
