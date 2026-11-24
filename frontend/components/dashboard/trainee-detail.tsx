@@ -16,7 +16,7 @@ import { cn, getLocalISOString } from "@/lib/utils"
 import { formatDecimal, formatLoad, isPlatesUnit } from "@/lib/format"
 import { parseExerciseNotes, type ExerciseNoteEntry } from "@/lib/exercise-notes"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
-import { groupLabel } from "./exercise-reorder"
+import { groupLabel, linkAccent } from "./exercise-reorder"
 import type { ApiTrainee } from "./trainees-view"
 
 // ── API types ─────────────────────────────────────────────────────────────
@@ -1308,12 +1308,18 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                       totalCompleted += logs.filter((l: any) => l.completed || l.is_completed).length
                     }
 
+                    // A run of two is a bi-serie (cyan); three or more is a
+                    // superset (red), and the block wears that colour.
+                    const accent = linkAccent(group.exercises.length)
+
                     return (
-                      <div key={group.exercises.map(e => e.id).join("-")} className="min-w-0 overflow-hidden rounded-xl border border-[#00ffff]/20 bg-[#161b22]">
-                        <div className="flex items-center justify-between border-b border-[#00ffff]/10 bg-gradient-to-r from-[#00ffff]/10 to-transparent px-3 py-2 sm:px-4">
+                      <div key={group.exercises.map(e => e.id).join("-")} className="min-w-0 overflow-hidden rounded-xl border bg-[#161b22]"
+                        style={{ borderColor: `${accent}33` }}>
+                        <div className="flex items-center justify-between border-b px-3 py-2 sm:px-4"
+                          style={{ borderBottomColor: `${accent}1a`, backgroundImage: `linear-gradient(to right, ${accent}1a, transparent)` }}>
                           <div className="flex items-center gap-2">
-                            <Zap className="h-4 w-4 text-[#00ffff]" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">{groupLabel(group.exercises.length, t.programs)}</span>
+                            <Zap className="h-4 w-4" style={{ color: accent }} />
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>{groupLabel(group.exercises.length, t.programs)}</span>
                           </div>
                           <span className="shrink-0 text-xs font-semibold" style={{ color: totalCompleted === totalRows && totalRows > 0 ? "#00ff88" : totalCompleted > 0 ? "#ffd700" : "#555555" }}>
                             {totalCompleted}/{totalRows} done
@@ -1325,7 +1331,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                             <div key={setNum} className="relative min-w-0 rounded-xl border border-white/[0.05] bg-black/20 p-1.5 sm:p-3">
                               <p className="text-[10px] font-bold text-[#888] mb-2 uppercase tracking-widest">Round {setNum}</p>
                               <div className="space-y-3 relative">
-                                <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px] bg-[#00ffff]/20" />
+                                <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px]" style={{ backgroundColor: `${accent}33` }} />
                                 {group.exercises.map((ex) => {
                                   const logs = ex.logs ?? []
                                   const log = logs.find((l: any) => (l.set_number ?? l.setNumber) === setNum)
@@ -1342,7 +1348,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                                     <div key={ex.id} className="min-w-0 space-y-1.5 rounded-lg bg-black/10 p-2">
                                       <div className="flex flex-col gap-1 mb-2 px-1">
                                         <div className="flex items-center gap-2">
-                                          <Dumbbell className="h-3 w-3 text-[#00ffff]" />
+                                          <Dumbbell className="h-3 w-3" style={{ color: accent }} />
                                           <p className="text-xs font-semibold text-white">{ex.name}</p>
                                         </div>
                                         <p className="text-[10px] text-[#888888] ml-5">

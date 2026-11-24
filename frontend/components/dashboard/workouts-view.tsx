@@ -29,7 +29,7 @@ import type { AgendaWorkout } from "./workout-row"
 import type { RawNotification } from "@/lib/notifications"
 import { getNotificationTarget } from "@/lib/notification-target"
 import {
-  DragHandle, ReorderArrows, SupersetToggle, groupLabel, linkedGroupSize, moveItem, newExerciseRowId, useExerciseReorder,
+  DragHandle, ReorderArrows, SupersetToggle, groupLabel, linkAccent, linkedGroupSize, linkRingClass, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 
 
@@ -739,7 +739,7 @@ function ExerciseNotesPanel({ exercise, workoutId, coachId, traineeId, onRefresh
 
 // ── Superset Section ───────────────────────────────────────────────────────
 
-function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coachId, traineeId, onRefresh, readOnly = false }: {
+function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coachId, traineeId, onRefresh, readOnly = false, accent = "#00ffff" }: {
   setNum: number
   log: ApiSetLog | undefined
   exercise: ApiExercise
@@ -749,6 +749,8 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
   traineeId?: number
   onRefresh: () => void
   readOnly?: boolean
+  /** Colour of the run this row belongs to: cyan bi-serie, red superset. */
+  accent?: string
 }) {
   const lastHistory = useLastSessionHistory(exercise.name, workoutDate, traineeId)
   const isCardio = !!(exercise.is_cardio || exercise.isCardio)
@@ -759,7 +761,7 @@ function SupersetRowWrapper({ setNum, log, exercise, workoutId, workoutDate, coa
       <div className="mb-2 flex items-start gap-2 px-1">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Dumbbell className="h-3 w-3 shrink-0 text-[#00ffff]" />
+            <Dumbbell className="h-3 w-3 shrink-0" style={{ color: accent }} />
             <p className="truncate text-xs font-semibold text-white">{exercise.name}</p>
           </div>
           <p className="ml-5 text-[10px] text-[#888888]">
@@ -828,12 +830,17 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
     totalCompleted += logs.filter(l => l.completed || l.is_completed).length
   }
 
+  // A run of two is a bi-serie (cyan); three or more is a superset (red), and
+  // the whole block — frame, header, connector — wears that colour.
+  const accent = linkAccent(exercises.length)
+
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-[#00ffff]/20 bg-[#161b22]">
-      <div className="flex items-center justify-between border-b border-[#00ffff]/10 bg-gradient-to-r from-[#00ffff]/10 to-transparent px-3 py-2 sm:px-4">
+    <div className="min-w-0 overflow-hidden rounded-xl border bg-[#161b22]" style={{ borderColor: `${accent}33` }}>
+      <div className="flex items-center justify-between border-b px-3 py-2 sm:px-4"
+        style={{ borderBottomColor: `${accent}1a`, backgroundImage: `linear-gradient(to right, ${accent}1a, transparent)` }}>
         <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-[#00ffff]" />
-          <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">{groupLabel(exercises.length, t.programs)}</span>
+          <Zap className="h-4 w-4" style={{ color: accent }} />
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>{groupLabel(exercises.length, t.programs)}</span>
         </div>
         <span className="shrink-0 text-xs font-semibold" style={{ color: totalCompleted === totalRows && totalRows > 0 ? "#00ff88" : totalCompleted > 0 ? "#ffd700" : "#555555" }}>
           {totalCompleted}/{totalRows}
@@ -845,7 +852,7 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
           <div key={setNum} className="relative min-w-0 rounded-xl border border-white/[0.05] bg-black/20 p-1.5 sm:p-3">
             <p className="text-[10px] font-bold text-[#888] mb-2 uppercase tracking-widest">{t.workouts.roundLabel.replace("{round}", String(setNum))}</p>
             <div className="space-y-3 relative">
-              <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px] bg-[#00ffff]/20" />
+              <div className="absolute left-[11px] top-[24px] bottom-[24px] w-[1px]" style={{ backgroundColor: `${accent}33` }} />
               {exercises.map((ex) => {
                 const logs = ex.logs ?? []
                 const log = logs.find(l => (l.set_number ?? l.setNumber) === setNum)
@@ -861,6 +868,7 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
                     traineeId={traineeId}
                     onRefresh={onRefresh}
                     readOnly={readOnly}
+                    accent={accent}
                   />
                 )
               })}
@@ -1525,7 +1533,8 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
                 <div className="space-y-3">
                   {exercises.map((ex, i) => (
                     <div key={ex.id} {...reorder.rowProps(i)}
-                      className={cn("rounded-2xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60")}>
+                      className={cn("rounded-2xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60",
+                        linkRingClass(linkedGroupSize(exercises, i)))}>
                       {i > 0 && (
                         <div className="-my-2">
                           <SupersetToggle active={!!ex.isSuperset} groupSize={linkedGroupSize(exercises, i)}

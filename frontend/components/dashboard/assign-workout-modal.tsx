@@ -19,7 +19,7 @@ import { isPaymentInactive } from "@/lib/trainee-payment"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { LoadUnitToggle } from "./load-unit-toggle"
 import {
-  DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, moveItem, newExerciseRowId, useExerciseReorder,
+  DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, linkRingClass, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 
 
@@ -698,7 +698,8 @@ export function AssignWorkoutModal({
                     <div className="space-y-2">
                       {buildExercises.map((ex, i) => (
                         <div key={ex.id} {...reorder.rowProps(i)}
-                          className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60")}>
+                          className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60",
+                            linkRingClass(linkedGroupSize(buildExercises, i)))}>
                           {i > 0 && (
                             <div className="-my-2">
                               <SupersetToggle active={!!ex.isSuperset} groupSize={linkedGroupSize(buildExercises, i)}

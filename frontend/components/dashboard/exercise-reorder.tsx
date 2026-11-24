@@ -509,6 +509,26 @@ export function groupLabel(count: number, labels: { biSerie: string; superset: s
 }
 
 /**
+ * Colour a linked run is drawn in: cyan for a bi-serie, red once the run grows
+ * into a superset. Every builder and both execution views read the accent from
+ * here so the same run never shows up in two colours.
+ */
+export const LINK_ACCENT = { biSerie: "#00ffff", superset: "#ff4444" } as const
+
+export function linkAccent(groupSize: number): string {
+  return groupSize >= 3 ? LINK_ACCENT.superset : LINK_ACCENT.biSerie
+}
+
+/**
+ * Ring drawn around every card of a linked run, so the coach can see which
+ * exercises hang together. Standalone rows get nothing.
+ */
+export function linkRingClass(groupSize: number): string {
+  if (groupSize < 2) return ""
+  return groupSize >= 3 ? "ring-2 ring-[#ff4444]/60" : "ring-2 ring-[#00ffff]/50"
+}
+
+/**
  * Pill rendered between two exercises to link them as a bi-serie or, once three
  * or more rows hang together, as a superset.
  * The backend convention is `rest_time = -1` on the exercise that hangs from
@@ -521,7 +541,11 @@ export function SupersetToggle({ active, onToggle, groupSize, className }: {
   className?: string
 }) {
   const { t } = useT()
-  const label = groupLabel(groupSize ?? 2, t.programs)
+  const size = groupSize ?? 2
+  const label = groupLabel(size, t.programs)
+  // The pill wears the colour of the group it describes: cyan for a bi-serie,
+  // red as soon as the run is a superset.
+  const isSuperset = size >= 3
   return (
     <div className={cn("relative z-10 flex justify-center", className)}>
       <button
@@ -532,7 +556,9 @@ export function SupersetToggle({ active, onToggle, groupSize, className }: {
         className={cn(
           "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors",
           active
-            ? "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]"
+            ? isSuperset
+              ? "border-[#ff4444] bg-[#ff4444]/20 text-[#ff4444]"
+              : "border-[#00ffff] bg-[#00ffff]/20 text-[#00ffff]"
             : "border-white/[0.1] bg-[#0a0a0f] text-[#555] hover:border-[#00ffff]/50"
         )}
       >
