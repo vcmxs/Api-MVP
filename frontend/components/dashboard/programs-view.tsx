@@ -56,6 +56,11 @@ interface ProgramExercise {
   isCardio?: boolean
   weightIncrement?: number
   weight_increment?: number
+  /**
+   * Weeks between two increases of `weightIncrement` (1, 2 or 4). Absent means
+   * weekly, which is what every plan written before this option assumed.
+   */
+  progressionWeeks?: number
 }
 
 interface ApiProgramWorkout {
@@ -1240,6 +1245,18 @@ interface PlanDayExercise extends ProgramExercise { weightIncrement?: number }
 /** Backend convention: the exercise hanging from the previous one carries rest = -1. */
 const isLinkedExercise = (ex: PlanDayExercise) => (ex.restTime ?? ex.rest_time) === -1
 
+/**
+ * Cadences offered for the per-exercise increase: weekly, biweekly, monthly.
+ * The value is the number of weeks that must pass before the load moves again.
+ */
+const PROGRESSION_CADENCES = [1, 2, 4] as const
+
+/** Weeks between two increases; anything unexpected falls back to weekly. */
+const progressionCadence = (ex: { progressionWeeks?: number }) => {
+  const weeks = Number(ex.progressionWeeks)
+  return PROGRESSION_CADENCES.includes(weeks as 1 | 2 | 4) ? weeks : 1
+}
+
 function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee, lastLogs, historyLoading, pickerOpen, onPickerOpenChange, onAddExercise }: {
   open: boolean
   title: string
@@ -1263,7 +1280,7 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
       return { ...ex, restTime, rest_time: restTime }
     }))
 
-  const updateField = (index: number, field: "sets" | "reps" | "targetWeight" | "weightIncrement", value: number) =>
+  const updateField = (index: number, field: "sets" | "reps" | "targetWeight" | "weightIncrement" | "progressionWeeks", value: number) =>
     onChange(exercises.map((ex, i) => i === index ? { ...ex, [field]: value } : ex))
 
   /** Load type is not numeric, so it needs its own setter (it maps to `weight_unit`). */
@@ -1337,20 +1354,41 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
                     { label: t.programs.sets, field: "sets" as const, value: ex.sets },
                     { label: t.programs.reps, field: "reps" as const, value: ex.reps },
                     { label: "", field: "targetWeight" as const, value: ex.targetWeight ?? ex.target_weight ?? 0 },
-                    { label: "+ / " + t.programs.week.slice(0, 2).toUpperCase(), field: "weightIncrement" as const, value: ex.weightIncrement ?? 0 },
+                    { label: "+", field: "weightIncrement" as const, value: ex.weightIncrement ?? 0 },
                   ].map(({ label, field, value }) => {
-                    // Sets and reps are counts; the target load and the weekly
+                    // Sets and reps are counts; the target load and the
                     // increment are DECIMAL(10, 2) and must accept 2.5.
                     const whole = field === "sets" || field === "reps"
                     return (
                       <div key={field}>
-                        <div className="mb-1 flex h-5 items-center">
+                        <div className="mb-1 flex h-5 items-center gap-1">
                           {field === "targetWeight" ? (
                             <LoadUnitToggle
                               accent="violet"
                               value={ex.weightUnit ?? ex.weight_unit}
                               onChange={unit => updateLoadUnit(i, unit)}
                             />
+                          ) : field === "weightIncrement" ? (
+                            // "+ [1 wk]" reads as "add this much every N weeks":
+                            // the cadence belongs to the increase next to it, so
+                            // it lives in that field's header instead of taking
+                            // a fifth column that would not fit a phone.
+                            <div className="flex min-w-0 items-center gap-1">
+                              <label className="shrink-0 text-[10px] uppercase text-[#555555]">{label}</label>
+                              <select
+                                value={String(progressionCadence(ex))}
+                                onChange={e => updateField(i, "progressionWeeks", Number(e.target.value))}
+                                aria-label={t.programs.progressionEvery}
+                                title={t.programs.progressionEvery}
+                                className="h-5 min-w-0 flex-1 cursor-pointer rounded border border-white/[0.08] bg-[#161b22] px-0.5 text-[10px] leading-none text-[#a78bfa] focus:border-[#a78bfa]/50 focus:outline-none"
+                              >
+                                {PROGRESSION_CADENCES.map(weeks => (
+                                  <option key={weeks} value={weeks}>
+                                    {weeks} {t.programs.weeksShort}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           ) : (
                             <label className="truncate text-[10px] uppercase text-[#555555]">{label}</label>
                           )}
@@ -1360,7 +1398,7 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
                           onChange={next => updateField(i, field, next)}
                           decimal={!whole}
                           min={0}
-                          aria-label={label || field}
+                          aria-label={field === "weightIncrement" ? t.programs.progressionStep : (label || field)}
                           className="bg-[#161b22] px-3 py-2 text-sm focus:border-[#a78bfa]/50"
                         />
                       </div>
@@ -1609,9 +1647,14 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         const exercises = exSource.filter(ex => ex && ex.name).map((ex, i) => {
           const baseWeight = ex.targetWeight ?? ex.target_weight ?? 0;
           const increment = ex.weightIncrement ?? 0;
+          // Per-exercise cadence: the increase only lands every N weeks, so a
+          // biweekly exercise keeps weeks 0-1 at the base load and moves on
+          // week 2, while a weekly one moves on every week as before.
+          const steps = Math.floor(weekIndex / progressionCadence(ex));
+          const targetWeight = Math.round((baseWeight + increment * steps) * 100) / 100;
 
           return {
-            name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight: baseWeight + (increment * weekIndex),
+            name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight,
             weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: i > 0 ? (ex.restTime ?? ex.rest_time ?? 60) : 60, notes: ex.notes ?? "", exerciseOrder: i,
             track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
           };
@@ -1862,6 +1905,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                 isCardio,
                 weightUnit: "kg",
                 weightIncrement: 0,
+                progressionWeeks: 1,
               }
               setEditedExercises(m => {
                 const n = new Map(m)
