@@ -29,7 +29,7 @@ import type { AgendaWorkout } from "./workout-row"
 import type { RawNotification } from "@/lib/notifications"
 import { getNotificationTarget } from "@/lib/notification-target"
 import {
-  DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
+  DragHandle, ReorderArrows, SupersetToggle, groupLabel, linkedGroupSize, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 
 
@@ -833,7 +833,7 @@ function SupersetSection({ exercises, index, workoutId, workoutDate, coachId, tr
       <div className="flex items-center justify-between border-b border-[#00ffff]/10 bg-gradient-to-r from-[#00ffff]/10 to-transparent px-3 py-2 sm:px-4">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-[#00ffff]" />
-          <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">{t.programs.biSerie}</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-[#00ffff]">{groupLabel(exercises.length, t.programs)}</span>
         </div>
         <span className="shrink-0 text-xs font-semibold" style={{ color: totalCompleted === totalRows && totalRows > 0 ? "#00ff88" : totalCompleted > 0 ? "#ffd700" : "#555555" }}>
           {totalCompleted}/{totalRows}
@@ -1528,7 +1528,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
                       className={cn("rounded-2xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60")}>
                       {i > 0 && (
                         <div className="-my-2">
-                          <SupersetToggle active={!!ex.isSuperset}
+                          <SupersetToggle active={!!ex.isSuperset} groupSize={linkedGroupSize(exercises, i)}
                             onToggle={() => updateExercise(ex.id, "isSuperset", !ex.isSuperset)} />
                         </div>
                       )}

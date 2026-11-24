@@ -481,21 +481,54 @@ export function ReorderArrows({ index, total, reorder, className }: {
 }
 
 /**
- * Pill rendered between two exercises to link them as a bi-serie.
+ * True when the row hangs from the row above it. The builders keep the flag as
+ * `isSuperset`; rows loaded from the API only carry the persisted `rest_time`.
+ */
+export function isLinkedRow(row: { isSuperset?: boolean; restTime?: number; rest_time?: number }): boolean {
+  return !!row.isSuperset || (row.restTime ?? row.rest_time) === -1
+}
+
+/**
+ * Rows in the linked run that contains `index`, walking in both directions:
+ * a run of two is a bi-serie and a run of three or more is a superset.
+ */
+export function linkedGroupSize(
+  rows: Array<{ isSuperset?: boolean; restTime?: number; rest_time?: number }>,
+  index: number,
+): number {
+  let start = index
+  while (start > 0 && isLinkedRow(rows[start])) start--
+  let end = index
+  while (end + 1 < rows.length && isLinkedRow(rows[end + 1])) end++
+  return end - start + 1
+}
+
+/** Group title: two exercises are a bi-serie, three or more a superset. */
+export function groupLabel(count: number, labels: { biSerie: string; superset: string }): string {
+  return count >= 3 ? labels.superset : labels.biSerie
+}
+
+/**
+ * Pill rendered between two exercises to link them as a bi-serie or, once three
+ * or more rows hang together, as a superset.
  * The backend convention is `rest_time = -1` on the exercise that hangs from
  * the previous one, which is what the builders translate the flag into.
  */
-export function SupersetToggle({ active, onToggle, className }: {
-  active: boolean; onToggle: () => void; className?: string
+export function SupersetToggle({ active, onToggle, groupSize, className }: {
+  active: boolean; onToggle: () => void
+  /** Rows in the run this link belongs to; 3 or more read as a superset. */
+  groupSize?: number
+  className?: string
 }) {
   const { t } = useT()
+  const label = groupLabel(groupSize ?? 2, t.programs)
   return (
     <div className={cn("relative z-10 flex justify-center", className)}>
       <button
         type="button"
         onClick={onToggle}
         aria-pressed={active}
-        title={active ? t.programs.biSerie : t.programs.link}
+        title={active ? label : t.programs.link}
         className={cn(
           "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold transition-colors",
           active
@@ -504,7 +537,7 @@ export function SupersetToggle({ active, onToggle, className }: {
         )}
       >
         <Link className="h-3 w-3" />
-        {active ? t.programs.biSerie : t.programs.link}
+        {active ? label : t.programs.link}
       </button>
     </div>
   )

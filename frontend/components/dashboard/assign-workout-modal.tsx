@@ -19,7 +19,7 @@ import { isPaymentInactive } from "@/lib/trainee-payment"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { LoadUnitToggle } from "./load-unit-toggle"
 import {
-  DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
+  DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 
 
@@ -701,7 +701,7 @@ export function AssignWorkoutModal({
                           className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#00ffff]/60")}>
                           {i > 0 && (
                             <div className="-my-2">
-                              <SupersetToggle active={!!ex.isSuperset}
+                              <SupersetToggle active={!!ex.isSuperset} groupSize={linkedGroupSize(buildExercises, i)}
                                 onToggle={() => updateBuilderEx(ex.id, "isSuperset", !ex.isSuperset)} />
                             </div>
                           )}

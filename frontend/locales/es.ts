@@ -570,6 +570,7 @@ const es: TranslationKeys = {
     none: "Ninguno",
     cardio: "Cardio",
     biSerie: "BI-SERIE",
+    superset: "SUPERSET",
     link: "Vincular",
     dragToReorder: "Arrastra para reordenar",
     moveUp: "Subir",

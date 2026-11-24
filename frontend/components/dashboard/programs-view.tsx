@@ -23,7 +23,7 @@ import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { LoadUnitToggle } from "./load-unit-toggle"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import {
-  DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
+  DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 import { useDayMoveDrag } from "./day-move-drag"
 
@@ -501,7 +501,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                           className={cn("rounded-xl transition-colors", createReorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60")}>
                           {i > 0 && (
                             <div className="-my-2">
-                              <SupersetToggle active={!!e.isSuperset}
+                              <SupersetToggle active={!!e.isSuperset} groupSize={linkedGroupSize(createExercises, i)}
                                 onToggle={() => updateCreateEx(e.id, "isSuperset", !e.isSuperset)} />
                             </div>
                           )}
@@ -829,7 +829,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
                         className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60")}>
                         {i > 0 && (
                           <div className="-my-2">
-                            <SupersetToggle active={!!e.isSuperset}
+                            <SupersetToggle active={!!e.isSuperset} groupSize={linkedGroupSize(exercises, i)}
                               onToggle={() => updateEx(e.id, "isSuperset", !e.isSuperset)} />
                           </div>
                         )}
@@ -1317,7 +1317,7 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
             <div key={rowKey(ex, i)} {...reorder.rowProps(i)}>
               {i > 0 && (
                 <div className="-my-2">
-                  <SupersetToggle active={isLinkedExercise(ex)} onToggle={() => toggleSuperset(i)} />
+                  <SupersetToggle active={isLinkedExercise(ex)} groupSize={linkedGroupSize(exercises, i)} onToggle={() => toggleSuperset(i)} />
                 </div>
               )}
               <div className={cn("rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4 transition-all",

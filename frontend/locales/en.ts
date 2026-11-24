@@ -568,6 +568,7 @@ const en = {
     none: "None",
     cardio: "Cardio",
     biSerie: "BI-SERIE",
+    superset: "SUPERSET",
     link: "Link",
     dragToReorder: "Drag to reorder",
     moveUp: "Move up",
