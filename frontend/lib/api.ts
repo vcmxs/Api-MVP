@@ -26,12 +26,25 @@ export function clearAuth() {
   localStorage.removeItem("userInfo")
 }
 
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+/**
+ * GETs already on the wire, keyed by token + path.
+ *
+ * The dashboard mounts a dozen components that each fetch their own slice, so
+ * the same URL is often requested twice within the same tick (the agenda and
+ * the notification bell both ask for `/notifications`, for instance). Sharing
+ * the pending promise removes the duplicate round-trip without ever keeping a
+ * response around: the entry is deleted the moment the request settles, so a
+ * later call still reads fresh data. This is a coalescer, not a cache.
+ */
+const inflight = new Map<string, Promise<unknown>>()
+
+async function send<T>(path: string, options: RequestInit | undefined, cache: RequestCache): Promise<T> {
   const token = getToken()
   let res: Response
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...options,
+      cache,
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -51,4 +64,32 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const text = await res.text()
   if (!text) return {} as T
   try { return JSON.parse(text) } catch { return {} as T }
+}
+
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const method = (options?.method ?? "GET").toUpperCase()
+  // Only read-only requests can be shared; anything that writes must hit the
+  // network every single time.
+  const key = method === "GET" ? `${getToken() ?? "anon"}|${path}` : null
+
+  if (key) {
+    const pending = inflight.get(key)
+    if (pending) return pending as Promise<T>
+  }
+
+  // `no-store` by default: user data must never come out of the HTTP cache,
+  // which is what made a saved edit look unsaved until a hard reload. Catalog
+  // endpoints opt back in with `{ cache: "default" }` so the browser can
+  // revalidate them with an ETag instead of downloading them again.
+  const request = send<T>(path, options, options?.cache ?? "no-store")
+
+  if (key) {
+    inflight.set(key, request)
+    const settle = () => {
+      if (inflight.get(key) === request) inflight.delete(key)
+    }
+    request.then(settle, settle)
+  }
+
+  return request
 }

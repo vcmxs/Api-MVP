@@ -76,7 +76,10 @@ let categoriesRequest: Promise<string[]> | null = null
 
 function loadCategories(): Promise<string[]> {
   if (!categoriesRequest) {
-    categoriesRequest = apiFetch<CategoryListResponse>("/exercises/categories")
+    // `cache: "default"` lets the browser keep the taxonomy and revalidate it
+    // with an ETag: the API answers 304 when nothing changed, so reopening the
+    // picker is free but never shows a category that was just removed.
+    categoriesRequest = apiFetch<CategoryListResponse>("/exercises/categories", { cache: "default" })
       .then(unwrapCategories)
       .catch(() => {
         // Let the next open retry instead of caching an empty taxonomy.
@@ -291,7 +294,9 @@ export function ExercisePickerSheet({
     else if (category) params.set("category", category)
     params.set("limit", String(isSearching ? SEARCH_LIMIT : BROWSE_LIMIT))
 
-    apiFetch<ExerciseListResponse>(`/exercises?${params.toString()}`)
+    // Same for the catalog pages: `no-cache, must-revalidate` from the API
+    // makes a repeated browse/search a 304 instead of a full re-download.
+    apiFetch<ExerciseListResponse>(`/exercises?${params.toString()}`, { cache: "default" })
       .then(data => {
         if (cancelled) return
         setExercises(unwrapExercises(data))

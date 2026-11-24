@@ -29,6 +29,8 @@ import { formatNotification, type RawNotification } from "@/lib/notifications"
 import { getNotificationTarget } from "@/lib/notification-target"
 import { formatTimeAgo } from "@/lib/notification-display"
 import { NotificationPopups } from "@/components/notifications/notification-popups"
+import { useAppVersion } from "@/lib/use-app-version"
+import { useRefetchOnFocus } from "@/lib/use-refetch-on-focus"
 import { useT } from "@/lib/i18n"
 
 
@@ -65,6 +67,8 @@ export default function Dashboard() {
   const [bellOpen, setBellOpen] = useState(false)
   const bellRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  // Keeps an open tab honest after a redeploy (see `use-app-version`).
+  useAppVersion()
 
   // KPI state
   const [traineeCount, setTraineeCount] = useState<number | null>(null)
@@ -145,6 +149,14 @@ export default function Dashboard() {
     fetchKPIs()
     fetchBellNotifs()
   }, [isMounted, fetchKPIs, fetchBellNotifs])
+
+  // KPIs and the bell are the only data this shell owns and the only data that
+  // can go stale while the tab stays open, so they are re-read when the coach
+  // comes back to it. The screens keep their own refresh paths.
+  useRefetchOnFocus(useCallback(() => {
+    fetchKPIs()
+    fetchBellNotifs()
+  }, [fetchKPIs, fetchBellNotifs]))
 
   // Close bell on outside click
   useEffect(() => {

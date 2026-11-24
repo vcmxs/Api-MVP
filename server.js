@@ -49,6 +49,9 @@ app.set('trust proxy', 1); // Required for Railway/Heroku to key rate limiting o
 // Initialize Cron Jobs
 checkExpiredSubscriptions();
 const PORT = process.env.PORT || 3000;
+// Boot timestamp: the `startedAt` reported by `/version` and the fallback build
+// id when the platform does not inject a commit SHA.
+const STARTED_AT = new Date().toISOString();
 
 // Security Middleware
 app.use(helmet({
@@ -132,6 +135,50 @@ if (EXERCISE_DATASET_DIR) {
   app.use('/media/thumb', express.static(path.join(EXERCISE_DATASET_DIR, 'images'), staticOptions));
   console.log(`Exercise dataset media served from ${EXERCISE_DATASET_DIR}`);
 }
+
+// ── Caching policy ─────────────────────────────────────────────────────────
+//
+// Three classes of response live behind this API:
+//
+//   1. Personal data (plans, logs, payments, notifications) — never cached. The
+//      web client also sends `cache: "no-store"` on every GET for this reason.
+//   2. Catalogs (exercise library, muscle categories, release notes) — same
+//      bytes for every user and only edited from the admin panel. They are
+//      stored but always revalidated: the client echoes the ETag Express
+//      already generates and gets a 304 when nothing changed, so a tab left
+//      open can never show a stale catalog yet pays one header round-trip
+//      instead of re-downloading the whole exercise list.
+//   3. Static media (/uploads, /media) — served by express.static, which already
+//      sends its own ETag/Last-Modified validators (and `immutable` for the
+//      exercise dataset). Nothing to do here.
+const REVALIDATED_CATALOGS = [/^\/exercises(\/|$)/, /^\/release-notes(\/|$)/];
+
+app.use('/api/v1', (req, res, next) => {
+  if (req.method === 'GET') {
+    if (REVALIDATED_CATALOGS.some((pattern) => pattern.test(req.path))) {
+      res.set('Cache-Control', 'no-cache, must-revalidate');
+    } else {
+      // Personal data: stored nowhere, by no one (this also covers a tab that
+      // reloads right after saving, which is how edits used to look reverted).
+      res.set('Cache-Control', 'no-store');
+    }
+  }
+  next();
+});
+
+// Build identity so a browser tab can notice that a new backend build shipped.
+// A tab keeps running the bundles it booted with; polling this endpoint is the
+// only way for it to find out.
+const BUILD_ID =
+  process.env.RAILWAY_GIT_COMMIT_SHA ||
+  process.env.GIT_COMMIT_SHA ||
+  process.env.npm_package_version ||
+  `started-${STARTED_AT}`;
+
+app.get('/api/v1/version', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ build: BUILD_ID, api: 'v1', startedAt: STARTED_AT });
+});
 
 // Apply rate limiting to all API routes
 app.use('/api/v1', apiLimiter);

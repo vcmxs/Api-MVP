@@ -50,7 +50,10 @@ export function toReleaseNote(note: ApiReleaseNote, lang: "en" | "es"): ReleaseN
 
 /** `GET /release-notes` — published notes, newest first. */
 export async function fetchReleaseNotes(lang: "en" | "es"): Promise<ReleaseNote[]> {
-  const data = await apiFetch<{ notes: ApiReleaseNote[] }>("/release-notes")
+  // Release notes are a catalog: the API marks the response `no-cache`, so the
+  // browser can keep the payload and revalidate it with an ETag (304) instead
+  // of downloading the whole list again every time Novedades is opened.
+  const data = await apiFetch<{ notes: ApiReleaseNote[] }>("/release-notes", { cache: "default" })
   return (data.notes ?? []).map((note) => toReleaseNote(note, lang))
 }
 
