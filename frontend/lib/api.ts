@@ -51,7 +51,10 @@ async function send<T>(path: string, options: RequestInit | undefined, cache: Re
         ...options?.headers,
       },
     })
-  } catch {
+  } catch (error) {
+    // An abort is the caller's own doing: it must reach that caller as an
+    // AbortError instead of reading like a dead backend.
+    if ((error as { name?: string } | null)?.name === "AbortError") throw error
     // fetch() only rejects on network-level failures (backend down, DNS, blocked
     // by CORS) and its raw message is the unhelpful "Failed to fetch". Surface
     // the base URL so the cause is obvious.
@@ -69,8 +72,14 @@ async function send<T>(path: string, options: RequestInit | undefined, cache: Re
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const method = (options?.method ?? "GET").toUpperCase()
   // Only read-only requests can be shared; anything that writes must hit the
-  // network every single time.
-  const key = method === "GET" ? `${getToken() ?? "anon"}|${path}` : null
+  // network every single time. A caller that brings its own `signal` is asking
+  // for a private request as well: it may abort at any moment, and that abort
+  // has to reach that caller only. Sharing the promise used to hand the
+  // cancellation of the first mount to the second one (React double-invokes
+  // effects in dev), which is what left "Today's workouts" showing its Retry
+  // button until the coach pressed it.
+  const shareable = method === "GET" && !options?.signal
+  const key = shareable ? `${getToken() ?? "anon"}|${path}` : null
 
   if (key) {
     const pending = inflight.get(key)

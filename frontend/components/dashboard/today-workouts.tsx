@@ -60,19 +60,37 @@ export function TodayWorkouts({ onOpenWorkout, onViewAll, reloadKey = 0 }: Today
     setLoading(true)
     setError(null)
 
-    apiFetch<AgendaResponse>(`/agenda/today?date=${getLocalISOString()}`, { signal: controller.signal })
-      .then((res) => {
-        if (controller.signal.aborted) return
-        setData(res ?? null)
-      })
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return
-        setData(null)
-        setError(err instanceof Error ? err.message : String(err))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
+    /**
+     * The very first request after a cold start (the API waking up, a dev
+     * double-mount) can lose the round-trip, and the coach had to press
+     * "Retry". One silent retry turns that into a slower first paint instead
+     * of an error card; only a second failure is reported.
+     */
+    const load = async () => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const res = await apiFetch<AgendaResponse>(`/agenda/today?date=${getLocalISOString()}`, { signal: controller.signal })
+          if (controller.signal.aborted) return
+          setData(res ?? null)
+          setError(null)
+          return
+        } catch (err: unknown) {
+          if (controller.signal.aborted) return
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 400))
+            if (controller.signal.aborted) return
+            continue
+          }
+          setData(null)
+          setError(err instanceof Error ? err.message : String(err))
+          return
+        }
+      }
+    }
+
+    void load().finally(() => {
+      if (!controller.signal.aborted) setLoading(false)
+    })
 
     return () => controller.abort()
     // `reloadKey` is a pure trigger: the parent bumps it when the day's plans
