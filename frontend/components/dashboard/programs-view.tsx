@@ -5,13 +5,10 @@ import { createPortal } from "react-dom"
 import {
   Plus, ClipboardList, Dumbbell, X,
   FolderOpen, Folder, Trash2, Pencil,
-  ArrowLeft, ArrowLeftRight, Search, ChevronRight, Loader2, AlertCircle, Check,
-  CalendarDays, Users, LayoutList,
+  ArrowLeft, Search, ChevronRight, Loader2, AlertCircle, Check,
+  CalendarDays, Users, LayoutList, GripVertical,
 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { NumberField } from "@/components/ui/number-field"
 import { cn, getLocalISOString } from "@/lib/utils"
 import { formatDecimal, formatLoad, normalizeLoadUnit, toFiniteNumber, type LoadUnit } from "@/lib/format"
@@ -23,7 +20,7 @@ import { ExercisePickerSheet } from "./exercise-picker-sheet"
 import { LoadUnitToggle } from "./load-unit-toggle"
 import { AssignWorkoutModal } from "./assign-workout-modal"
 import {
-  DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, moveItem, newExerciseRowId, useExerciseReorder,
+  DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, linkRingClass, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 import { useDayMoveDrag } from "./day-move-drag"
 
@@ -498,7 +495,8 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
                   : <div className="space-y-2">
                       {createExercises.map((e, i) => (
                         <div key={e.id} {...createReorder.rowProps(i)}
-                          className={cn("rounded-xl transition-colors", createReorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60")}>
+                          className={cn("rounded-xl transition-colors", createReorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60",
+                            linkRingClass(linkedGroupSize(createExercises, i)))}>
                           {i > 0 && (
                             <div className="-my-2">
                               <SupersetToggle active={!!e.isSuperset} groupSize={linkedGroupSize(createExercises, i)}
@@ -826,7 +824,8 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
                 : <div className="space-y-3">
                     {exercises.map((e, i) => (
                       <div key={e.id} {...reorder.rowProps(i)}
-                        className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60")}>
+                        className={cn("rounded-xl transition-colors", reorder.isDropTarget(i) && "ring-1 ring-[#a78bfa]/60",
+                          linkRingClass(linkedGroupSize(exercises, i)))}>
                         {i > 0 && (
                           <div className="-my-2">
                             <SupersetToggle active={!!e.isSuperset} groupSize={linkedGroupSize(exercises, i)}
@@ -1322,7 +1321,8 @@ function PlanDayEditorSheet({ open, title, exercises, onChange, onClose, trainee
               )}
               <div className={cn("rounded-xl border border-white/[0.08] bg-[#0a0a0f] p-4 transition-all",
                 reorder.isDropTarget(i) && "border-[#00ffff]/60 bg-[#00ffff]/5",
-                reorder.isDragging(i) && "opacity-60")}>
+                reorder.isDragging(i) && "opacity-60",
+                linkRingClass(linkedGroupSize(exercises, i)))}>
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="flex min-w-0 items-start gap-1.5">
                     <DragHandle index={i} reorder={reorder} className="mt-0.5" />
@@ -1815,31 +1815,17 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
                                   <p className="text-sm font-bold text-white leading-tight">{getSlotName(slot)}</p>
                                   <p className="mt-1 text-[10px] text-[#888888]">{t.programs.clickToEdit}</p>
                                 </div>
-                                {/* Touch-safe alternative to dragging the card between days. */}
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <button type="button" title={t.programs.moveToDay}
-                                      className="flex h-8 w-full items-center justify-center gap-1 rounded-lg border border-white/[0.06] bg-[#0a0a0f] text-[10px] font-bold uppercase tracking-wide text-[#888888] transition-colors hover:border-[#a78bfa]/40 hover:text-[#a78bfa]">
-                                      <ArrowLeftRight className="h-3 w-3" />
-                                      {t.programs.moveToDay}
-                                    </button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="center" className="min-w-[10rem] border-white/[0.08] bg-[#161b22] text-white">
-                                    {DAY_ORDER.filter(target => target !== day).map(target => {
-                                      const targetSlot = localSchedule[target]
-                                      return (
-                                        <DropdownMenuItem key={target} onSelect={() => moveSlot(day, target)}
-                                          className="gap-2 text-xs focus:bg-[#a78bfa]/15 focus:text-white">
-                                          <ArrowLeftRight className="h-3 w-3 shrink-0 text-[#a78bfa]" />
-                                          <span className="font-bold">{shortDay(target)}</span>
-                                          <span className="ml-auto max-w-[6.5rem] truncate text-[10px] text-[#666666]">
-                                            {targetSlot ? getSlotName(targetSlot) : t.programs.restDay}
-                                          </span>
-                                        </DropdownMenuItem>
-                                      )
-                                    })}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                {/* Six dots: the card can be picked up (hold it on a
+                                    phone, drag it with the mouse) and dropped on
+                                    another day. The grip replaces the old "move to…"
+                                    menu, which nobody used. */}
+                                <div
+                                  aria-hidden
+                                  title={t.programs.holdDayToMove}
+                                  className="flex h-6 items-center justify-center text-[#4b4b57]"
+                                >
+                                  <GripVertical className="h-4 w-4" />
+                                </div>
                               </>
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-center opacity-50">
