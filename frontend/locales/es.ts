@@ -595,6 +595,7 @@ const es: TranslationKeys = {
     weeklyTimeline: "Plantilla del Horario Semanal",
     weeklyTimelineHint: "Arrastra rutinas entre los días, o haz clic en una tarjeta para ajustar sus ejercicios específicamente para",
     clickToEdit: "Clic para editar",
+    holdDayToMove: "En el móvil: mantén pulsado un día y arrástralo a otro",
     customize: "Personalizar",
     customizeHint: "Los cambios aplican a todas las semanas de esta asignación",
     noExercisesFound: "No se encontraron ejercicios en esta plantilla",

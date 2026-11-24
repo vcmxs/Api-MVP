@@ -25,6 +25,7 @@ import { AssignWorkoutModal } from "./assign-workout-modal"
 import {
   DragHandle, ReorderArrows, SupersetToggle, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
+import { useDayMoveDrag } from "./day-move-drag"
 
 
 // ── API Types ─────────────────────────────────────────────────────────────
@@ -1575,6 +1576,11 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
     moveSlot(draggedDay, targetDay)
   }
 
+  // Touch gets the same move as the mouse drag: hold a day for a beat and it
+  // follows the finger, with the column under it marked as the drop target.
+  // `moveSlot` swaps when the destination is taken, exactly like the drop above.
+  const dayDrag = useDayMoveDrag(moveSlot)
+
   const handleAssign = async () => {
     if (!selectedTrainee || !user?.id) return
     setSubmitting(true)
@@ -1729,14 +1735,18 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
               <div className="p-6 overflow-y-visible sm:overflow-y-auto">
                 <h3 className="text-lg font-bold text-white mb-1">{t.programs.weeklyTimeline}</h3>
                 <p className="text-sm text-[#888888] mb-6">{t.programs.weeklyTimelineHint} {selectedTrainee?.name || t.programs.customize.toLowerCase()}.</p>
+                {!canNativeDrag && (
+                  <p className="-mt-5 mb-5 text-[11px] text-[#555555]">{t.programs.holdDayToMove}</p>
+                )}
                 
                 <div className="overflow-x-auto pb-4">
                   <div className="grid grid-cols-7 gap-3 min-w-[700px]">
                     {DAY_ORDER.map(day => {
                       const slot = localSchedule[day]
-                      const isDraggedOver = draggedDay !== null && draggedDay !== day
+                      const isDraggedOver = (draggedDay !== null && draggedDay !== day) || dayDrag.isDropTarget(day)
                       return (
                         <div key={day} className="flex flex-col gap-2"
+                          {...dayDrag.columnProps(day, !!slot)}
                           onDragOver={e => { e.preventDefault() }}
                           onDrop={() => handleDrop(day)}>
                           <div className="rounded-t-lg bg-[#161b22] py-2 text-center border-b border-[#a78bfa]/20">
@@ -1802,6 +1812,22 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
               </div>
             </div>
           </div>
+
+          {/* Card in hand while a day is dragged with a finger. `fixed` inside
+              the sheet keeps it under the pointer, and `pointer-events-none`
+              lets the column beneath it be resolved by `elementFromPoint`. */}
+          {dayDrag.dragDay !== null && (
+            <div
+              style={{ left: dayDrag.point.x, top: dayDrag.point.y, zIndex: 400 }}
+              className="pointer-events-none fixed max-w-[12rem] -translate-x-1/2 -translate-y-[130%] rounded-lg border border-[#a78bfa]/60 bg-[#1c2128]/95 px-3 py-2 text-xs font-bold text-white shadow-2xl"
+            >
+              <span className="mr-1 text-[#a78bfa]">{shortDay(dayDrag.dragDay)}</span>
+              {(() => {
+                const held = localSchedule[dayDrag.dragDay]
+                return held ? getSlotName(held) : t.programs.restDay
+              })()}
+            </div>
+          )}
         </SheetContent>
       </Sheet>
 

@@ -593,6 +593,7 @@ const en = {
     weeklyTimeline: "Weekly Timeline Template",
     weeklyTimelineHint: "Drag workouts between days, or click a card to tweak its exercises specifically for",
     clickToEdit: "Click to edit",
+    holdDayToMove: "On a phone: hold a day and drag it onto another one",
     customize: "Customize",
     customizeHint: "Changes apply to all weeks in this assignment",
     noExercisesFound: "No exercises found in this template",
