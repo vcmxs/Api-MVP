@@ -323,11 +323,14 @@ export function useDayMoveDrag(onMove: (from: number, to: number) => void): DayM
     // Keeps the iOS text callout away without touching selection inside inputs;
     // the sheet keeps panning because `touch-action` stays untouched here. The
     // outline is the "this day is in your hand" cue while the drag is live.
+    // It is drawn *inside* the column (`outlineOffset` negative) because the
+    // timeline lives in an `overflow-x-auto` box: anything painted outside a
+    // column is clipped, which is what used to cut the Monday ring in half.
     style: {
       WebkitTouchCallout: "none",
       userSelect: dragDay !== null ? "none" : undefined,
       outline: dragDay === day ? "2px solid rgba(167,139,250,0.9)" : undefined,
-      outlineOffset: dragDay === day ? "2px" : undefined,
+      outlineOffset: dragDay === day ? "-2px" : undefined,
     },
   })
 
