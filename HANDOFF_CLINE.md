@@ -649,6 +649,11 @@ alphabetical order (`Ana`, `Beto`, `Cira`, `Zoe`) differs from own-first. **17/1
 - As an admin → four fixtures, `isMine: false` everywhere.
 - Cleanup: `PURGED plans=4 users=4`, `LEFTOVER users=0 plans=0`.
 
+`npx tsc --noEmit` clean, `npm run build` compiles all 15 routes.
+
+**Follow-up.** `Dupla-mobile`'s agenda screen keeps its own labels: it inherits the new order from the
+API but ignores `isMine` until it renders it.
+
 ## Web polish round: decimal loads, cache policy, progression cadence, run colour (2026-11-24)
 
 **Nine commits, already pushed — `origin/main` = `5d17734`.** Web only (`frontend/**` plus the
@@ -711,11 +716,15 @@ gone from the timeline; a dim `GripVertical` in the card corner (`aria-hidden`, 
 are untouched — only the menu trigger and its day list were removed. `t.programs.moveToDay` was
 deleted from `en.ts` / `es.ts` in the cleanup commit that follows this round.
 
-**Validation.** `npx tsc --noEmit` clean after every step, and the running `next dev` was checked by
-fetching its real client chunks and grepping the strings that the edits introduce (outline offset,
-`AbortError`, the retry loop, `GripVertical`/`holdDayToMove` present and `moveToDay` absent, the
-red/cyan ring pair). `npm run build` was **not** re-run for this round: `next.config.mjs` still hides
-type errors behind `typescript.ignoreBuildErrors`, which is what `tsc` above covers.
+**Validation.** `npx tsc --noEmit` clean after every step. While the round was live, the running
+`next dev` was also checked by fetching its real client chunks and grepping for the strings each edit
+introduces (the outline offset, `AbortError`, the retry loop, `GripVertical`/`holdDayToMove` present and
+`moveToDay` absent, the red/cyan ring pair). The cleanup commit then removed
+`typescript.ignoreBuildErrors` from `next.config.mjs` and `npm run build` was run for real:
+*Compiled successfully in 13.6 s*, *Finished TypeScript in 29.0 s* (the build now fails on type errors
+instead of hiding them), 15/15 static pages prerendered, `/join/[code]` dynamic, no warnings. `tsc` was
+re-run after deleting `t.programs.moveToDay` from both locales, and `git grep moveToDay -- frontend`
+returns nothing while `holdDayToMove` still resolves in `en.ts`, `es.ts` and `programs-view.tsx`.
 
 **Pending browser QA for this round.**
 
@@ -728,11 +737,5 @@ type errors behind `typescript.ignoreBuildErrors`, which is what `tsc` above cov
 4. Repeat in ES and EN and at 380 px; confirm the grip does not shift the card header.
 5. `frontend/next-env.d.ts` is rewritten by `next dev` — restore it before committing (`git checkout
    -- frontend/next-env.d.ts`).
-
-
-`npx tsc --noEmit` clean, `npm run build` compiles all 15 routes.
-
-**Follow-up.** `Dupla-mobile`'s agenda screen keeps its own labels: it inherits the new order from the
-API but ignores `isMine` until it renders it.
 
 
