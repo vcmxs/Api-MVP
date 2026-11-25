@@ -46,7 +46,7 @@ A later repeat request to the same API returned 404 `Application not found`. It 
 
 ## Known follow-up / QA targets
 
-1. **Check duplicate superset thumbnails in the workout session view.** `ExerciseReferenceButton` is rendered by `SupersetRowWrapper` in `workouts-view.tsx`, which is rendered once per round/set; this may show duplicate thumbnails per exercise. Move the button to a once-per-exercise position or render only on the first round, preserving the existing layout. In `trainee-detail.tsx` the superset thumbnail is already gated to round 1.
+1. **Duplicate superset thumbnails — resolved 2026-11-24.** `SupersetRowWrapper` in `workouts-view.tsx` renders `ExerciseReferenceButton` only with `setNum === 1` (`workouts-view.tsx:772`), and the large header thumbnail lives once in `ExerciseSetSection` (`workouts-view.tsx:911`), outside the round loop. `trainee-detail.tsx` was already gated to round 1. Only the visual check remains: open a superset session and confirm one reference button per exercise, not one per round.
 2. Test the reference button in both pages as coach and trainee, normal exercise/superset/cardio, no history, one history session, multiple sessions and no mapped video.
 3. Validate YouTube URL parsing for `youtu.be`, `watch?v=`, `/shorts/`, and check behavior when embedding is disabled/restricted. The current iframe may show YouTube's own unavailable message; consider an explicit inline fallback state if it can be detected reliably. Do not redirect automatically.
 4. Check whether the session workout detail is a modal on narrow screens and whether the nested exercise Dialog behaves well and remains scrollable/mobile responsive.
@@ -648,6 +648,87 @@ alphabetical order (`Ana`, `Beto`, `Cira`, `Zoe`) differs from own-first. **17/1
 - As `Ana` (trainee) → single row, `isMine: true` (so her list keeps routine-name-first).
 - As an admin → four fixtures, `isMine: false` everywhere.
 - Cleanup: `PURGED plans=4 users=4`, `LEFTOVER users=0 plans=0`.
+
+## Web polish round: decimal loads, cache policy, progression cadence, run colour (2026-11-24)
+
+**Nine commits, already pushed — `origin/main` = `5d17734`.** Web only (`frontend/**` plus the
+`GET /api/v1/version` route in `server.js`); no schema change, no migration, no mobile change.
+
+**Decimal loads — `e6aa59b`.** The set-log row rendered `<input type="number">` with a controlled
+string value, so the DOM rejected `"2."` and `62.5` could never be typed; the payload then saved the
+truncated integer. Both fields moved to `NumberField` (text input + `inputMode`, local draft), and the
+plan day editor does the same for the target load and the weekly increment. The previous-set label is
+now a compact `62.5×12` instead of `formatLoad`'s `12 plates × 10`, and the history track is
+`minmax(42px, max-content)` with wrapping instead of `truncate`. `DECIMAL(10,2)` was already correct.
+
+**Cache policy and stale data — `0cc2b4a`.** Every `GET` now leaves the API with a deliberate policy:
+`/api/v1` answers `no-store` (plans, logs, payments, notifications) while catalogs and release notes
+answer `no-cache, must-revalidate` so the browser can revalidate with the ETag Express already
+computes and land on a 304. New `GET /api/v1/version` (registered before the rate limiter) reports the
+running build id; `useAppVersion()` polls it and calls `router.refresh()` on a redeploy, and
+`useRefetchOnFocus()` re-reads the shell KPIs and the bell when the tab becomes visible (collapsed to
+one call per 30 s). `apiFetch` coalesces identical in-flight `GET`s — a coalescer, not a cache: entries
+are dropped when they settle.
+
+**Day moves on touch — `17dced6`.** `useDayMoveDrag` gives the weekly timeline of *assign plan* the
+same Pointer Events engine the exercise builder uses: a 350 ms hold arms the drag, the column under
+the finger is resolved with `elementFromPoint`, the timeline auto-scrolls on both axes (the target is
+re-resolved every frame because a still finger sends no `pointermove`), and a floating chip names the
+workout in the hand. Columns keep `touch-action: auto`, so a quick swipe still pans the sheet and a
+hold that travels 10 px is cancelled as a scroll; the HTML5 drag stays for mice.
+
+**Progression cadence — `f3dd296`.** Each row of the plan day editor carries its own rhythm next to
+the increase (`+ [1 wk]`, `2 wk`, `4 wk`), stored as `progressionWeeks` and applied at assignment time
+as `base + increment × floor(week ÷ cadence)`, rounded to the two decimals the columns accept. Weekly
+is the default and the fallback, so plans written before this option assign exactly as they did.
+
+**A run of three is a superset — `3f4019e`.** `groupLabel`, `isLinkedRow` and `linkedGroupSize` moved
+next to the builders: two linked rows read as BI-SERIE, three or more as SUPERSET, and the pill
+between rows is named after the whole run. Nothing changed on the wire — a superset is still a chain
+of `rest_time = -1`.
+
+**Today's workouts needed Retry — `b807fb6`.** Two things in `apiFetch` combined: read-only requests
+were shared on `token|path` even when the caller brought its own `AbortSignal` (React double-invokes
+effects in dev, the first mount aborted on cleanup and the second was handed that dead promise), and
+aborts were rewritten as *Cannot reach the API*, which painted an error card. A request with a
+`signal` is now unshareable and an `AbortError` is rethrown untouched; `TodayWorkouts` also retries
+once, silently, after 400 ms before it reports a failure.
+
+**Monday's ring was clipped — `06ee0b8`.** The day-hold outline is drawn at `outlineOffset: "-2px"`,
+inside the column, because the timeline lives in an `overflow-x-auto` box that cut the first column's
+ring in half.
+
+**One colour per run — `4c014f7`.** `LINK_ACCENT`, `linkAccent(size)` and `linkRingClass(size)` in
+`exercise-reorder.tsx` are the only source of the colour: cyan for a bi-serie, red from the moment the
+run is a superset, applied to frame, header gradient, connector, icon, card ring and the
+`SupersetToggle` pill. Consumed by `workouts-view.tsx` (`SupersetSection` plus the new `accent` prop on
+`SupersetRowWrapper`), `trainee-detail.tsx`, `assign-workout-modal.tsx` and `programs-view.tsx`; a
+standalone exercise gets no ring because `linkRingClass` returns `""` below two rows.
+
+**The day menu became a grip — `5d17734`.** The full-width *Mover a…* button and its Radix menu are
+gone from the timeline; a dim `GripVertical` in the card corner (`aria-hidden`, titled with
+`t.programs.holdDayToMove`) says the card can be picked up. `moveSlot`, `shortDay` and the mouse drag
+are untouched — only the menu trigger and its day list were removed. `t.programs.moveToDay` was
+deleted from `en.ts` / `es.ts` in the cleanup commit that follows this round.
+
+**Validation.** `npx tsc --noEmit` clean after every step, and the running `next dev` was checked by
+fetching its real client chunks and grepping the strings that the edits introduce (outline offset,
+`AbortError`, the retry loop, `GripVertical`/`holdDayToMove` present and `moveToDay` absent, the
+red/cyan ring pair). `npm run build` was **not** re-run for this round: `next.config.mjs` still hides
+type errors behind `typescript.ignoreBuildErrors`, which is what `tsc` above covers.
+
+**Pending browser QA for this round.**
+
+1. Hold a **Monday** card in the plan timeline: the violet outline must be whole; the grip must be
+   visible and no *Mover a…* button may remain.
+2. Reload the dashboard cold (or restart the API first): *Hoy / Today's workouts* must paint without
+   pressing Retry; check the network tab for one aborted `/agenda/today` followed by a successful one.
+3. Link two exercises in each of the four builders: cyan ring + cyan BI-SERIE pill; link a third: red
+   ring, red frame/header and SUPERSET. A standalone exercise must have no ring.
+4. Repeat in ES and EN and at 380 px; confirm the grip does not shift the card header.
+5. `frontend/next-env.d.ts` is rewritten by `next dev` — restore it before committing (`git checkout
+   -- frontend/next-env.d.ts`).
+
 
 `npx tsc --noEmit` clean, `npm run build` compiles all 15 routes.
 
