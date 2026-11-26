@@ -780,33 +780,47 @@ four times. `frontend/locales/{en,es}.ts` were rewritten accordingly (`landing.p
 arrays and the `olympian` copy are gone. `es.ts` is typed against `en.ts`, so the two locales cannot
 drift.
 
-**Migration — `migrations/015_tier_lineup.sql` / `run-migration-015.js`.** Parks every coach that is not
-on `starter` on `bronze` (that includes `olympian`, `null` and retired names such as `basic` /
-`enterprise`), touching nothing else:
+**Migration — `migrations/015_tier_lineup.sql` / `run-migration-015.js`.** A retired name cannot survive the
+deploy (the API resolves an unknown tier to a trainee limit of `0`), so the migration rewrites only the rows
+that hold a name the new line-up does not have — and it does so without taking capacity away from anyone:
 
 ```sql
 UPDATE users
-   SET subscription_tier = 'bronze',
+   SET subscription_tier = CASE lower(subscription_tier)
+                               WHEN 'olympian' THEN 'gold'
+                               ELSE 'bronze'
+                           END,
        updated_at = NOW()
  WHERE role = 'coach'
-   AND (subscription_tier IS NULL OR lower(subscription_tier) <> 'starter');
+   AND (subscription_tier IS NULL
+        OR lower(subscription_tier) NOT IN ('starter', 'bronze', 'silver', 'gold'));
 ```
 
+`olympian` → `gold` (was unlimited, stays unlimited); `basic` / `enterprise` / `null` / anything else →
+`bronze`. Coaches already on `starter` / `bronze` / `silver` / `gold` are not touched at all: the code
+already carries their new limits and prices, so nobody is downgraded and no `updated_at` is churned.
+
+The first draft parked *every* non-Starter coach on Bronze. It was dropped after checking the real data:
+coach #12 (`olympian`) already holds 6 trainees, so a Bronze cap of 5 would have locked him out the moment
+the deploy landed. Names now map by capacity, not by price.
+
 The runner mirrors `run-migration-012.js`: `node run-migration-015.js` targets `DATABASE_URL`,
-`--dry-run` runs inside a transaction, prints what would change and `ROLLBACK`s, and `--production`
-requires `CONFIRM_PROD_MIGRATION=YES` plus `PRODUCTION_DATABASE_URL`. Before the `UPDATE` it writes
-`backups/tier_lineup_before_<timestamp>.json` (id, email, role, tier, status, start/end dates,
+`--dry-run` runs inside a transaction, prints each `id → old tier → new tier` and `ROLLBACK`s, and
+`--production` requires `CONFIRM_PROD_MIGRATION=YES` plus `PRODUCTION_DATABASE_URL`. Before the `UPDATE` it
+writes `backups/tier_lineup_before_<timestamp>.json` (id, email, role, tier, status, start/end dates,
 `is_comped`) so any coach can be restored by hand, and it prints the coach/admin tier distribution before
 and after. The migration is idempotent: a second run matches zero rows.
 
-**Order of operations.** Migration first, code second. The new code does not know `olympian`, so an
+**Order of operations.** Migration and code must land together: the new code does not know `olympian`, so an
 `olympian` coach served by the deployed API before the migration links trainees against limit `0` and
-reports `$0` MRR. `payments` and `referral_earnings` were deliberately left alone; admin MRR is derived
-from `users.subscription_tier`.
+reports `$0` MRR. In practice the push went out first (Railway build `b9157d0` went live at 04:18Z) and the
+migration followed at 04:38Z, which left coach #12 with a limit of `0` for ~20 minutes. Do it the other way
+round next time, or expect that window. `payments` and `referral_earnings` are deliberately untouched; admin
+MRR is derived from `users.subscription_tier`.
 
-**Post-migration.** Every paying coach sits on Bronze (5 trainees). The owner re-assigns each one to
-Silver or Gold from `/admin` → Users (`PATCH /admin/users/:id/subscription`), which is also what
-recomputes the MRR panel.
+**Post-migration.** Only #12 moved (`olympian` → `gold`), so no coach ended up on a plan he does not pay
+for. `/admin` → Users (`PATCH /admin/users/:id/subscription`) stays the place to set a coach's real plan, and
+it is what recomputes the MRR panel.
 
 **Validation run.** `cd frontend && npx tsc --noEmit` clean; `npm run build` exits 0 and the prerendered
 `frontend/.next/server/app/index.html` already carries the four cards (Starter / Bronze / Silver /
@@ -820,9 +834,8 @@ null`, prices `0 / 5 / 15 / 30`, `suggestTierUpgrade` → `starter` 1, `bronze` 
 the API. The web fallback is `1` (starter) on purpose while the API returns `0` — an unknown tier must not
 silently grant seats.
 
-**Production dry-run (2026-11-25).**
-`set CONFIRM_PROD_MIGRATION=YES && node run-migration-015.js --production --dry-run` against
-`mainline.proxy.rlwy.net:56505/railway`:
+**Production dry-run (2026-11-25 → 2026-11-26).** `node run-migration-015.js --production --dry-run`
+against `mainline.proxy.rlwy.net:56505/railway`, first with the bronze-parking draft:
 
 ```
 📊 Tiers before: starter: 11 · silver: 2 · enterprise: 1 · gold: 1 · olympian: 1
@@ -830,29 +843,48 @@ silently grant seats.
 🧪 Dry run: 4 coach(es) would move to bronze. Rolled back.
 ```
 
-The 4 affected coaches are `olympian` ×1, `gold` ×1 and `silver` ×2 (ids 12, 19, 21, 27 — all `coach`);
-the 11 coaches already on `starter` are untouched. The `enterprise` row is an **admin**, so the
-`role = 'coach'` filter leaves it alone — worth remembering, since `enterprise` is not a valid tier either.
-A later duplicate run produced the same four rows (`tier_lineup_before_2026-11-26T02-32-02-268Z.json`).
+That run listed `olympian` ×1, `gold` ×1 and `silver` ×2 (ids 12, 19, 21, 27). Counting trainees per coach
+through `coach_trainee` showed #12 (`olympian`) with **6** and the other three with 2–3, which is what
+killed the bronze-parking draft. With the final mapping the same command reports a single row:
 
-Staging (`caboose.proxy.rlwy.net:21099`) was asleep on the first attempt and timed out, so the runner now
-sets `connectionTimeoutMillis: 15000` and prints `Could not connect …` instead of hanging. Once it woke up,
+```
+📋 Changes:
+   • #12 vcmxs98@gmail.com: olympian → gold
+🧪 Dry run: 1 coach(es) would move onto a current tier. Rolled back.
+```
+
+The `enterprise` row is an **admin**, so the `role = 'coach'` filter leaves it alone — worth remembering,
+since `enterprise` is not a valid tier either.
+
+Staging (`caboose.proxy.rlwy.net:21099`) was asleep on the first attempt and timed out, so the runner sets
+`connectionTimeoutMillis: 15000` and prints `Could not connect …` instead of hanging. Once it woke up,
 `node run-migration-015.js --dry-run` answered `basic: 1 · starter: 1` and **0 coaches affected** (the
 `basic` rows are an admin and a trainee; the only coach is on `starter`), exercising the
-"nothing to change" path — which now skips the snapshot entirely.
+"nothing to change" path — which skips the snapshot entirely.
 
-**Go / no-go.** The production `UPDATE` has **not** been executed yet. Run it immediately before the code
-deploy, never on its own:
+**Applied to production (2026-11-26 04:38Z).** `node run-migration-015.js --production`:
 
 ```
-set CONFIRM_PROD_MIGRATION=YES && node run-migration-015.js --production   :: 4 rows → bronze
-git push origin main                                                      :: Railway + Vercel redeploy
+📊 Tiers before: starter: 11 · silver: 2 · enterprise: 1 · gold: 1 · olympian: 1
+📋 Changes:
+   • #12 vcmxs98@gmail.com: olympian → gold
+💾 Snapshot: backups\tier_lineup_before_2026-11-26T04-38-55-490Z.json (1 row(s))
+✅ Migration 015 completed: 1 coach(es) moved onto a current tier.
+📊 Tiers after:  starter: 11 · gold: 2 · silver: 2 · enterprise: 1
 ```
 
-Only after that push do the new limits (`5 / 15 / 999`) and the new badge copy go live; the reverse order
-would leave an `olympian` coach with limit `0` and `$0` MRR in between.
+Railway had already redeployed the push (`/api/v1/version` → build `b9157d0`, `startedAt`
+`2026-11-26T04:18:10Z`), so the 20-minute gap is the only overlap and it is over: `olympian` no longer
+exists anywhere in `users`, and both Gold coaches resolve to `999` (`∞`).
 
-**Still manual / pending.** The production run above + deploy + re-assign plans in `/admin`; browser check
-of the landing pricing grid and the in-app pricing modal at 380 px in ES and EN, and a Gold coach's badge
-reading `n/∞` in *Alumnos*.
+**Rollback.** Restore the single row from the snapshot if needed:
+
+```sql
+UPDATE users SET subscription_tier = 'olympian' WHERE id = 12;   -- backs the 04:38Z change out
+```
+
+**Still manual / pending.** Browser check of the landing pricing grid and the in-app pricing modal at 380 px
+in ES and EN, plus a Gold coach's badge reading `n/∞` in *Alumnos*. Local API for the 3000 dev server:
+`cd Api-MVP && npm run dev` (it reads `.env`, `PORT=3001`; `frontend/.env.local` points at
+`http://localhost:3001/api/v1`).
 

@@ -1,10 +1,14 @@
 // run-migration-015.js
 //
 // Applies migrations/015_tier_lineup.sql: the plan line-up changed to
-// Starter 1 · Bronze 5 · Silver 15 · Gold unlimited, so every paying coach is
-// parked on Bronze (the owner re-assigns each plan by hand afterwards).
-// Coaches on `starter` are left alone, and retired names (`olympian`, `basic`,
-// `enterprise`) are swept into the same update.
+// Starter 1 · Bronze 5 · Silver 15 · Gold unlimited, so every coach holding a
+// retired tier name is moved onto the new line-up before the code deploy:
+//
+//   olympian                                  → gold   (keeps unlimited capacity)
+//   basic / enterprise / NULL / anything else → bronze (5 trainees, $5)
+//
+// Coaches already on starter / bronze / silver / gold are left alone, so nobody
+// loses capacity and no subscription status, date or payment row is touched.
 //
 // Usage:
 //   node run-migration-015.js                → DATABASE_URL (.env staging)
@@ -27,7 +31,8 @@ const dryRun = process.argv.includes('--dry-run');
 
 /** Same predicate as migrations/015_tier_lineup.sql. */
 const AFFECTED_WHERE = `role = 'coach'
-   AND (subscription_tier IS NULL OR lower(subscription_tier) <> 'starter')`;
+   AND (subscription_tier IS NULL
+        OR lower(subscription_tier) NOT IN ('starter', 'bronze', 'silver', 'gold'))`;
 
 function describeTarget(connectionString) {
     if (!connectionString) return 'not set';
@@ -118,7 +123,7 @@ async function runMigration() {
 }
 
 async function migrate(client, connectionString) {
-    console.log('🔄 Running Migration 015 (plan line-up → Bronze 5 / Silver 15 / Gold unlimited)...');
+    console.log('🔄 Running Migration 015 (plan line-up → Starter 1 / Bronze 5 / Silver 15 / Gold unlimited)...');
     console.log(`🎯 Target: ${describeTarget(connectionString)}${useProduction ? '  ⚠️  PRODUCTION' : '  (staging)'}`);
     if (dryRun) console.log('🧪 Dry run: the UPDATE will be rolled back.');
 
@@ -138,8 +143,16 @@ async function migrate(client, connectionString) {
 
         if (!affected.rows.length) {
             await client.query('ROLLBACK');
-            console.log('ℹ️  Every coach is already on Starter or Bronze — nothing to change.');
+            console.log('ℹ️  Every coach already holds a current tier (starter/bronze/silver/gold) — nothing to change.');
             return;
+        }
+
+        /** Mirrors the CASE in migrations/015_tier_lineup.sql. */
+        const newTierFor = (tier) => (String(tier || '').toLowerCase() === 'olympian' ? 'gold' : 'bronze');
+
+        console.log('📋 Changes:');
+        for (const row of affected.rows) {
+            console.log(`   • #${row.id} ${row.email}: ${row.subscription_tier ?? '(null)'} → ${newTierFor(row.subscription_tier)}`);
         }
 
         const snapshotFile = writeSnapshot(affected.rows);
@@ -150,16 +163,16 @@ async function migrate(client, connectionString) {
 
         if (dryRun) {
             await client.query('ROLLBACK');
-            console.log(`🧪 Dry run: ${affected.rows.length} coach(es) would move to bronze. Rolled back.`);
+            console.log(`🧪 Dry run: ${affected.rows.length} coach(es) would move onto a current tier. Rolled back.`);
             return;
         }
 
         await client.query('COMMIT');
         const after = await describeTiers(client);
-        console.log(`✅ Migration 015 completed: ${affected.rows.length} coach(es) parked on bronze.`);
+        console.log(`✅ Migration 015 completed: ${affected.rows.length} coach(es) moved onto a current tier.`);
         console.log(`📊 Tiers after:  ${formatTiers(after)}`);
         console.log('ℹ️  Restart the API so /coaches limits and the admin revenue panel see the new line-up.');
-        console.log('👉 Next: open /admin and re-assign each coach to Silver or Gold as agreed.');
+        console.log('👉 Next: open /admin → Users and set each coach\'s plan to the one they actually pay for.');
     } catch (err) {
         try { await client.query('ROLLBACK'); } catch { /* ignore */ }
         console.error('❌ Migration failed:', err.message);
