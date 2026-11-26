@@ -2,17 +2,25 @@
 
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { X, Check } from "lucide-react"
+import { X, Check, Users } from "lucide-react"
 import { useT, useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
-const TIER_ORDER = ["starter", "bronze", "silver", "gold", "olympian"] as const
-const TIER_PRICES: Record<string, number | null> = { starter: null, bronze: 15, silver: 30, gold: 50, olympian: 100 }
-const TIER_COLORS: Record<string, string> = { starter: '#6B7280', bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', olympian: '#8B5CF6' }
+/* Every plan ships the same product; only the trainee capacity changes. */
+const TIER_ORDER = ["starter", "bronze", "silver", "gold"] as const
+const TIER_PRICES: Record<string, number | null> = { starter: null, bronze: 5, silver: 15, gold: 30 }
+const TIER_COLORS: Record<string, string> = { starter: '#6B7280', bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700' }
 
 interface Props {
   currentTier: string | null
   onClose: () => void
+}
+
+interface TierCopy {
+  name: string
+  sub: string
+  cta: string
+  trainees: string
 }
 
 export function PricingPlansModal({ currentTier, onClose }: Props) {
@@ -25,6 +33,9 @@ export function PricingPlansModal({ currentTier, onClose }: Props) {
   }, [])
 
   const normalizedCurrentTier = currentTier ? currentTier.toLowerCase() : "starter"
+
+  const includedCopy = t.landing.pricing.included
+  const includedFeatures = Array.isArray(includedCopy) ? includedCopy : []
 
   const handleUpgrade = (tierName: string) => {
     const message = encodeURIComponent(
@@ -63,13 +74,12 @@ export function PricingPlansModal({ currentTier, onClose }: Props) {
 
         {/* Content - Scrollable Grid */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 xl:gap-6 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6 items-stretch">
             {TIER_ORDER.map((key) => {
-              const tier = t(`landing.pricing.tiers.${key}`) as unknown as { name: string; sub: string; cta: string; features: string[] }
+              const tier = t(`landing.pricing.tiers.${key}`) as unknown as TierCopy
               const price = TIER_PRICES[key]
               const isCurrent = normalizedCurrentTier === key
               const color = TIER_COLORS[key]
-              const features = Array.isArray(tier.features) ? tier.features : []
               const isPopular = key === "silver"
 
               return (
@@ -120,23 +130,25 @@ export function PricingPlansModal({ currentTier, onClose }: Props) {
                     </span>
                   </div>
 
-                  {/* Features */}
-                  <ul className="space-y-2.5 mb-6 flex-grow">
-                    {features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-start gap-2">
-                        <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span className="text-xs text-[#b3b3b3] leading-relaxed">
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  {/* Trainee capacity — the only thing that changes between plans */}
+                  <div
+                    className="mb-5 rounded-xl border px-3 py-2.5"
+                    style={{ borderColor: `${color}33`, backgroundColor: `${color}0f` }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 flex-shrink-0" style={{ color }} />
+                      <span className="text-xs font-bold text-white">{tier.trainees}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#888888]">
+                      {t('landing.pricing.allIncluded')}
+                    </p>
+                  </div>
 
                   {/* CTA */}
                   {isCurrent ? (
                     <button
                       disabled
-                      className="w-full bg-[#1c1c24] border border-white/[0.04] text-[#666666] py-2.5 rounded-xl text-xs font-bold uppercase cursor-default"
+                      className="mt-auto w-full bg-[#1c1c24] border border-white/[0.04] text-[#666666] py-2.5 rounded-xl text-xs font-bold uppercase cursor-default"
                     >
                       {t.sidebar?.currentPlan ?? "Current Plan"}
                     </button>
@@ -144,7 +156,7 @@ export function PricingPlansModal({ currentTier, onClose }: Props) {
                     <button
                       onClick={() => handleUpgrade(tier.name)}
                       className={cn(
-                        "w-full py-2.5 rounded-xl text-xs font-bold transition-all duration-300 transform active:scale-95 shadow-md flex items-center justify-center gap-1.5",
+                        "mt-auto w-full py-2.5 rounded-xl text-xs font-bold transition-all duration-300 transform active:scale-95 shadow-md flex items-center justify-center gap-1.5",
                         isPopular
                           ? "bg-primary hover:bg-primary/95 text-primary-foreground hover:shadow-[0_0_15px_rgba(26,117,255,0.35)]"
                           : "bg-transparent text-white border border-white/[0.08] hover:bg-white/[0.05] hover:border-white/[0.2]"
@@ -158,6 +170,23 @@ export function PricingPlansModal({ currentTier, onClose }: Props) {
                 </div>
               )
             })}
+          </div>
+
+          {/* Shared feature list — identical on every plan */}
+          <div className="mt-6 rounded-2xl border border-white/[0.06] bg-[#12121a]/60 p-5">
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-white">
+              {t('landing.pricing.includedTitle')}
+            </h4>
+            <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {includedFeatures.map((feature, featureIndex) => (
+                <li key={featureIndex} className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <span className="text-xs text-[#b3b3b3] leading-relaxed">
+                    {feature}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>

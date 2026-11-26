@@ -23,6 +23,7 @@ import {
   DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, linkRingClass, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 import { useDayMoveDrag } from "./day-move-drag"
+import { getTraineeLimit } from "@/lib/subscription-tiers"
 
 
 // ── API Types ─────────────────────────────────────────────────────────────
@@ -1230,10 +1231,6 @@ interface AssignTrainee {
   coach_subscription_end_date?: string
 }
 
-const TIER_LIMITS: Record<string, number> = {
-  starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
-}
-
 // ── Plan Day Exercise Editor ──────────────────────────────────────────────
 //
 // Extracted from AssignPlanModal so the list can own its reorder/biserie state
@@ -1544,7 +1541,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
         const isSubExpired = endDate ? new Date(endDate).getTime() < Date.now() : false
         const rawTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
         const userTier = isSubExpired ? "starter" : rawTier
-        const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
+        const currentLimit = getTraineeLimit(userTier)
         // Not assignable when out of the coach's plan slots *or* when the
         // coach-assigned payment is not live — the rule `TraineesView` already
         // shows as "Expired" but this modal was skipping.

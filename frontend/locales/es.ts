@@ -704,16 +704,29 @@ const es: TranslationKeys = {
     pricing: {
       label: "Precios",
       title: "Planes para cada Entrenador",
-      subtitle: "Comienza gratis con un alumno. Escala a medida que crezca tu lista de clientes.",
+      subtitle: "Todos los planes incluyen la app completa. Elige cuántos alumnos entrenas.",
       foreverFree: "Gratis por siempre",
       mostPopular: "MÁS POPULAR",
       perMonth: "/mes",
+      allIncluded: "Todo incluido",
+      includedTitle: "Todos los planes incluyen",
+      included: [
+        "Rutinas, planes de entrenamiento y programas ilimitados",
+        "Biblioteca de +1.400 ejercicios con GIF, técnica y músculos trabajados",
+        "Progresión automática de carga (semanal, cada 2 o cada 4 semanas)",
+        "Biseries y superseries en cualquier rutina",
+        "Sesiones en vivo con temporizador de descanso, historial y notas por serie",
+        "Cardio con cronómetro y planes de nutrición con macros",
+        "Gráficas de 1RM, peso corporal y adherencia por alumno",
+        "Pagos por alumno y panel de ingresos (MRR)",
+        "Enlaces de invitación, chat y notificaciones",
+        "Todo en español e inglés, desde el móvil o el escritorio",
+      ],
       tiers: {
-        starter: { name: "Starter", sub: "Perfecto para empezar", cta: "Comenzar Gratis", features: ["1 alumno", "Rutinas básicas", "Chat con alumnos", "Soporte por email"] },
-        bronze:  { name: "Bronze",  sub: "Para entrenadores en crecimiento",  cta: "Elegir Bronze",        features: ["Hasta 4 alumnos", "Rutinas avanzadas", "Planes nutricionales", "Gráficas de progreso", "Soporte prioritario"] },
-        silver:  { name: "Silver",  sub: "El más popular", cta: "Elegir Silver",         features: ["Hasta 10 alumnos", "Todo en Bronze", "Marca personalizada", "Analíticas avanzadas", "Temporizadores HIIT", "API access"] },
-        gold:    { name: "Gold",    sub: "Para profesionales", cta: "Elegir Gold",          features: ["Hasta 25 alumnos", "Todo en Silver", "Múltiples entrenadores", "Reportes exportables", "Integraciones premium", "Onboarding personalizado"] },
-        olympian:{ name: "Olympian",sub: "Para gimnasios y equipos",cta: "Contactar Ventas",     features: ["Alumnos ilimitados", "Todo en Gold", "White-label completo", "Manager dedicado", "SLA garantizado", "Desarrollo a medida"] }
+        starter: { name: "Starter", sub: "Perfecto para empezar",            cta: "Comenzar Gratis", trainees: "1 alumno" },
+        bronze:  { name: "Bronze",  sub: "Para entrenadores en crecimiento", cta: "Elegir Bronze",   trainees: "Hasta 5 alumnos" },
+        silver:  { name: "Silver",  sub: "El más popular",                   cta: "Elegir Silver",   trainees: "Hasta 15 alumnos" },
+        gold:    { name: "Gold",    sub: "Para profesionales",               cta: "Elegir Gold",     trainees: "Alumnos ilimitados" },
       }
     },
     mockup: {

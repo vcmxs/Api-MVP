@@ -702,16 +702,29 @@ const en = {
     pricing: {
       label: "Pricing",
       title: "Plans for Every Coach",
-      subtitle: "Start free with one trainee. Scale up as your client list grows.",
+      subtitle: "Every plan includes the full app. Pick how many trainees you coach.",
       foreverFree: "Forever free",
       mostPopular: "MOST POPULAR",
       perMonth: "/mo",
+      allIncluded: "Everything included",
+      includedTitle: "Every plan includes",
+      included: [
+        "Unlimited routines, training plans and multi-day programs",
+        "1,400+ exercise library with GIFs, technique cues and muscles worked",
+        "Automatic load progression (weekly, every 2 or every 4 weeks)",
+        "Bi-series and supersets in any routine",
+        "Live sessions with rest timer, set history and per-set notes",
+        "Cardio timers and nutrition plans with macros",
+        "1RM, body-weight and adherence charts per trainee",
+        "Per-trainee payments and a revenue (MRR) dashboard",
+        "Invite links, in-app chat and notifications",
+        "Spanish and English, on mobile and desktop",
+      ],
       tiers: {
-        starter: { name: "Starter", sub: "Perfect to get started", cta: "Start for Free", features: ["1 trainee", "Basic workouts", "Chat with trainees", "Email support"] },
-        bronze:  { name: "Bronze",  sub: "For growing coaches",  cta: "Choose Bronze",        features: ["Up to 4 trainees", "Advanced workouts", "Nutrition plans", "Progress charts", "Priority support"] },
-        silver:  { name: "Silver",  sub: "Most popular", cta: "Choose Silver",         features: ["Up to 10 trainees", "Everything in Bronze", "Custom branding", "Advanced analytics", "HIIT timers", "API access"] },
-        gold:    { name: "Gold",    sub: "For professionals", cta: "Choose Gold",          features: ["Up to 25 trainees", "Everything in Silver", "Multiple coaches", "Exportable reports", "Premium integrations", "Personalized onboarding"] },
-        olympian:{ name: "Olympian",sub: "For gyms and teams",cta: "Contact Sales",     features: ["Unlimited trainees", "Everything in Gold", "Full white-label", "Dedicated manager", "Guaranteed SLA", "Custom development"] }
+        starter: { name: "Starter", sub: "Perfect to get started", cta: "Start for Free", trainees: "1 trainee" },
+        bronze:  { name: "Bronze",  sub: "For growing coaches",    cta: "Choose Bronze", trainees: "Up to 5 trainees" },
+        silver:  { name: "Silver",  sub: "Most popular",           cta: "Choose Silver", trainees: "Up to 15 trainees" },
+        gold:    { name: "Gold",    sub: "For professionals",      cta: "Choose Gold",   trainees: "Unlimited trainees" },
       }
     },
     mockup: {

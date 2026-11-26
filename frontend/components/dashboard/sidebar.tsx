@@ -29,12 +29,10 @@ const tierColors: Record<string, string> = {
   bronze: "#cd7f32",
   silver: "#c0c0c0",
   gold: "#ffd700",
-  olympian: "#85a9f7",
   STARTER: "#888888",
   BRONZE: "#cd7f32",
   SILVER: "#c0c0c0",
   GOLD: "#ffd700",
-  OLYMPIAN: "#85a9f7",
   PLATINUM: "#e5e4e2",
 }
 

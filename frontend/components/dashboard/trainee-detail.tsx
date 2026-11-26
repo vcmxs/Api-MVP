@@ -259,7 +259,6 @@ const tierColors: Record<string, string> = {
   bronze: "#cd7f32",
   silver: "#c0c0c0",
   gold: "#ffd700",
-  olympian: "#85a9f7",
 }
 
 const getStatusColor = (status: string) => {

@@ -13,14 +13,7 @@ import { apiFetch, getUserInfo } from "@/lib/api"
 import type { CoachInvite } from "@/lib/coach-invite"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
-
-const TIER_LIMITS: Record<string, number> = {
-  starter: 1,
-  bronze: 4,
-  silver: 10,
-  gold: 25,
-  olympian: 999
-}
+import { formatTraineeLimit, getTraineeLimit } from "@/lib/subscription-tiers"
 
 export interface ApiTrainee {
   id: number
@@ -209,11 +202,11 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
   const isSubExpired = endDate ? new Date(endDate).getTime() < Date.now() : false
   const rawTier = user?.subscriptionTier ?? user?.subscription_tier ?? "starter"
   const userTier = isSubExpired ? "starter" : rawTier
-  const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
+  const currentLimit = getTraineeLimit(userTier)
   
   const tierColors: Record<string, string> = {
     starter: "#888888", bronze: "#cd7f32", silver: "#c0c0c0",
-    gold: "#ffd700", olympian: "#85a9f7", platinum: "#e5e4e2",
+    gold: "#ffd700", platinum: "#e5e4e2",
   }
   const tierColor = tierColors[userTier.toLowerCase()] ?? "#888888"
 
@@ -262,7 +255,7 @@ export function TraineesView({ onSelectTrainee }: TraineesViewProps) {
                 border: `1px solid ${tierColor}44`
               }}
             >
-              Plan: {userTier} {trainees.length}/{currentLimit}
+              Plan: {userTier.toUpperCase()} {trainees.length}/{formatTraineeLimit(currentLimit)}
             </span>
           )}
         </div>

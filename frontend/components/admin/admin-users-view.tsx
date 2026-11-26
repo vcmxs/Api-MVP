@@ -34,7 +34,6 @@ const planColors: Record<string, { bg: string; color: string }> = {
   bronze: { bg: "rgba(205,127,50,0.15)", color: "#cd7f32" },
   silver: { bg: "rgba(192,192,192,0.15)", color: "#c0c0c0" },
   gold: { bg: "rgba(255,215,0,0.15)", color: "#ffd700" },
-  olympian: { bg: "rgba(133,169,247,0.15)", color: "#85a9f7" },
 }
 
 export function AdminUsersView() {
@@ -303,7 +302,6 @@ export function AdminUsersView() {
                               <option value="bronze">BRONZE</option>
                               <option value="silver">SILVER</option>
                               <option value="gold">GOLD</option>
-                              <option value="olympian">OLYMPIAN</option>
                             </select>
                             <button
                               onClick={handleUpdatePlan}

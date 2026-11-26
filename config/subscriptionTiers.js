@@ -2,6 +2,14 @@
 
 /**
  * Subscription tier definitions with trainee limits
+ *
+ * Every tier ships the whole product (routines, plans, exercise library,
+ * nutrition, cardio, charts, payments, chat, both languages). The only
+ * difference between plans is how many trainees a coach can hold, so the
+ * lineup is: Starter 1 · Bronze 5 · Silver 15 · Gold unlimited.
+ *
+ * A tier name is also persisted in `users.subscription_tier`, so removing one
+ * requires a data migration (see migrations/015_tier_lineup.sql).
  */
 const SUBSCRIPTION_TIERS = {
     starter: {
@@ -12,33 +20,27 @@ const SUBSCRIPTION_TIERS = {
     },
     bronze: {
         name: 'Bronze',
-        maxTrainees: 4,
-        displayName: 'Bronze (up to 4 trainees)',
-        price: 15
+        maxTrainees: 5,
+        displayName: 'Bronze (up to 5 trainees)',
+        price: 5
     },
     silver: {
         name: 'Silver',
-        maxTrainees: 10,
-        displayName: 'Silver (up to 10 trainees)',
-        price: 30
+        maxTrainees: 15,
+        displayName: 'Silver (up to 15 trainees)',
+        price: 15
     },
     gold: {
         name: 'Gold',
-        maxTrainees: 25,
-        displayName: 'Gold (up to 25 trainees)',
-        price: 50
-    },
-    olympian: {
-        name: 'Olympian',
-        maxTrainees: 999, // Unlimited (high number)
-        displayName: 'Olympian (unlimited)',
-        price: 100
+        maxTrainees: 999, // Unlimited (high number, keeps slot math numeric)
+        displayName: 'Gold (unlimited)',
+        price: 30
     }
 };
 
 /**
  * Get trainee limit for a given tier
- * @param {string} tier - Tier name (starter, bronze, silver, gold, olympian)
+ * @param {string} tier - Tier name (starter, bronze, silver, gold)
  * @returns {number} Maximum number of trainees allowed
  */
 function getTraineeLimit(tier) {
@@ -80,7 +82,7 @@ function isValidTier(tier) {
  * @returns {string|null} Suggested tier name or null
  */
 function suggestTierUpgrade(traineeCount) {
-    const tiers = ['starter', 'bronze', 'silver', 'gold', 'olympian'];
+    const tiers = ['starter', 'bronze', 'silver', 'gold'];
 
     for (const tier of tiers) {
         if (SUBSCRIPTION_TIERS[tier].maxTrainees >= traineeCount) {
@@ -88,7 +90,7 @@ function suggestTierUpgrade(traineeCount) {
         }
     }
 
-    return 'olympian'; // Default to highest tier
+    return 'gold'; // Gold is unlimited, so it always covers the count
 }
 
 module.exports = {

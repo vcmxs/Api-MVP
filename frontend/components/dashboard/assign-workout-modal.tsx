@@ -21,11 +21,7 @@ import { LoadUnitToggle } from "./load-unit-toggle"
 import {
   DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, linkRingClass, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
-
-
-const TIER_LIMITS: Record<string, number> = {
-  starter: 1, bronze: 4, silver: 10, gold: 25, olympian: 999
-}
+import { getTraineeLimit } from "@/lib/subscription-tiers"
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -264,7 +260,7 @@ export function AssignWorkoutModal({
       const isSubExpired = endDate ? new Date(endDate).getTime() < Date.now() : false
       const rawTier = user.subscriptionTier ?? user.subscription_tier ?? "starter"
       const userTier = isSubExpired ? "starter" : rawTier
-      const currentLimit = TIER_LIMITS[userTier.toLowerCase()] ?? 1
+      const currentLimit = getTraineeLimit(userTier)
       
       const realTrainees = fetched.filter(t => t.id !== user.id).map((t, i) => ({
         ...t,

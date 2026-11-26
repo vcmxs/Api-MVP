@@ -2,16 +2,24 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT, useLanguage } from "@/lib/i18n";
 
-const TIER_ORDER = ["starter", "bronze", "silver", "gold", "olympian"] as const;
-const TIER_PRICES: Record<string, number | null> = { starter: null, bronze: 15, silver: 30, gold: 50, olympian: 100 };
-const TIER_COLORS: Record<string, string> = { starter: '#6B7280', bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', olympian: '#8B5CF6' };
+/* Every plan ships the same product; only the trainee capacity changes. */
+const TIER_ORDER = ["starter", "bronze", "silver", "gold"] as const;
+const TIER_PRICES: Record<string, number | null> = { starter: null, bronze: 5, silver: 15, gold: 30 };
+const TIER_COLORS: Record<string, string> = { starter: '#6B7280', bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700' };
 
 interface PricingSectionProps {
   onSelectPlan: (plan: { name: string; color: string }) => void;
+}
+
+interface TierCopy {
+  name: string;
+  sub: string;
+  cta: string;
+  trainees: string;
 }
 
 export function PricingSection({ onSelectPlan }: PricingSectionProps) {
@@ -22,6 +30,9 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
   const lastSpaceIndex = title.lastIndexOf(' ');
   const titleStart = title.substring(0, lastSpaceIndex + 1);
   const titleEnd = title.substring(lastSpaceIndex + 1);
+
+  const includedCopy = t.landing.pricing.included;
+  const includedFeatures = Array.isArray(includedCopy) ? includedCopy : [];
 
   return (
     <section className="py-24 relative">
@@ -38,13 +49,12 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
         </div>
 
         {/* Pricing Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 xl:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6">
           {TIER_ORDER.map((key) => {
-            const tier = t(`landing.pricing.tiers.${key}`) as unknown as { name: string; sub: string; cta: string; features: string[] };
+            const tier = t(`landing.pricing.tiers.${key}`) as unknown as TierCopy;
             const price = TIER_PRICES[key];
             const isPopular = key === "silver";
             const color = TIER_COLORS[key];
-            const features = Array.isArray(tier.features) ? tier.features : [];
 
             return (
               <div
@@ -85,21 +95,23 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
                   </span>
                 </div>
 
-                {/* Features */}
-                <ul className="space-y-3 mb-8 flex-grow">
-                  {features.map((feature, featureIndex) => (
-                    <li key={featureIndex} className="flex items-start gap-2">
-                      <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-muted-foreground">
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Trainee capacity — the only thing that changes between plans */}
+                <div
+                  className="mb-6 rounded-xl border px-4 py-3"
+                  style={{ borderColor: `${color}33`, backgroundColor: `${color}0f` }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 flex-shrink-0" style={{ color }} />
+                    <span className="text-sm font-semibold text-foreground">{tier.trainees}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('landing.pricing.allIncluded')}
+                  </p>
+                </div>
 
                 {/* CTA */}
                 {key === 'starter' ? (
-                  <Link href="/register" className="w-full">
+                  <Link href="/register" className="mt-auto w-full">
                     <Button
                       variant="outline"
                       className="w-full transition-all duration-300 bg-transparent hover:text-white"
@@ -122,7 +134,7 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
                     onClick={() => onSelectPlan({ name: tier.name, color })}
                     variant={isPopular ? "default" : "outline"}
                     className={cn(
-                      "w-full transition-all duration-300",
+                      "mt-auto w-full transition-all duration-300",
                       isPopular
                         ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:shadow-[0_0_20px_rgba(26,117,255,0.4)] border-none"
                         : "bg-transparent hover:text-white"
@@ -144,6 +156,23 @@ export function PricingSection({ onSelectPlan }: PricingSectionProps) {
               </div>
             );
           })}
+        </div>
+
+        {/* Shared feature list — identical on every plan */}
+        <div className="mt-10 rounded-2xl glass-card p-6 sm:p-8">
+          <h3 className="mb-6 text-lg font-semibold text-foreground">
+            {t('landing.pricing.includedTitle')}
+          </h3>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {includedFeatures.map((feature, featureIndex) => (
+              <li key={featureIndex} className="flex items-start gap-2">
+                <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-muted-foreground">
+                  {feature}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>

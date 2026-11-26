@@ -74,7 +74,7 @@ const subStatusColor = (s?: string) => {
 
 const tierColors: Record<string, string> = {
   starter: "#888888", bronze: "#cd7f32", silver: "#c0c0c0",
-  gold: "#ffd700", olympian: "#85a9f7", platinum: "#e5e4e2",
+  gold: "#ffd700", platinum: "#e5e4e2",
 }
 
 // ── Main component ────────────────────────────────────────────────────────
