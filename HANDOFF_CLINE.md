@@ -888,3 +888,56 @@ in ES and EN, plus a Gold coach's badge reading `n/∞` in *Alumnos*. Local API 
 `cd Api-MVP && npm run dev` (it reads `.env`, `PORT=3001`; `frontend/.env.local` points at
 `http://localhost:3001/api/v1`).
 
+
+## In-place routine editing (2026-11-26)
+
+**The problem.** Retuning an assigned routine went through `AssignWorkoutModal` in edit mode, and the
+backend rewrote the prescription with `DELETE FROM exercises … ; INSERT …`. Every save therefore
+cascade-deleted `exercise_logs`: a coach raising a weight from 80 to 82,5 kg silently erased the sets the
+trainee had already logged that morning. The modal also could not be opened for a routine with no
+exercises, so an empty plan was a dead end.
+
+**Backend (`models/Workout.js`, `controllers/workout.controller.js`).** `replaceExercises` is now a diff
+instead of a wipe: a row that carries the `id` of an exercise of *this* plan is updated in place (so its
+logs survive), a row without a valid id is inserted (new exercises, or ids coming from a template or
+another plan, which can never be overwritten), and only the ids missing from the payload are deleted.
+Logged sets above the new `sets` count are pruned so the sheet never shows more rows than the
+prescription. `rpe` / `rir` / `target_distance` / `target_duration` / `track_rpe` / `track_rir` are written
+with `COALESCE($n, column)` so a payload that omits them keeps whatever the plan already had. Payloads
+without ids keep the old replace-everything behaviour, and the route now answers
+`{ workoutPlan, deletedLogs }` — the number of logged sets the save had to drop. No migration: every
+column used here is already in production (`Workout.create` inserts them).
+
+**Web.** `frontend/lib/workout-prescription.ts` holds the shared model (`asRowId`, `toDraftExercise`,
+`newDraftExercise`, `countLoggedSets`, `findDroppedLogSets`, `buildPrescriptionPayload`): ids are kept only
+while a row keeps its origin (renaming the movement clears them, which is what makes the old logs
+cascade), superset members are re-encoded as `rest_time = -1` by position, `exerciseOrder` is the row
+index, and untouched coach notes are written back verbatim instead of re-stamped with the current user.
+`frontend/components/dashboard/workout-prescription-editor.tsx` is the editor itself: drag handle, index,
+the name as a button into `ExercisePickerSheet`, a bin per row, inline `Sets / Reps (or Min) / Carga`
+fields, a `n series registradas` badge that turns amber when `sets` drops below the highest logged set,
+`SupersetToggle` with the same ring/link visuals as the create builder, `+ Agregar ejercicio` and a sticky
+`Cancelar / Guardar cambios` footer. Saving is one `PUT /workout-plans/:id`; `window.confirm` appears
+only when `findDroppedLogSets` actually names exercises (adding, renaming or reordering costs nothing).
+Both hosts mount the same component: `WorkoutDetailSheet` (`workouts-view.tsx`) and the coach's routine
+sheet in `trainee-detail.tsx`, which no longer open `AssignWorkoutModal` to edit. `canEditWorkout` and the
+`Editar` button no longer require an existing exercise, so an empty routine can receive its first one.
+`assign-workout-modal.tsx` now feeds the same helpers, so create / edit-via-modal / edit-in-place cannot
+drift apart.
+
+**Validation run.** `cd frontend && npx tsc --noEmit` clean. A throwaway compiled harness (deleted
+afterwards) asserted 12 cases against the real module: unchanged save keeps ids, order, rest times and the
+coach's note verbatim; adding an exercise and reordering cost no logs; superset members become `-1` while
+an orphaned head falls back to the previous row's rest (or 60); lowering `sets` below the highest logged
+set and deleting an exercise with logs are the only two changes reported by `findDroppedLogSets`; cardio
+rows send `is_cardio: 1` with `targetDuration`; empty-name rows are dropped. `node --check` on both
+backend files and a `GET /dashboard` / `GET /` against the dev server (200) confirm the new components
+compile. `npm run lint` in `frontend` is broken independently of this change: `eslint .` resolves
+ESLint 10 while the project has no `eslint.config.*`.
+
+**Deploy.** Push to `main` redeploys Railway and Vercel as usual; nothing to migrate.
+
+**Still manual / pending.** Browser matrix with two accounts: a plan with two logged sets → add + drag +
+`s4 → 3` + save ⇒ logs intact; delete an exercise that has logs ⇒ the confirm names it and only its sets
+disappear; an empty routine ⇒ the first exercise can be added; a `completed` plan ⇒ no edit affordance.
+
