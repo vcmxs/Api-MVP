@@ -220,11 +220,20 @@ class Workout {
     }
 
     /**
-     * Replace the whole prescription of a plan in one transaction.
+     * Save the whole prescription of a plan in one transaction.
      *
-     * Coaches edit assigned routines from the trainee detail sheet, so the
-     * exercise list arrives as the complete desired state: the old rows are
-     * dropped and the new ones inserted (exercise_logs cascade with them).
+     * The exercise list arrives as the complete desired state, but it is applied
+     * as a diff instead of a wipe-and-recreate:
+     *   - a row carrying the `id` of an exercise of *this* plan is updated in
+     *     place, so its `exercise_logs` survive (adding an exercise, renaming
+     *     one or changing its sets/reps no longer erases what the trainee
+     *     already logged);
+     *   - a row without a valid id is inserted (new exercises, or ids coming
+     *     from another plan/template, which can never be overwritten);
+     *   - only the ids that disappeared from the list are deleted, and those are
+     *     the only logs that cascade (`exercise_logs.exercise_id`).
+     * Logged sets above the new set count are pruned so the session cannot show
+     * more rows than the prescription has.
      * `null`/`undefined` header fields keep their current value.
      */
     static async replaceExercises(planId, updateData, exercises) {
@@ -253,11 +262,19 @@ class Workout {
                 return null;
             }
 
-            await client.query('DELETE FROM exercises WHERE workout_plan_id = $1', [planId]);
+            const existingResult = await client.query(
+                'SELECT id FROM exercises WHERE workout_plan_id = $1',
+                [planId]
+            );
+            const existingIds = new Set(existingResult.rows.map((row) => Number(row.id)));
+            // Every id starts as "gone"; the rows that come back in the payload
+            // are removed from this set, so only real removals get deleted.
+            const toDelete = new Set(existingIds);
+            const updatedIds = new Set();
+            const savedExercises = [];
+            let deletedLogs = 0;
 
-            const insertedExercises = [];
-            for (let index = 0; index < exercises.length; index++) {
-                const ex = exercises[index];
+            const insertExercise = async (ex, order) => {
                 const result = await client.query(
                     `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
@@ -271,7 +288,7 @@ class Workout {
                         ex.weightUnit || 'kg',
                         ex.restTime ?? 60,
                         ex.notes || '',
-                        index + 1,
+                        order,
                         ex.rpe !== undefined && ex.rpe !== null ? ex.rpe : null,
                         ex.rir !== undefined && ex.rir !== null ? ex.rir : null,
                         (ex.isCardio || ex.is_cardio) ? true : false,
@@ -281,12 +298,100 @@ class Workout {
                         ex.trackRir || ex.track_rir || false
                     ]
                 );
-                insertedExercises.push(result.rows[0]);
+                return result.rows[0];
+            };
+
+            for (let index = 0; index < exercises.length; index++) {
+                const ex = exercises[index];
+                const rawId = ex.id ?? ex.exerciseId;
+                const keepId = rawId === undefined || rawId === null || rawId === ''
+                    ? null
+                    : Number(rawId);
+                // Only ids that already belong to this plan can be updated in
+                // place; anything else (a template row, a stale id) is inserted.
+                const canUpdate = keepId !== null && Number.isInteger(keepId) &&
+                    existingIds.has(keepId) && !updatedIds.has(keepId);
+
+                let updated = null;
+                if (canUpdate) {
+                    const result = await client.query(
+                        `UPDATE exercises
+            SET name = $1,
+                sets = $2,
+                reps = $3,
+                target_weight = $4,
+                weight_unit = $5,
+                rest_time = $6,
+                notes = $7,
+                exercise_order = $8,
+                is_cardio = $9,
+                rpe = COALESCE($10, rpe),
+                rir = COALESCE($11, rir),
+                target_distance = COALESCE($12, target_distance),
+                target_duration = COALESCE($13, target_duration),
+                track_rpe = COALESCE($14, track_rpe),
+                track_rir = COALESCE($15, track_rir)
+            WHERE id = $16 AND workout_plan_id = $17
+            RETURNING *`,
+                        [
+                            ex.name,
+                            ex.sets,
+                            ex.reps,
+                            ex.targetWeight || 0,
+                            ex.weightUnit || 'kg',
+                            ex.restTime ?? 60,
+                            ex.notes || '',
+                            index + 1,
+                            (ex.isCardio || ex.is_cardio) ? true : false,
+                            ex.rpe ?? null,
+                            ex.rir ?? null,
+                            ex.targetDistance ?? ex.target_distance ?? null,
+                            ex.targetDuration ?? ex.target_duration ?? null,
+                            ex.trackRpe ?? ex.track_rpe ?? null,
+                            ex.trackRir ?? ex.track_rir ?? null,
+                            keepId,
+                            planId
+                        ]
+                    );
+
+                    // The row survived, so did its logs — except the sets the new
+                    // prescription no longer has.
+                    if (result.rows.length > 0) {
+                        updated = result.rows[0];
+                        updatedIds.add(keepId);
+                        toDelete.delete(keepId);
+
+                        const nextSets = Number(ex.sets);
+                        if (Number.isFinite(nextSets)) {
+                            const pruned = await client.query(
+                                'DELETE FROM exercise_logs WHERE exercise_id = $1 AND set_number > $2 RETURNING id',
+                                [keepId, nextSets]
+                            );
+                            deletedLogs += pruned.rowCount ?? 0;
+                        }
+                    }
+                }
+
+                savedExercises.push(updated ?? await insertExercise(ex, index + 1));
+            }
+
+            if (toDelete.size > 0) {
+                const removeIds = Array.from(toDelete);
+                const removedLogs = await client.query(
+                    'SELECT COUNT(*)::int AS count FROM exercise_logs WHERE exercise_id = ANY($1::int[])',
+                    [removeIds]
+                );
+                deletedLogs += removedLogs.rows[0]?.count ?? 0;
+
+                await client.query(
+                    'DELETE FROM exercises WHERE workout_plan_id = $1 AND id = ANY($2::int[])',
+                    [planId, removeIds]
+                );
             }
 
             await client.query('COMMIT');
 
-            return { ...planResult.rows[0], exercises: insertedExercises };
+            return { ...planResult.rows[0], exercises: savedExercises, deletedLogs };
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;

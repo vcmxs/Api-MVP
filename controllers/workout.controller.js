@@ -416,9 +416,13 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
  *
  * Two shapes are accepted:
  *   - `{ name, description, scheduledDate }`            → header only (legacy)
- *   - `{ name, description, scheduledDate, exercises }` → header + full
- *     replacement of the prescription, used by the coach "edit assigned
- *     workout" flow. Ownership and the completed-plan guard live in
+ *   - `{ name, description, scheduledDate, exercises }` → header + the whole
+ *     prescription, used by the coach "edit assigned workout" flow.
+ *     Each exercise may carry the `id` of the row it came from: those are
+ *     updated in place (their logged sets survive), rows without an id are
+ *     inserted and only the ids missing from the payload are deleted. Payloads
+ *     without ids keep the old wipe-and-recreate behaviour.
+ *     Ownership and the completed-plan guard live in
  *     `middleware/plan-access.js`.
  */
 exports.updateWorkoutPlan = async (req, res) => {
@@ -453,6 +457,10 @@ exports.updateWorkoutPlan = async (req, res) => {
             }
 
             return res.json({
+                // `deletedLogs` tells the client how many logged sets the save
+                // removed (exercises dropped from the list, or sets above the new
+                // count), so the success message can be explicit about it.
+                deletedLogs: workout.deletedLogs ?? 0,
                 workoutPlan: {
                     id: workout.id.toString(),
                     traineeId: workout.trainee_id.toString(),
@@ -471,6 +479,10 @@ exports.updateWorkoutPlan = async (req, res) => {
                         restTime: ex.rest_time,
                         notes: ex.notes,
                         order: ex.exercise_order,
+                        rpe: ex.rpe,
+                        rir: ex.rir,
+                        trackRpe: ex.track_rpe,
+                        trackRir: ex.track_rir,
                         isCardio: ex.is_cardio,
                         targetDistance: ex.target_distance,
                         targetDuration: ex.target_duration
