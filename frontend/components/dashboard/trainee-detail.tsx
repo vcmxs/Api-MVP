@@ -17,6 +17,8 @@ import { formatDecimal, formatLoad, isPlatesUnit } from "@/lib/format"
 import { parseExerciseNotes, type ExerciseNoteEntry } from "@/lib/exercise-notes"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 import { groupLabel, linkAccent } from "./exercise-reorder"
+import { WorkoutPrescriptionEditor } from "./workout-prescription-editor"
+import type { PrescriptionExercise } from "@/lib/workout-prescription"
 import type { ApiTrainee } from "./trainees-view"
 
 // ── API types ─────────────────────────────────────────────────────────────
@@ -49,6 +51,8 @@ interface ApiExercise {
   weight_unit?: string
   weightUnit?: string
   rest_time?: number
+  /** `GET /workout-plans/:id` answers camelCase; `rest_time` is the older shape. */
+  restTime?: number
   notes?: string
   exerciseOrder?: number
   is_cardio?: boolean
@@ -57,6 +61,12 @@ interface ApiExercise {
   trackRpe?: boolean
   track_rir?: boolean
   trackRir?: boolean
+  rpe?: number | null
+  rir?: number | null
+  targetDistance?: number
+  targetDuration?: number
+  target_distance?: number
+  target_duration?: number
   logs?: ApiSetLog[]
 }
 
@@ -308,7 +318,9 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
   const [detailLoading, setDetailLoading] = useState(false)
   const [lastLogsMap, setLastLogsMap] = useState<Record<string, Record<number, string>>>({})
   // Coach actions on a routine shown in the detail sheet
-  const [editWorkoutTarget, setEditWorkoutTarget] = useState<ApiWorkout | null>(null)
+  // In-place edit mode of the open routine: the exercise list turns into
+  // `WorkoutPrescriptionEditor`, which drafts locally and PUTs on save.
+  const [editingWorkout, setEditingWorkout] = useState(false)
   const [deleteWorkoutTarget, setDeleteWorkoutTarget] = useState<ApiWorkout | null>(null)
   const [deletingWorkout, setDeletingWorkout] = useState(false)
   const [deleteWorkoutError, setDeleteWorkoutError] = useState("")
@@ -398,6 +410,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
   const openDetail = async (workout: ApiWorkout) => {
     // Always fetch the full workout — the list endpoint returns exercises without logs
     setDetailLoading(true)
+    setEditingWorkout(false)
     setDetailWorkout(workout) // open sheet immediately with basic data
     try {
       const full = await apiFetch<ApiWorkout>(`/workout-plans/${workout.id}`)
@@ -428,12 +441,17 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
     }
   }
 
-  // The edit modal saved: refresh both the list and the open detail sheet.
-  const handleWorkoutSaved = async () => {
-    const editedId = editWorkoutTarget?.id
-    setEditWorkoutTarget(null)
+  // The in-place editor saved: exit edit mode, refresh the list and the open
+  // sheet, and report the sets the save had to drop.
+  const handlePrescriptionSaved = async (deletedLogs: number) => {
+    const workoutId = detailWorkout?.id
+    setEditingWorkout(false)
+    if (deletedLogs > 0) {
+      alert(t.workouts.editLogsDeleted.replace("{count}", String(deletedLogs)))
+    }
+    if (workoutId == null) return
     await reloadWorkouts()
-    if (editedId != null) await refreshWorkoutDetail(editedId)
+    await refreshWorkoutDetail(workoutId)
   }
 
   const handleDeleteWorkout = async () => {
@@ -982,35 +1000,6 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
         }}
       />
 
-      <AssignWorkoutModal
-        open={editWorkoutTarget !== null}
-        onOpenChange={(v) => { if (!v) setEditWorkoutTarget(null) }}
-        preselectedTraineeId={trainee.id}
-        editWorkout={editWorkoutTarget ? {
-          id: editWorkoutTarget.id,
-          name: editWorkoutTarget.name,
-          description: editWorkoutTarget.description,
-          scheduledDate: editWorkoutTarget.scheduledDate,
-          traineeId: trainee.id,
-          traineeName: trainee.name,
-          status: editWorkoutTarget.status,
-          exercises: (editWorkoutTarget.exercises ?? []).map(ex => ({
-            id: ex.id,
-            name: ex.name,
-            sets: ex.sets,
-            reps: ex.reps,
-            targetWeight: ex.targetWeight ?? ex.target_weight,
-            weightUnit: ex.weightUnit ?? ex.weight_unit,
-            notes: ex.notes,
-            is_cardio: ex.is_cardio ?? ex.isCardio,
-            track_rpe: ex.track_rpe ?? ex.trackRpe,
-            track_rir: ex.track_rir ?? ex.trackRir,
-            restTime: ex.rest_time,
-          })),
-        } : undefined}
-        onAssigned={handleWorkoutSaved}
-      />
-
       {/* Delete assigned workout confirmation */}
       {deleteWorkoutTarget && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 p-4">
@@ -1053,7 +1042,7 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
       )}
 
       {/* Workout Detail Sheet */}
-      <Sheet open={detailWorkout !== null} onOpenChange={(v) => { if (!v) setDetailWorkout(null) }}>
+      <Sheet open={detailWorkout !== null} onOpenChange={(v) => { if (!v) { setDetailWorkout(null); setEditingWorkout(false) } }}>
         <SheetContent side="right" className="flex w-full flex-col border-l border-white/[0.08] bg-[#0a0a0f] p-0 sm:max-w-md">
           <SheetHeader className="flex-row items-center justify-between border-b border-white/[0.08] px-6 py-5">
             <div className="flex items-center gap-3">
@@ -1096,11 +1085,11 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
                     {t.traineeDetail.completedLocked}
                   </span>
                 ) : (
-                  <div className="ml-auto flex items-center gap-2">
+                  <div className={cn("ml-auto flex items-center gap-2", editingWorkout && "hidden")}>
                     <button
                       type="button"
-                      onClick={() => setEditWorkoutTarget(detailWorkout)}
-                      disabled={detailLoading || !detailWorkout.exercises?.length}
+                      onClick={() => setEditingWorkout(true)}
+                      disabled={detailLoading}
                       title={t.traineeDetail.editWorkout}
                       aria-label={t.traineeDetail.editWorkout}
                       className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 text-xs font-medium text-[#888888] transition-colors hover:border-[#00ffff]/40 hover:text-[#00ffff] disabled:cursor-not-allowed disabled:opacity-40"
@@ -1128,6 +1117,20 @@ export function TraineeDetail({ trainee, onBack, onOpenProgression, onOpenMessag
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-[#555555]" />
               </div>
+            ) : editingWorkout && detailWorkout ? (
+              <WorkoutPrescriptionEditor
+                plan={{
+                  id: Number(detailWorkout.id),
+                  name: detailWorkout.name,
+                  description: detailWorkout.description,
+                  scheduledDate: detailWorkout.scheduledDate,
+                  exercises: (detailWorkout.exercises ?? []) as PrescriptionExercise[],
+                }}
+                targetUserId={trainee.id}
+                subjectName={trainee.name}
+                onCancel={() => setEditingWorkout(false)}
+                onSaved={(deletedLogs) => { void handlePrescriptionSaved(deletedLogs) }}
+              />
             ) : !detailWorkout?.exercises || detailWorkout.exercises.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Dumbbell className="mb-3 h-8 w-8 text-[#333]" />

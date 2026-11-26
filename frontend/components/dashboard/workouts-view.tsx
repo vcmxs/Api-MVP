@@ -23,6 +23,8 @@ import { ExerciseNoteEntry, parseExerciseNotes, serializeCoachNote } from "@/lib
 import { useLanguage, useT } from "@/lib/i18n"
 import type { TranslationKeys } from "@/locales/en"
 import { ExercisePickerSheet } from "./exercise-picker-sheet"
+import { WorkoutPrescriptionEditor } from "./workout-prescription-editor"
+import type { PrescriptionExercise } from "@/lib/workout-prescription"
 import { LoadUnitToggle } from "./load-unit-toggle"
 import { ExerciseReferenceButton } from "./exercise-reference-dialog"
 import type { AgendaWorkout } from "./workout-row"
@@ -88,6 +90,7 @@ interface ApiExercise {
   weight_unit?: string
   weightUnit?: string
   rest_time?: number
+  restTime?: number
   notes?: string
   track_rpe?: boolean | number
   trackRpe?: boolean | number
@@ -95,6 +98,10 @@ interface ApiExercise {
   trackRir?: boolean | number
   is_cardio?: boolean | number
   isCardio?: boolean | number
+  rpe?: number | null
+  rir?: number | null
+  targetDistance?: number
+  targetDuration?: number
   exerciseOrder?: number
   logs?: ApiSetLog[]
 }
@@ -979,10 +986,12 @@ function ExerciseSetSection({ exercise, workoutId, workoutDate, coachId, trainee
 
 // ── Workout Detail Sheet ──────────────────────────────────────────────────
 
-export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
+export function WorkoutDetailSheet({ workout, open, onOpenChange, onWorkoutUpdated }: {
   workout: DisplayWorkout | null
   open: boolean
   onOpenChange: (v: boolean) => void
+  /** The plan was edited: the caller should refetch its list/agenda. */
+  onWorkoutUpdated?: (id: number) => void
 }) {
   const { t } = useT()
   const dateLocale = useDateLocale()
@@ -991,6 +1000,9 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [completing, setCompleting] = useState(false)
+  // In-place edit mode: the exercise list turns into `WorkoutPrescriptionEditor`,
+  // which drafts locally and PUTs the whole prescription on save.
+  const [editing, setEditing] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Scroll progress (0 → 1 over the first 72px) is written straight into a CSS
@@ -1022,7 +1034,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   }, [])
 
   useEffect(() => {
-    if (!open || !workout) { setRawDetail(null); setLoadFailed(false); return }
+    if (!open || !workout) { setRawDetail(null); setLoadFailed(false); setEditing(false); return }
     fetchDetail(workout.id)
   }, [open, workout?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1070,15 +1082,17 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
   const sc = getStatusConfig(currentStatus)
   const isCompleted = currentStatus === "completed"
   // A workout opened from a notification only carries its id, so name and date
-  // fall back to the plan the sheet just fetched (`rawDetail`) instead of
-  // rendering an empty title or "Invalid Date".
+  // fall back to the plan the sheet just fetched (`rawDetail`). The fetched plan
+  // wins whenever it is available: after an edit it is the only copy that has the
+  // new name/date (the caller's row refreshes asynchronously).
   const detailDate = rawDetail?.scheduledDate ? parseISO(rawDetail.scheduledDate) : null
-  const headerDate = isValid(workout.scheduledDate)
-    ? workout.scheduledDate
-    : detailDate && isValid(detailDate)
-      ? detailDate
+  const headerDate = detailDate && isValid(detailDate)
+    ? detailDate
+    : isValid(workout.scheduledDate)
+      ? workout.scheduledDate
       : null
-  const headerName = workout.name || rawDetail?.name || ""
+  const headerName = rawDetail?.name || workout.name || ""
+  const headerDescription = rawDetail ? rawDetail.description : workout.description
   // Executing a session is owner-only — the same rule the API enforces on the
   // start/complete/log routes. Mirrors `sessionOwnerId()` in
   // middleware/plan-access.js: the trainee the plan belongs to, falling back to
@@ -1113,6 +1127,41 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
     .slice()
     .sort((a, b) => (a.exerciseOrder ?? 0) - (b.exerciseOrder ?? 0))
 
+  // ── Editing the prescription ─────────────────────────────────────────────
+  // `PUT /workout-plans/:id` applies the exercise list as a diff (see
+  // `Workout.replaceExercises`): rows that keep their id are updated in place,
+  // so their `exercise_logs` survive and adding an exercise no longer erases
+  // what the trainee already logged. Only removals — and set counts below the
+  // logged sets — cost data, and the editor warns about those at save time using
+  // the `logs` it receives. Completed sessions stay locked on both sides
+  // (`loadWorkoutPlan({ blockCompleted: true })`).
+  // The list is deliberately not part of the check: an empty routine still has to
+  // accept its first exercise.
+  const canEditWorkout =
+    !loading && !loadFailed && !isCompleted &&
+    (me?.role === "coach" || isSessionOwner)
+  // The plan handed to the editor. Only its name/description/date travel back
+  // unchanged — this sheet retunes the prescription, it does not rename the
+  // routine.
+  const editPlan = rawDetail && canEditWorkout ? {
+    id: Number(rawDetail.id),
+    name: rawDetail.name,
+    description: rawDetail.description,
+    scheduledDate: rawDetail.scheduledDate,
+    exercises: exercises as PrescriptionExercise[],
+  } : null
+
+  const handleEditSaved = (deletedLogs: number) => {
+    setEditing(false)
+    fetchDetail(workout.id, true)
+    onWorkoutUpdated?.(workout.id)
+    // The route reports the sets it had to drop, so the confirmation is not the
+    // only trace of a save that cost data.
+    if (deletedLogs > 0) {
+      alert(t.workouts.editLogsDeleted.replace("{count}", String(deletedLogs)))
+    }
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -1130,7 +1179,9 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
             // Leave room for the floating button; without it (completed, still
             // loading, or a session the viewer does not own) a small bottom
             // padding is enough.
-            showCompleteButton ? "pb-32" : "pb-6",
+            // While editing, the editor owns the actions, so the space the
+            // floating complete button would reserve is not needed.
+            showCompleteButton && !editing ? "pb-32" : "pb-6",
           )}
           style={{ "--hp": 0 } as React.CSSProperties}
         >
@@ -1186,8 +1237,21 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                 {t.workouts.viewOnly}
               </span>
             )}
+            {/* Coaches can retune anyone's prescription; the session owner can
+                retune their own. Mirrors what PUT /workout-plans/:id allows. */}
+            {canEditWorkout && !editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                title={t.workouts.editWorkoutTitle}
+                className="ml-auto flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#888888] transition-colors hover:border-[#00ffff]/40 hover:text-[#00ffff]"
+              >
+                <Pencil className="h-3 w-3" />
+                {t.workouts.editWorkoutTitle}
+              </button>
+            )}
           </div>
-          {workout.description && <p className="border-t border-white/[0.04] px-4 py-3 text-sm text-[#888888] sm:px-6">{workout.description}</p>}
+          {headerDescription && <p className="border-t border-white/[0.04] px-4 py-3 text-sm text-[#888888] sm:px-6">{headerDescription}</p>}
 
           <div className="px-4 py-4 sm:px-6">
             {loading ? (
@@ -1205,6 +1269,14 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
                   {t.todayWorkouts.retry}
                 </button>
               </div>
+            ) : editing && editPlan ? (
+              <WorkoutPrescriptionEditor
+                plan={editPlan}
+                targetUserId={sessionOwnerId != null ? Number(sessionOwnerId) : undefined}
+                subjectName={ownerName}
+                onCancel={() => setEditing(false)}
+                onSaved={handleEditSaved}
+              />
             ) : exercises.length === 0 ? (
               <div className="flex flex-col items-center py-12 text-[#555555]">
                 <Dumbbell className="mb-2 h-8 w-8" />
@@ -1277,7 +1349,7 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange }: {
         {/* Floating footer: the wrapper ignores pointer events so the content
             behind the blur stays scrollable; only the button is interactive.
             Owner-only — a coach reviewing a trainee's session gets no action. */}
-        {showCompleteButton && (
+        {showCompleteButton && !editing && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
             <div
               className="absolute inset-0"
@@ -1904,7 +1976,7 @@ export function WorkoutsView() {
       )}
 
       {/* Panels / Modals */}
-      <WorkoutDetailSheet workout={detailWorkout} open={!!detailWorkout} onOpenChange={(v) => { if (!v) setDetailWorkout(null) }} />
+      <WorkoutDetailSheet workout={detailWorkout} open={!!detailWorkout} onOpenChange={(v) => { if (!v) setDetailWorkout(null) }} onWorkoutUpdated={fetchWorkouts} />
       <WorkoutBuilderSheet open={builderOpen} onOpenChange={setBuilderOpen} onSave={handleCreate} saving={saving} />
       <AssignWorkoutModal open={assignModalOpen} onOpenChange={(v) => { setAssignModalOpen(v); if (!v) setAssigningWorkoutId(null) }} preselectedTemplateId={assigningWorkoutId ?? undefined} />
     </div>

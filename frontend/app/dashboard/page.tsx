@@ -435,6 +435,9 @@ export default function Dashboard() {
           // Anything logged inside the sheet changes the agenda pills.
           setAgendaReloadKey((n) => n + 1)
         }}
+        // Editing the prescription renames/reschedules it, so the agenda row
+        // must be refetched without closing the sheet.
+        onWorkoutUpdated={() => setAgendaReloadKey((n) => n + 1)}
       />
 
       {/* In-app popups for new notifications (top-right, cascading) */}

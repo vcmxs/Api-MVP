@@ -394,6 +394,23 @@ const en = {
     saveChanges: "Save Changes",
     updatedSuccess: "Workout updated for {trainee}.",
     updateError: "Could not update the workout.",
+    // Editing keeps every exercise that is still in the list — and its logs — so
+    // the warning names only what the save would really delete: exercises removed
+    // from the builder, or sets beyond a reduced count.
+    editLogsWarning: "The sets already logged for {exercises} will be deleted; the rest are kept. Continue?",
+    editKeepsLogs: "Adding or reordering exercises keeps the sets already logged.",
+    editLogsDeleted: "{count} logged sets were deleted on save.",
+    // In-place prescription editor (session sheet · trainee detail).
+    editModeTitle: "Editing routine",
+    prescriptionHint: "Changes are applied when you save. Exercises you keep keep the sets already logged; only deleting an exercise, or lowering its sets below what was logged, removes series.",
+    prescriptionEmpty: "This routine has no exercises yet. Add the first one.",
+    addExercise: "Add exercise",
+    removeExercise: "Remove exercise",
+    loggedSets: "{count} logged sets",
+    loggedSetsTrim: "lowering the sets deletes the extra ones",
+    setsLabel: "Sets",
+    repsLabel: "Reps",
+    durationLabel: "Duration (min)",
     assignTo: "Assign to Trainee",
     statusCompleted: "COMPLETED",
     statusInProgress: "IN PROGRESS",

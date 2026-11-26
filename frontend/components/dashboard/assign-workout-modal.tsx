@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react"
 import {
   X, Search, Dumbbell, Users, CalendarDays, Check, Loader2,
-  AlertCircle, Plus, ChevronRight, ArrowLeft,
+  AlertCircle, Info, Plus, ChevronRight, ArrowLeft,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -12,7 +12,7 @@ import { NumberField } from "@/components/ui/number-field"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { apiFetch, getUserInfo } from "@/lib/api"
-import { getCoachNoteDraft, serializeCoachNote } from "@/lib/exercise-notes"
+import { getCoachNoteDraft } from "@/lib/exercise-notes"
 import { useT } from "@/lib/i18n"
 import { formatLoad, normalizeLoadUnit, type LoadUnit } from "@/lib/format"
 import { isPaymentInactive } from "@/lib/trainee-payment"
@@ -22,8 +22,22 @@ import {
   DragHandle, ReorderArrows, SupersetToggle, linkedGroupSize, linkRingClass, moveItem, newExerciseRowId, useExerciseReorder,
 } from "./exercise-reorder"
 import { getTraineeLimit } from "@/lib/subscription-tiers"
+import {
+  asRowId,
+  buildPrescriptionPayload,
+  findDroppedLogSets,
+  type DraftExercise,
+} from "@/lib/workout-prescription"
 
 // ── Types ──────────────────────────────────────────────────────────────────
+
+/** A set the trainee already logged for an exercise of the plan being edited. */
+interface ExistingSetLog {
+  set_number?: number
+  setNumber?: number
+  completed?: boolean
+  is_completed?: boolean
+}
 
 interface ExistingWorkout {
   id: number
@@ -33,7 +47,7 @@ interface ExistingWorkout {
   traineeId?: number
   traineeName?: string
   status?: string
-  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number }[]
+  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number; rpe?: number | null; rir?: number | null; trackRpe?: boolean | number; trackRir?: boolean | number; targetDistance?: number; targetDuration?: number; target_distance?: number; target_duration?: number; logs?: ExistingSetLog[] }[]
 }
 
 interface ApiProgram {
@@ -73,6 +87,12 @@ function isTraineeLocked(trainee: Trainee) {
 
 interface BuilderExercise {
   id: string
+  /**
+   * `exercises.id` of the plan row this came from, set only while editing an
+   * assigned plan. The API updates those rows in place, which is what keeps
+   * their logged sets; rows without it are inserted as new exercises.
+   */
+  exerciseId?: number
   name: string
   sets: number
   reps: number
@@ -276,11 +296,16 @@ export function AssignWorkoutModal({
     } finally { setTraineesLoading(false) }
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadWorkoutIntoBuilder = (workout: ExistingWorkout) => {
+  const loadWorkoutIntoBuilder = (workout: ExistingWorkout, opts?: { keepExerciseIds?: boolean }) => {
+    // Only the plan being edited shares ids with the rows the builder will
+    // write back; a library template or another plan must never be touched, so
+    // its exercises are always inserted as new rows.
+    const keepIds = opts?.keepExerciseIds === true
     setBuildName(workout.name)
     setBuildDesc(workout.description || "")
     setBuildExercises((workout.exercises ?? []).map((ex, i) => ({
       id: `ex-${ex.id}-${Date.now()}-${i}`,
+      exerciseId: keepIds ? asRowId(ex.id) : undefined,
       name: ex.name,
       sets: ex.sets,
       reps: ex.reps,
@@ -305,8 +330,10 @@ export function AssignWorkoutModal({
     setScheduledDate(new Date())
 
     if (editWorkout) {
-      // Edit mode: same builder, but the plan already exists.
-      loadWorkoutIntoBuilder(editWorkout)
+      // Edit mode: same builder, but the plan already exists. Carry the row ids
+      // so the save updates them instead of recreating the prescription, which
+      // would cascade-delete every set already logged.
+      loadWorkoutIntoBuilder(editWorkout, { keepExerciseIds: true })
       const when = editWorkout.scheduledDate
         ? new Date(`${String(editWorkout.scheduledDate).split("T")[0]}T12:00:00`)
         : new Date()
@@ -322,7 +349,11 @@ export function AssignWorkoutModal({
       setStep(preselectedTraineeId ? "workout" : "trainee")
       if (!preselectedTraineeId) fetchPrograms()
     }
-    fetchTrainees()
+    // The trainee list is unreachable while editing (the build step's Back
+    // closes the dialog, it never returns to the picker), and for a trainee
+    // editing their own routine `GET /coaches/:id/trainees` answers 403 and
+    // would surface a misleading error banner over the builder.
+    if (!editWorkout) fetchTrainees()
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -359,7 +390,13 @@ export function AssignWorkoutModal({
   const handlePickEx = ({ name: exName, isCardio }: { name: string; isCardio: boolean }) => {
     if (!pickerTargetId) return
     // The picker closes itself after a pick, so just fill the row that opened it.
-    setBuildExercises(prev => prev.map(ex => ex.id === pickerTargetId ? { ...ex, name: exName, isCardio } : ex))
+    // Picking a *different* exercise turns the row into a replacement, not a
+    // rename: dropping the id makes the save delete the old exercise (with its
+    // logged sets) and insert the new one, instead of renaming a row and
+    // inheriting someone else's history.
+    setBuildExercises(prev => prev.map(ex => ex.id === pickerTargetId
+      ? { ...ex, name: exName, isCardio, exerciseId: ex.name === exName ? ex.exerciseId : undefined }
+      : ex))
   }
 
   const handlePickerDone = () => {
@@ -401,23 +438,56 @@ export function AssignWorkoutModal({
 
   // ── Submit ─────────────────────────────────────────────────────────────
 
+  // Which rows a save would cost logged sets is decided by the same helper the
+  // in-place editor uses (`findDroppedLogSets` in `lib/workout-prescription`), so
+  // the create/edit builders and the session editor all warn identically.
+
   const handleAssign = async () => {
     const traineeId = selectedTrainee?.id
     if (!user?.id) return
     if (!isEditing && !traineeId) return
+    // Adding or reordering exercises keeps every logged set, so the warning is
+    // raised only when this save would actually drop some (a removed exercise or
+    // fewer sets than already logged).
+    const losing = findDroppedLogSets(buildExercises, isEditing ? editWorkout?.exercises : undefined)
+    if (losing.length > 0) {
+      const names = losing.length > 3
+        ? `${losing.slice(0, 3).join(", ")} +${losing.length - 3}`
+        : losing.join(", ")
+      if (!window.confirm(t.workouts.editLogsWarning.replace("{exercises}", names))) return
+    }
     setSubmitting(true); setSubmitError("")
     try {
-      const exercises = buildExercises.filter(ex => ex.name.trim()).map((ex, i) => ({
-        name: ex.name, sets: ex.sets, reps: ex.reps,
-        targetWeight: ex.weight, weightUnit: ex.weightUnit,
-        restTime: i > 0 && ex.isSuperset ? -1 : 60, notes: serializeCoachNote(ex.notes, user), exerciseOrder: i,
-        track_rpe: 0, track_rir: 0, is_cardio: ex.isCardio ? 1 : 0,
+      // The builder rows already are draft rows. `buildPrescriptionPayload` keeps
+      // the id of every entry that came from the plan (so its logged sets survive),
+      // re-encodes superset members as `rest_time = -1`, carries the plan's rest
+      // time and cardio/RPE settings over, and writes untouched coach notes back
+      // verbatim instead of re-stamping them with the current user.
+      const draftRows: DraftExercise[] = buildExercises.map(ex => ({
+        rowId: ex.id,
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        sets: ex.sets,
+        reps: ex.reps,
+        weight: ex.weight,
+        weightUnit: ex.weightUnit,
+        notes: ex.notes,
+        notesTouched: false,
+        isCardio: ex.isCardio,
+        isSuperset: Boolean(ex.isSuperset),
       }))
+      const exercises = buildPrescriptionPayload(
+        draftRows,
+        isEditing ? editWorkout?.exercises : undefined,
+        user,
+      )
 
       if (isEditing && editWorkout) {
-        // The API replaces the prescription in one transaction; the completed
-        // guard lives server-side (`middleware/plan-access.js`).
-        await apiFetch(`/workout-plans/${editWorkout.id}`, {
+        // The API updates the rows that keep their id and re-creates the rest in
+        // one transaction; the completed guard lives server-side
+        // (`middleware/plan-access.js`). `deletedLogs` reports the sets the save
+        // had to drop, so the confirmation is not only a warning.
+        const saved = await apiFetch<{ deletedLogs?: number }>(`/workout-plans/${editWorkout.id}`, {
           method: "PUT",
           body: JSON.stringify({
             name: buildName,
@@ -427,7 +497,11 @@ export function AssignWorkoutModal({
           }),
         })
 
-        alert(t.workouts.updatedSuccess.replace("{trainee}", editWorkout.traineeName ?? selectedTrainee?.name ?? ""))
+        const updatedMsg = t.workouts.updatedSuccess.replace("{trainee}", editWorkout.traineeName ?? selectedTrainee?.name ?? "")
+        const droppedSets = saved?.deletedLogs ?? 0
+        alert(droppedSets > 0
+          ? `${updatedMsg} ${t.workouts.editLogsDeleted.replace("{count}", String(droppedSets))}`
+          : updatedMsg)
       } else {
         await apiFetch("/workout-plans", {
           method: "POST",
@@ -685,6 +759,12 @@ export function AssignWorkoutModal({
                       <Plus className="h-3.5 w-3.5" /> Add Exercise
                     </button>
                   </div>
+                  {isEditing && (
+                    <div className="mb-2 flex items-start gap-2 rounded-xl border border-[#00ffff]/20 bg-[#00ffff]/5 px-3 py-2 text-xs leading-relaxed text-[#888888]">
+                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00ffff]" />
+                      <span>{t.workouts.editKeepsLogs}</span>
+                    </div>
+                  )}
                   {buildExercises.length === 0 ? (
                     <button onClick={addBuilderEx}
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.12] py-6 text-sm text-[#555555] hover:border-[#00ffff]/30 hover:text-[#00ffff]">

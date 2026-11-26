@@ -396,6 +396,23 @@ const es: TranslationKeys = {
     saveChanges: "Guardar Cambios",
     updatedSuccess: "Rutina actualizada para {trainee}.",
     updateError: "No se pudo actualizar la rutina.",
+    // Editar conserva cada ejercicio que sigue en la lista y sus series, así que
+    // el aviso solo nombra lo que el guardado eliminaría de verdad: ejercicios
+    // quitados del editor, o series por encima de un número de sets reducido.
+    editLogsWarning: "Se eliminarán las series ya registradas de {exercises}; el resto se conserva. ¿Quieres continuar?",
+    editKeepsLogs: "Agregar o reordenar ejercicios conserva las series ya registradas.",
+    editLogsDeleted: "Se eliminaron {count} series registradas al guardar.",
+    // Editor de la prescripción en el lugar (hoja de sesión · detalle del alumno).
+    editModeTitle: "Editando rutina",
+    prescriptionHint: "Los cambios se aplican al guardar. Los ejercicios que se mantienen conservan las series ya registradas; solo eliminar un ejercicio, o bajar sus series por debajo de lo registrado, borra series.",
+    prescriptionEmpty: "Esta rutina todavía no tiene ejercicios. Agrega el primero.",
+    addExercise: "Agregar ejercicio",
+    removeExercise: "Quitar ejercicio",
+    loggedSets: "{count} series registradas",
+    loggedSetsTrim: "bajar las series elimina las sobrantes",
+    setsLabel: "Series",
+    repsLabel: "Reps",
+    durationLabel: "Duración (min)",
     assignTo: "Asignar a Alumno",
     statusCompleted: "COMPLETADA",
     statusInProgress: "EN CURSO",
