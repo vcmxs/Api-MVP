@@ -10,7 +10,10 @@
         "db:check": "node check_db_connection.js",
         "db:schema": "node inspect_db_schema.js",
         "db:copy-schema-to-staging": "node copy_prod_schema_to_staging.js",
-        "db:copy-exercises-to-staging": "node copy_prod_exercises_to_staging.js"
+        "db:copy-exercises-to-staging": "node copy_prod_exercises_to_staging.js",
+        "db:migrate-016": "node run-migration-016.js",
+        "exercises:import-translations": "node scripts/import-exercise-translations.js",
+        "exercises:backfill-links": "node scripts/backfill-exercise-library-links.js"
     },
     "keywords": [],
     "author": "",

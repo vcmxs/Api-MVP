@@ -13,6 +13,7 @@ require('dotenv').config();
 const apiRoutes = require('./routes');
 const checkExpiredSubscriptions = require('./cron/checkSubscriptions');
 const { getExerciseVideo } = require('./services/youtubeSearchService');
+const { resolveExerciseLocale } = require('./utils/exercise-language');
 
 const app = express();
 const server = http.createServer(app); // Create HTTP server
@@ -224,8 +225,11 @@ const EXERCISE_MEDIA_BASE = String(process.env.EXERCISE_MEDIA_BASE || EXERCISE_M
   .replace(/\/+$/, '');
 
 const EXERCISE_LIST_COLUMNS = `
-  id, name, muscle_category, body_part, target_muscle, muscle_group, equipment,
-  source, dataset_id, gif_file, thumb_file
+  el.id,
+  COALESCE(t.name, el.name) AS name,
+  el.name AS name_canonical,
+  el.muscle_category, el.body_part, el.target_muscle, el.muscle_group, el.equipment,
+  el.source, el.dataset_id, el.gif_file, el.thumb_file
 `;
 
 /** Same normalization as frontend/lib/exercise-media.ts — keep both in sync. */
@@ -265,24 +269,28 @@ app.get('/api/v1/exercises', async (req, res) => {
     ? Math.min(requestedLimit, 500)
     : (search ? 30 : 500);
 
+  // `?lang=` / JWT / Accept-Language: the translation join is what localises the
+  // card names and the search index together, so a Spanish query never misses a
+  // row because its canonical name is English.
+  const locale = resolveExerciseLocale(req);
   const conditions = [];
-  const params = [];
+  const params = [locale];
 
   if (category) {
     params.push(category);
-    conditions.push(`muscle_category = $${params.length}`);
+    conditions.push(`el.muscle_category = $${params.length}`);
   }
 
   if (source) {
     params.push(source);
-    conditions.push(`source = $${params.length}`);
+    conditions.push(`el.source = $${params.length}`);
   }
 
   // Every token must appear in the normalized name ("curl barra" → both).
   const tokens = normalizeExerciseName(search).split(' ').filter(Boolean);
   for (const token of tokens) {
     params.push(`%${token}%`);
-    conditions.push(`name_norm LIKE $${params.length}`);
+    conditions.push(`COALESCE(t.name_norm, el.name_norm) LIKE $${params.length}`);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -295,9 +303,13 @@ app.get('/api/v1/exercises', async (req, res) => {
 
     const result = await pool.query(
       `SELECT ${EXERCISE_LIST_COLUMNS}
-         FROM exercise_library
+         FROM exercise_library el
+         LEFT JOIN exercise_translations t
+                ON t.exercise_id = el.id
+               AND t.locale = $1
+               AND t.status = 'published'
          ${where}
-        ORDER BY (source = 'catalog') DESC, muscle_category, name
+        ORDER BY (el.source = 'catalog') DESC, el.muscle_category, COALESCE(t.name, el.name)
         LIMIT ${limitParam} OFFSET ${offsetParam}`,
       params
     );
@@ -322,27 +334,64 @@ app.get('/api/v1/exercises/lookup', async (req, res) => {
     return res.status(400).json({ error: 'Bad Request', message: 'The name query parameter is required.' });
   }
 
+  const locale = resolveExerciseLocale(req);
+
   try {
+    const lookupColumns = `
+      el.*,
+      COALESCE(t.name, el.name) AS display_name,
+      el.name AS name_canonical,
+      COALESCE(
+        t.instructions,
+        CASE WHEN $1 = 'en' THEN el.instructions_en ELSE el.instructions_es END
+      ) AS instructions_resolved,
+      COALESCE(
+        NULLIF(t.instruction_steps, '[]'::jsonb),
+        CASE WHEN $1 = 'en' THEN '[]'::jsonb ELSE el.instruction_steps_es END
+      ) AS instruction_steps_resolved
+    `;
+    const lookupJoin = `
+      LEFT JOIN exercise_translations t
+             ON t.exercise_id = el.id
+            AND t.locale = $1
+            AND t.status = 'published'
+    `;
+
     let result = await pool.query(
-      `SELECT * FROM exercise_library
-        WHERE name_norm = $1
-        ORDER BY (source = 'catalog') DESC
+      `SELECT ${lookupColumns}
+         FROM exercise_library el
+         ${lookupJoin}
+        WHERE el.name_norm = $2 OR t.name_norm = $2
+        ORDER BY (el.name_norm = $2) DESC, (el.source = 'catalog') DESC
         LIMIT 1`,
-      [normalizeExerciseName(name)]
+      [locale, normalizeExerciseName(name)]
     );
 
     // Fallback for rows created before name_norm was backfilled.
     if (result.rows.length === 0) {
       result = await pool.query(
-        `SELECT * FROM exercise_library
-          WHERE lower(btrim(name)) = lower(btrim($1))
-          ORDER BY (source = 'catalog') DESC
+        `SELECT ${lookupColumns}
+           FROM exercise_library el
+           ${lookupJoin}
+          WHERE lower(btrim(el.name)) = lower(btrim($2))
+             OR lower(btrim(t.name)) = lower(btrim($2))
+          ORDER BY (lower(btrim(el.name)) = lower(btrim($2))) DESC,
+                   (el.source = 'catalog') DESC
           LIMIT 1`,
-        [name]
+        [locale, name]
       );
     }
 
-    res.json({ exercise: withExerciseMedia(result.rows[0] ?? null) });
+    const exercise = result.rows[0] ?? null;
+    if (exercise) {
+      exercise.name = exercise.display_name ?? exercise.name;
+      exercise.name_canonical = exercise.name_canonical ?? exercise.name;
+      exercise.instructions = exercise.instructions_resolved ?? null;
+      exercise.instruction_steps = exercise.instruction_steps_resolved ?? [];
+      exercise.locale = locale;
+    }
+
+    res.json({ exercise: withExerciseMedia(exercise) });
   } catch (err) {
     console.error('Exercise lookup error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });

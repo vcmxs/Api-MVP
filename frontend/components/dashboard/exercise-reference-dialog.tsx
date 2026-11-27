@@ -14,7 +14,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { WheelScrollArea } from "@/components/ui/wheel-scroll-area"
 import { apiFetch, getUserInfo } from "@/lib/api"
-import { useT } from "@/lib/i18n"
+import { useLanguage, useT } from "@/lib/i18n"
 import { formatLoad } from "@/lib/format"
 import {
   datasetMediaUrl,
@@ -31,6 +31,7 @@ import {
 interface ExerciseRecord {
   id: number
   name: string
+  name_canonical?: string | null
   description?: string | null
   muscle_category?: string | null
   body_part?: string | null
@@ -38,7 +39,11 @@ interface ExerciseRecord {
   target_muscle?: string | null
   muscle_group?: string | null
   secondary_muscles?: string[] | null
+  /** Resolved by the API for the active language. */
+  instructions?: string | null
+  instruction_steps?: string[] | null
   instructions_es?: string | null
+  instructions_en?: string | null
   instruction_steps_es?: string[] | null
   gif_url?: string | null
   gif_file?: string | null
@@ -53,9 +58,10 @@ interface ExerciseRecord {
 /** One lookup per exercise name per session; failures are not cached. */
 const exerciseRecordRequests = new Map<string, Promise<ExerciseRecord | null>>()
 
-function loadExerciseRecord(exerciseName: string): Promise<ExerciseRecord | null> {
-  const key = normalizeExerciseName(exerciseName)
-  if (!key) return Promise.resolve(null)
+function loadExerciseRecord(exerciseName: string, language: string): Promise<ExerciseRecord | null> {
+  const normalized = normalizeExerciseName(exerciseName)
+  if (!normalized) return Promise.resolve(null)
+  const key = `${language}|${normalized}`
 
   const cached = exerciseRecordRequests.get(key)
   if (cached) return cached
@@ -78,6 +84,7 @@ function loadExerciseRecord(exerciseName: string): Promise<ExerciseRecord | null
  * so both mount the same hook and share the cached request above.
  */
 function useExerciseRecord(exerciseName: string) {
+  const { language } = useLanguage()
   const [record, setRecord] = useState<ExerciseRecord | null>(null)
   const [recordLoading, setRecordLoading] = useState(false)
   const [recordError, setRecordError] = useState(false)
@@ -95,7 +102,7 @@ function useExerciseRecord(exerciseName: string) {
     let active = true
     setRecordLoading(true)
     setRecordError(false)
-    loadExerciseRecord(exerciseName)
+    loadExerciseRecord(exerciseName, language)
       .then(result => { if (active) setRecord(result) })
       .catch(() => {
         if (!active) return
@@ -104,7 +111,7 @@ function useExerciseRecord(exerciseName: string) {
       })
       .finally(() => { if (active) setRecordLoading(false) })
     return () => { active = false }
-  }, [exerciseName])
+  }, [exerciseName, language])
 
   // Dataset media first (self-hosted), then the legacy static map.
   // The GIF is 180×180 and heavy, so cards use the still JPG and only the
@@ -227,8 +234,16 @@ export function ExerciseReferenceDialog({ open, onOpenChange, exerciseName, targ
 
   // The old catalog rows kept a placeholder description ("Ejercicio para .").
   const recordDescription = record?.description && record.description.trim() !== "Ejercicio para ." ? record.description : null
-  const description = recordDescription || record?.instructions_es || getExerciseDescription(exerciseName)
-  const instructionSteps = record?.instruction_steps_es?.length ? record.instruction_steps_es : null
+  const description = record?.instructions
+    || recordDescription
+    || record?.instructions_es
+    || record?.instructions_en
+    || getExerciseDescription(exerciseName)
+  const instructionSteps = record?.instruction_steps?.length
+    ? record.instruction_steps
+    : record?.instruction_steps_es?.length
+      ? record.instruction_steps_es
+      : null
 
   const historyGroups = useMemo<HistoryGroup[]>(() => {
     const grouped = new Map<string, ProgressionPoint[]>()

@@ -27,6 +27,9 @@ export interface PrescriptionLog {
 export interface PrescriptionExercise {
   id: number | string
   name: string
+  nameCanonical?: string
+  exerciseLibraryId?: number | null
+  exercise_library_id?: number | null
   sets: number
   reps: number
   targetWeight?: number
@@ -72,6 +75,8 @@ export interface PrescriptionPlan {
 export interface DraftExercise {
   rowId: string
   exerciseId?: number
+  /** Catalog row behind the display name; kept so the API can localise it. */
+  exerciseLibraryId?: number | null
   name: string
   sets: number
   reps: number
@@ -97,6 +102,7 @@ export interface DraftExercise {
 /** What `PUT /workout-plans/:id` expects inside `exercises`. */
 export interface PrescriptionPayloadRow {
   id?: number
+  exerciseLibraryId?: number | null
   name: string
   sets: number
   reps: number
@@ -142,6 +148,7 @@ export function toDraftExercise(ex: PrescriptionExercise, userId?: number | stri
   return {
     rowId: id != null ? `row-${id}` : draftRowId(),
     exerciseId: id,
+    exerciseLibraryId: ex.exerciseLibraryId ?? ex.exercise_library_id ?? null,
     name: ex.name ?? "",
     sets: Number(ex.sets ?? 0) || 0,
     reps: Number(ex.reps ?? 0) || 0,
@@ -281,6 +288,7 @@ export function buildPrescriptionPayload(
 
       return {
         id: row.exerciseId,
+        exerciseLibraryId: row.exerciseLibraryId ?? null,
         name: row.name.trim(),
         sets: row.sets,
         reps: row.reps,

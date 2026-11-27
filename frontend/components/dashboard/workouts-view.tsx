@@ -83,6 +83,9 @@ interface ApiSetLog {
 interface ApiExercise {
   id: number
   name: string
+  nameCanonical?: string
+  exerciseLibraryId?: number | null
+  exercise_library_id?: number | null
   sets: number
   reps: number
   target_weight?: number
@@ -1385,6 +1388,8 @@ export function WorkoutDetailSheet({ workout, open, onOpenChange, onWorkoutUpdat
 
 interface BuilderExercise {
   id: string
+  /** Catalog row behind the display name; lets the API localise it later. */
+  exerciseLibraryId?: number
   name: string
   sets: number
   reps: number
@@ -1513,7 +1518,9 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
     setExercises(prev => [...prev, { id: newExerciseRowId(), name: "", sets: 3, reps: 10, weight: 0, weightUnit: "kg", notes: "", isCardio: false, isSuperset: false }])
 
   const updateExercise = (id: string, field: keyof BuilderExercise, value: string | number | boolean) =>
-    setExercises(prev => prev.map((ex) => ex.id === id ? { ...ex, [field]: value } : ex))
+    setExercises(prev => prev.map((ex) => ex.id === id
+      ? { ...ex, [field]: value, ...(field === "name" ? { exerciseLibraryId: undefined } : {}) }
+      : ex))
 
   const removeExercise = (id: string) =>
     setExercises(prev => prev.filter((ex) => ex.id !== id))
@@ -1522,10 +1529,12 @@ function WorkoutBuilderSheet({ open, onOpenChange, onSave, saving }: {
 
   const openPicker = (id: string) => setPickerTargetId(id)
 
-  const handlePickExercise = ({ name: exName, isCardio }: { name: string; isCardio: boolean }) => {
+  const handlePickExercise = ({ name: exName, isCardio, exerciseLibraryId }: { name: string; isCardio: boolean; exerciseLibraryId?: number | null }) => {
     if (!pickerTargetId) return
     // The picker closes itself after a pick, so just fill the row that opened it.
-    setExercises(prev => prev.map(ex => ex.id === pickerTargetId ? { ...ex, name: exName, isCardio } : ex))
+    setExercises(prev => prev.map(ex => ex.id === pickerTargetId
+      ? { ...ex, name: exName, isCardio, exerciseLibraryId: exerciseLibraryId ?? undefined }
+      : ex))
   }
 
   const handlePickerDone = () => {
@@ -1756,6 +1765,7 @@ export function WorkoutsView() {
         description: data.description,
         scheduledDate: data.scheduledDate,
         exercises: data.exercises.map((ex, i) => ({
+          exerciseLibraryId: ex.exerciseLibraryId ?? null,
           name: ex.name,
           sets: ex.sets,
           reps: ex.reps,

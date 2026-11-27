@@ -244,7 +244,10 @@ exports.login = async (req, res) => {
             {
                 id: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                // Exercise names are rendered in this language. Existing tokens
+                // fall back to ?lang / Accept-Language until the next login.
+                language: user.language || 'es'
             },
             JWT_SECRET,
             { expiresIn: '365d' } // Token expires in 365 days (1 year)
@@ -369,7 +372,10 @@ exports.googleLogin = async (req, res) => {
             {
                 id: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                // Exercise names are rendered in this language. Existing tokens
+                // fall back to ?lang / Accept-Language until the next login.
+                language: user.language || 'es'
             },
             JWT_SECRET,
             { expiresIn: '365d' } // Token expires in 365 days (1 year)

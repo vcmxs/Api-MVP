@@ -27,7 +27,7 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 const TABLE = 'exercise_library';
-const INSERT_CHUNK_SIZE = 50;
+const INSERT_CHUNK_SIZE = 200;
 const SUPPORTED_MODES = ['mirror', 'upsert'];
 
 function parseDatabaseUrl(value, label) {
@@ -70,7 +70,7 @@ function quoteIdentifier(name) {
 
 async function readColumns(pool, label) {
   const result = await pool.query(
-    `SELECT column_name
+    `SELECT column_name, data_type, udt_name
        FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = $1
       ORDER BY ordinal_position`,
@@ -79,7 +79,19 @@ async function readColumns(pool, label) {
   if (result.rows.length === 0) {
     throw new Error(`${TABLE} does not exist in ${label}. Run the guarded schema copy first (npm run db:copy-schema-to-staging).`);
   }
-  return result.rows.map((row) => row.column_name);
+  return result.rows;
+}
+
+function columnNames(columns) {
+  return columns.map((column) => column.column_name);
+}
+
+function serializeValue(value, isJson) {
+  if (!isJson || value == null) return value;
+  // pg already parses json/jsonb into JS values. JSON.stringify turns arrays and
+  // objects back into valid JSON text instead of a Postgres array literal.
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
 }
 
 async function countRows(pool) {
@@ -118,7 +130,7 @@ function describeVideoUrls(rows) {
   return stats;
 }
 
-async function insertRows(client, columns, rows, conflictColumns) {
+async function insertRows(client, columns, rows, conflictColumns, columnTypes) {
   const columnList = columns.map(quoteIdentifier).join(', ');
   const updateList = columns
     .filter((column) => !conflictColumns || !conflictColumns.includes(column))
@@ -127,6 +139,9 @@ async function insertRows(client, columns, rows, conflictColumns) {
   const conflictClause = conflictColumns
     ? ` ON CONFLICT (${conflictColumns.map(quoteIdentifier).join(', ')}) DO UPDATE SET ${updateList.join(', ')}`
     : '';
+  const jsonColumns = new Set(
+    columns.filter((column) => ['json', 'jsonb'].includes(columnTypes.get(column)))
+  );
 
   let written = 0;
   for (let start = 0; start < rows.length; start += INSERT_CHUNK_SIZE) {
@@ -134,7 +149,7 @@ async function insertRows(client, columns, rows, conflictColumns) {
     const values = [];
     const tuples = chunk.map((row) => {
       const placeholders = columns.map((column) => {
-        values.push(row[column]);
+        values.push(serializeValue(row[column], jsonColumns.has(column)));
         return `$${values.length}`;
       });
       return `(${placeholders.join(', ')})`;
@@ -176,9 +191,14 @@ async function main() {
   try {
     const sourceColumns = await readColumns(sourcePool, 'the production database');
     const targetColumns = await readColumns(targetPool, 'the target database');
+    const sourceColumnNames = columnNames(sourceColumns);
+    const targetColumnNames = columnNames(targetColumns);
+    const targetColumnTypes = new Map(
+      targetColumns.map((column) => [column.column_name, column.udt_name])
+    );
 
-    const sharedColumns = sourceColumns.filter((column) => targetColumns.includes(column));
-    const sourceOnlyColumns = sourceColumns.filter((column) => !targetColumns.includes(column));
+    const sharedColumns = sourceColumnNames.filter((column) => targetColumnNames.includes(column));
+    const sourceOnlyColumns = sourceColumnNames.filter((column) => !targetColumnNames.includes(column));
     if (sourceOnlyColumns.length > 0) {
       console.warn(`Skipping production-only columns that are missing in the target: ${sourceOnlyColumns.join(', ')}`);
     }
@@ -226,7 +246,7 @@ async function main() {
       if (mode === 'mirror') {
         const deleted = await client.query(`DELETE FROM ${quoteIdentifier(TABLE)}`);
         console.log(`\nTarget rows deleted: ${deleted.rowCount}`);
-        written = await insertRows(client, sharedColumns, rows, null);
+        written = await insertRows(client, sharedColumns, rows, null, targetColumnTypes);
         if (sharedColumns.includes('id')) {
           await client.query(
             `SELECT setval(
@@ -238,7 +258,7 @@ async function main() {
         }
       } else {
         const insertColumns = sharedColumns.filter((column) => column !== 'id');
-        written = await insertRows(client, insertColumns, rows, ['name']);
+        written = await insertRows(client, insertColumns, rows, ['name'], targetColumnTypes);
       }
 
       await client.query('COMMIT');

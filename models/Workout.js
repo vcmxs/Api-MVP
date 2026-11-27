@@ -1,5 +1,117 @@
 // models/Workout.js
 const pool = require('../config/database');
+const { normalizeLocale, DEFAULT_LOCALE } = require('../utils/exercise-language');
+
+/** Same normalisation as exercise_normalize_name() in SQL. */
+function normalizeExerciseName(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function localeOrDefault(locale) {
+    return normalizeLocale(locale) || DEFAULT_LOCALE;
+}
+
+/**
+ * Resolve the catalog row behind each plan exercise.
+ *
+ * The client normally sends `exerciseLibraryId` from the picker, but older
+ * clients (and workout templates saved before this release) only send a name.
+ * In that case the name is matched against the canonical catalog first and the
+ * published Spanish translations second; only an unambiguous match is linked.
+ *
+ * The returned row always keeps `name` canonical when a catalog row was found,
+ * so `exercises.name` remains the immutable snapshot and the API can render the
+ * localised name through the join instead of storing it.
+ */
+async function resolveExerciseRows(client, exercises) {
+    const rows = Array.isArray(exercises) ? exercises : [];
+    if (rows.length === 0) return [];
+
+    const explicitIds = [...new Set(rows
+        .map(ex => Number(ex.exerciseLibraryId ?? ex.exercise_library_id))
+        .filter(id => Number.isInteger(id) && id > 0))];
+
+    const normalizedNames = [...new Set(rows
+        .map(ex => normalizeExerciseName(ex.name))
+        .filter(Boolean))];
+
+    const byId = new Map();
+    const canonicalByNorm = new Map();
+    const translationByNorm = new Map();
+
+    if (explicitIds.length > 0) {
+        const result = await client.query(
+            'SELECT id, name FROM exercise_library WHERE id = ANY($1::int[])',
+            [explicitIds]
+        );
+        for (const row of result.rows) {
+            byId.set(Number(row.id), row);
+        }
+    }
+
+    if (normalizedNames.length > 0) {
+        const result = await client.query(
+            `SELECT id, name, name_norm
+               FROM exercise_library
+              WHERE name_norm = ANY($1::text[])`,
+            [normalizedNames]
+        );
+        for (const row of result.rows) {
+            if (!row.name_norm) continue;
+            if (!canonicalByNorm.has(row.name_norm)) canonicalByNorm.set(row.name_norm, new Set());
+            canonicalByNorm.get(row.name_norm).add(Number(row.id));
+            byId.set(Number(row.id), row);
+        }
+
+        const translations = await client.query(
+            `SELECT t.exercise_id, t.name AS translated_name, t.name_norm, el.name AS canonical_name
+               FROM exercise_translations t
+               JOIN exercise_library el ON el.id = t.exercise_id
+              WHERE t.locale = 'es'
+                AND t.status = 'published'
+                AND t.name_norm = ANY($1::text[])`,
+            [normalizedNames]
+        );
+        for (const row of translations.rows) {
+            if (!row.name_norm) continue;
+            if (!translationByNorm.has(row.name_norm)) translationByNorm.set(row.name_norm, new Set());
+            translationByNorm.get(row.name_norm).add(Number(row.exercise_id));
+            byId.set(Number(row.exercise_id), { id: row.exercise_id, name: row.canonical_name });
+        }
+    }
+
+    return rows.map(ex => {
+        const explicitId = Number(ex.exerciseLibraryId ?? ex.exercise_library_id);
+        if (Number.isInteger(explicitId) && explicitId > 0) {
+            const match = byId.get(explicitId);
+            return match
+                ? { ...ex, name: match.name, exerciseLibraryId: explicitId }
+                : { ...ex, exerciseLibraryId: null };
+        }
+
+        const normalized = normalizeExerciseName(ex.name);
+        if (!normalized) return { ...ex, exerciseLibraryId: null };
+
+        const canonical = canonicalByNorm.get(normalized);
+        const translated = translationByNorm.get(normalized);
+        const matchId = canonical?.size === 1
+            ? [...canonical][0]
+            : translated?.size === 1
+                ? [...translated][0]
+                : null;
+
+        if (!matchId) return { ...ex, exerciseLibraryId: null };
+        const match = byId.get(matchId);
+        return match
+            ? { ...ex, name: match.name, exerciseLibraryId: matchId }
+            : { ...ex, exerciseLibraryId: null };
+    });
+}
 
 class Workout {
     /**
@@ -26,12 +138,13 @@ class Workout {
             );
 
             const workoutPlan = planResult.rows[0];
+            const resolvedExercises = await resolveExerciseRows(client, exercises);
 
             // Insert exercises
-            const exercisePromises = exercises.map((ex, index) => {
+            const exercisePromises = resolvedExercises.map((ex, index) => {
                 return client.query(
-                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir, exercise_library_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
            RETURNING *`,
                     [
                         workoutPlan.id,
@@ -49,7 +162,8 @@ class Workout {
                         ex.targetDistance || ex.target_distance || null,
                         ex.targetDuration || ex.target_duration || null,
                         ex.trackRpe || ex.track_rpe || false,
-                        ex.trackRir || ex.track_rir || false
+                        ex.trackRir || ex.track_rir || false,
+                        ex.exerciseLibraryId ?? null
                     ]
                 );
             });
@@ -88,6 +202,7 @@ class Workout {
             const userIds = [workoutData.coachId, workoutData.traineeId]; // Usually Coach and Peer Coach/Trainee
             const workoutPlans = [];
             const allInsertedExercises = [];
+            const resolvedExercises = await resolveExerciseRows(client, exercises);
 
             for (const userId of userIds) {
                 const planResult = await client.query(
@@ -107,10 +222,10 @@ class Workout {
                 workoutPlans.push(workoutPlan);
 
                 // Insert exercises for this specific plan instance
-                const exercisePromises = exercises.map((ex, index) => {
+                const exercisePromises = resolvedExercises.map((ex, index) => {
                     return client.query(
-                        `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                        `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir, exercise_library_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
                RETURNING *`,
                         [
                             workoutPlan.id,
@@ -128,7 +243,8 @@ class Workout {
                             ex.targetDistance || ex.target_distance || null,
                             ex.targetDuration || ex.target_duration || null,
                             ex.trackRpe || ex.track_rpe || false,
-                            ex.trackRir || ex.track_rir || false
+                            ex.trackRir || ex.track_rir || false,
+                            ex.exerciseLibraryId ?? null
                         ]
                     );
                 });
@@ -155,7 +271,7 @@ class Workout {
     /**
      * Get workout plan by ID with exercises
      */
-    static async findByIdWithExercises(workoutPlanId) {
+    static async findByIdWithExercises(workoutPlanId, locale = DEFAULT_LOCALE) {
         const planResult = await pool.query(
             'SELECT *, (shared_session_id IS NOT NULL) as is_shared FROM workout_plans WHERE id = $1',
             [workoutPlanId]
@@ -166,8 +282,19 @@ class Workout {
         }
 
         const exercisesResult = await pool.query(
-            'SELECT * FROM exercises WHERE workout_plan_id = $1 ORDER BY exercise_order',
-            [workoutPlanId]
+            `SELECT e.*,
+                    COALESCE(t.name, e.name) AS display_name,
+                    e.name AS name_snapshot,
+                    t.instructions AS instructions_localized,
+                    t.instruction_steps AS instruction_steps_localized
+               FROM exercises e
+               LEFT JOIN exercise_translations t
+                      ON t.exercise_id = e.exercise_library_id
+                     AND t.locale = $2
+                     AND t.status = 'published'
+              WHERE e.workout_plan_id = $1
+              ORDER BY e.exercise_order`,
+            [workoutPlanId, localeOrDefault(locale)]
         );
 
         return {
@@ -263,10 +390,11 @@ class Workout {
             }
 
             const existingResult = await client.query(
-                'SELECT id FROM exercises WHERE workout_plan_id = $1',
+                'SELECT id, name, exercise_library_id FROM exercises WHERE workout_plan_id = $1',
                 [planId]
             );
-            const existingIds = new Set(existingResult.rows.map((row) => Number(row.id)));
+            const existingById = new Map(existingResult.rows.map((row) => [Number(row.id), row]));
+            const existingIds = new Set(existingById.keys());
             // Every id starts as "gone"; the rows that come back in the payload
             // are removed from this set, so only real removals get deleted.
             const toDelete = new Set(existingIds);
@@ -274,10 +402,12 @@ class Workout {
             const savedExercises = [];
             let deletedLogs = 0;
 
+            const resolvedExercises = await resolveExerciseRows(client, exercises);
+
             const insertExercise = async (ex, order) => {
                 const result = await client.query(
-                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                    `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, track_rpe, track_rir, exercise_library_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
            RETURNING *`,
                     [
                         planId,
@@ -295,14 +425,15 @@ class Workout {
                         ex.targetDistance || ex.target_distance || null,
                         ex.targetDuration || ex.target_duration || null,
                         ex.trackRpe || ex.track_rpe || false,
-                        ex.trackRir || ex.track_rir || false
+                        ex.trackRir || ex.track_rir || false,
+                        ex.exerciseLibraryId ?? null
                     ]
                 );
                 return result.rows[0];
             };
 
-            for (let index = 0; index < exercises.length; index++) {
-                const ex = exercises[index];
+            for (let index = 0; index < resolvedExercises.length; index++) {
+                const ex = resolvedExercises[index];
                 const rawId = ex.id ?? ex.exerciseId;
                 const keepId = rawId === undefined || rawId === null || rawId === ''
                     ? null
@@ -311,6 +442,15 @@ class Workout {
                 // place; anything else (a template row, a stale id) is inserted.
                 const canUpdate = keepId !== null && Number.isInteger(keepId) &&
                     existingIds.has(keepId) && !updatedIds.has(keepId);
+
+                // Keep the existing catalog link while the snapshot name is
+                // unchanged; clear it when a manual rename no longer matches the
+                // old catalog row (the trigger may link the new name instead).
+                const existing = keepId !== null ? existingById.get(keepId) : null;
+                let libraryId = ex.exerciseLibraryId ?? null;
+                if (libraryId == null && existing && existing.name === ex.name) {
+                    libraryId = existing.exercise_library_id ?? null;
+                }
 
                 let updated = null;
                 if (canUpdate) {
@@ -330,8 +470,9 @@ class Workout {
                 target_distance = COALESCE($12, target_distance),
                 target_duration = COALESCE($13, target_duration),
                 track_rpe = COALESCE($14, track_rpe),
-                track_rir = COALESCE($15, track_rir)
-            WHERE id = $16 AND workout_plan_id = $17
+                track_rir = COALESCE($15, track_rir),
+                exercise_library_id = $16
+            WHERE id = $17 AND workout_plan_id = $18
             RETURNING *`,
                         [
                             ex.name,
@@ -349,6 +490,7 @@ class Workout {
                             ex.targetDuration ?? ex.target_duration ?? null,
                             ex.trackRpe ?? ex.track_rpe ?? null,
                             ex.trackRir ?? ex.track_rir ?? null,
+                            libraryId,
                             keepId,
                             planId
                         ]
@@ -452,13 +594,14 @@ class Workout {
             [planId]
         );
         let currentOrder = maxOrderResult.rows[0].max_order;
+        const resolvedExercises = await resolveExerciseRows(pool, exercises);
 
         // Insert new exercises
-        const exercisePromises = exercises.map((ex) => {
+        const exercisePromises = resolvedExercises.map((ex) => {
             currentOrder++;
             return pool.query(
-                `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                `INSERT INTO exercises (workout_plan_id, name, sets, reps, target_weight, weight_unit, rest_time, notes, exercise_order, rpe, rir, is_cardio, target_distance, target_duration, exercise_library_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING *`,
                 [
                     planId,
@@ -474,7 +617,8 @@ class Workout {
                     ex.rir !== undefined && ex.rir !== null ? ex.rir : null,
                     (ex.isCardio || ex.is_cardio) ? true : false,
                     ex.targetDistance || ex.target_distance || null,
-                    ex.targetDuration || ex.target_duration || null
+                    ex.targetDuration || ex.target_duration || null,
+                    ex.exerciseLibraryId ?? null
                 ]
             );
         });
@@ -617,10 +761,21 @@ class Workout {
     /**
      * Get exercises for a workout plan
      */
-    static async getExercises(workoutPlanId) {
+    static async getExercises(workoutPlanId, locale = DEFAULT_LOCALE) {
         const result = await pool.query(
-            'SELECT * FROM exercises WHERE workout_plan_id = $1 ORDER BY exercise_order',
-            [workoutPlanId]
+            `SELECT e.*,
+                    COALESCE(t.name, e.name) AS display_name,
+                    e.name AS name_snapshot,
+                    t.instructions AS instructions_localized,
+                    t.instruction_steps AS instruction_steps_localized
+               FROM exercises e
+               LEFT JOIN exercise_translations t
+                      ON t.exercise_id = e.exercise_library_id
+                     AND t.locale = $2
+                     AND t.status = 'published'
+              WHERE e.workout_plan_id = $1
+              ORDER BY e.exercise_order`,
+            [workoutPlanId, localeOrDefault(locale)]
         );
 
         return result.rows;
@@ -685,7 +840,7 @@ class Workout {
     /**
      * Get progression data for a specific exercise and user
      */
-    static async getProgression(userId, exerciseName) {
+    static async getProgression(userId, exerciseName, locale = DEFAULT_LOCALE) {
         const result = await pool.query(
             `SELECT 
                 el.weight_used, 
@@ -700,10 +855,14 @@ class Workout {
              FROM exercise_logs el
              JOIN exercises e ON el.exercise_id = e.id
              JOIN workout_plans wp ON e.workout_plan_id = wp.id
+             LEFT JOIN exercise_translations t
+                    ON t.exercise_id = e.exercise_library_id
+                   AND t.locale = $3
+                   AND t.status = 'published'
              WHERE wp.trainee_id = $1 
-               AND e.name ILIKE $2
+               AND (e.name ILIKE $2 OR t.name ILIKE $2)
              ORDER BY el.completed_at ASC`,
-            [userId, exerciseName]
+            [userId, exerciseName, localeOrDefault(locale)]
         );
 
         return result.rows;
@@ -712,14 +871,18 @@ class Workout {
     /**
      * Get list of unique exercises performed by a user
      */
-    static async getUniqueExercises(userId) {
+    static async getUniqueExercises(userId, locale = DEFAULT_LOCALE) {
         const result = await pool.query(
-            `SELECT DISTINCT e.name
+            `SELECT DISTINCT COALESCE(t.name, e.name) AS name
              FROM exercises e
              JOIN workout_plans wp ON e.workout_plan_id = wp.id
+             LEFT JOIN exercise_translations t
+                    ON t.exercise_id = e.exercise_library_id
+                   AND t.locale = $2
+                   AND t.status = 'published'
              WHERE wp.trainee_id = $1
-             ORDER BY e.name ASC`,
-            [userId]
+             ORDER BY name ASC`,
+            [userId, localeOrDefault(locale)]
         );
         return result.rows.map(r => r.name);
     }

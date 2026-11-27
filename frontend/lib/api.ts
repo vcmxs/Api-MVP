@@ -1,5 +1,23 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api-mvp-production.up.railway.app/api/v1"
 
+/**
+ * Exercise names are rendered server-side in the user's language. The UI keeps
+ * its preference in `dupla_lang`; carrying it on every call means plan details,
+ * the picker and progression all resolve the same way without touching each
+ * individual fetch. APIs that do not care simply ignore the query parameter.
+ */
+function withLanguage(path: string, method: string): string {
+  if (typeof window === "undefined") return path
+  if (method === "DELETE") return path
+  const lang = localStorage.getItem("dupla_lang")
+  if (lang !== "es" && lang !== "en") return path
+  if (/([?&])lang=/.test(path)) return path
+
+  const [base, hash] = path.split("#")
+  const separator = base.includes("?") ? "&" : "?"
+  return `${base}${separator}lang=${lang}${hash ? `#${hash}` : ""}`
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null
   return localStorage.getItem("userToken")
@@ -71,6 +89,7 @@ async function send<T>(path: string, options: RequestInit | undefined, cache: Re
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const method = (options?.method ?? "GET").toUpperCase()
+  const requestPath = withLanguage(path, method)
   // Only read-only requests can be shared; anything that writes must hit the
   // network every single time. A caller that brings its own `signal` is asking
   // for a private request as well: it may abort at any moment, and that abort
@@ -79,7 +98,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   // effects in dev), which is what left "Today's workouts" showing its Retry
   // button until the coach pressed it.
   const shareable = method === "GET" && !options?.signal
-  const key = shareable ? `${getToken() ?? "anon"}|${path}` : null
+  const key = shareable ? `${getToken() ?? "anon"}|${requestPath}` : null
 
   if (key) {
     const pending = inflight.get(key)
@@ -90,7 +109,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   // which is what made a saved edit look unsaved until a hard reload. Catalog
   // endpoints opt back in with `{ cache: "default" }` so the browser can
   // revalidate them with an ETag instead of downloading them again.
-  const request = send<T>(path, options, options?.cache ?? "no-store")
+  const request = send<T>(requestPath, options, options?.cache ?? "no-store")
 
   if (key) {
     inflight.set(key, request)

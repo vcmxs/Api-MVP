@@ -213,6 +213,115 @@ const createTables = async () => {
       CREATE INDEX IF NOT EXISTS exercise_library_source_idx ON exercise_library (source)
     `);
 
+    // Localised exercise names/instructions (migrations/016_exercise_translations.sql).
+    // Kept here too so a fresh database created by this bootstrap already has the
+    // tables the API reads; the migration remains the source of truth for
+    // production upgrades, history triggers and the linker.
+    await client.query(`
+      CREATE OR REPLACE FUNCTION exercise_normalize_name(value TEXT)
+      RETURNS TEXT LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+        SELECT btrim(regexp_replace(
+                 translate(lower(COALESCE(value, '')),
+                   'áàäâãéèëêíìïîóòöôõúùüûñçýÿ',
+                   'aaaaaeeeeiiiiooooouuuuncyy'),
+                 '[^a-z0-9]+', ' ', 'g'))
+      $$
+    `);
+    await client.query(`
+      ALTER TABLE exercise_library ADD COLUMN IF NOT EXISTS name_norm TEXT
+    `);
+    await client.query(`
+      UPDATE exercise_library
+         SET name_norm = exercise_normalize_name(name)
+       WHERE name_norm IS DISTINCT FROM exercise_normalize_name(name)
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exercise_translations (
+        id SERIAL PRIMARY KEY,
+        exercise_id INTEGER NOT NULL REFERENCES exercise_library(id) ON DELETE CASCADE,
+        locale VARCHAR(5) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        name_norm TEXT,
+        instructions TEXT,
+        instruction_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        status VARCHAR(16) NOT NULL DEFAULT 'draft',
+        source VARCHAR(32) DEFAULT 'manual',
+        confidence VARCHAR(16),
+        notes TEXT,
+        created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (exercise_id, locale),
+        CHECK (locale IN ('es', 'en')),
+        CHECK (status IN ('draft', 'reviewed', 'published')),
+        CHECK (confidence IS NULL OR confidence IN ('alta', 'media', 'baja'))
+      )
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS exercise_translations_exercise_locale_key
+        ON exercise_translations (exercise_id, locale)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS exercise_translations_locale_status_name_idx
+        ON exercise_translations (locale, status, name_norm)
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exercise_translation_history (
+        id BIGSERIAL PRIMARY KEY,
+        translation_id INTEGER REFERENCES exercise_translations(id) ON DELETE SET NULL,
+        exercise_id INTEGER,
+        locale VARCHAR(5),
+        action VARCHAR(8) NOT NULL,
+        name VARCHAR(255),
+        instructions TEXT,
+        status VARCHAR(16),
+        source VARCHAR(32),
+        confidence VARCHAR(16),
+        notes TEXT,
+        changed_by INTEGER,
+        changed_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exercise_translation_candidates (
+        id SERIAL PRIMARY KEY,
+        dataset_id VARCHAR(8),
+        locale VARCHAR(5) NOT NULL DEFAULT 'es',
+        name VARCHAR(255) NOT NULL,
+        name_norm TEXT,
+        notes TEXT,
+        status VARCHAR(16) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK (locale IN ('es', 'en')),
+        CHECK (status IN ('pending', 'accepted', 'rejected'))
+      )
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS exercise_translation_candidates_dataset_locale_key
+        ON exercise_translation_candidates (dataset_id, locale)
+        WHERE dataset_id IS NOT NULL
+    `);
+    await client.query(`
+      ALTER TABLE exercises ADD COLUMN IF NOT EXISTS exercise_library_id INTEGER
+    `);
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'exercises_exercise_library_id_fkey'
+        ) THEN
+          ALTER TABLE exercises
+            ADD CONSTRAINT exercises_exercise_library_id_fkey
+            FOREIGN KEY (exercise_library_id) REFERENCES exercise_library(id)
+            ON DELETE SET NULL;
+        END IF;
+      END $$
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS exercises_exercise_library_id_idx
+        ON exercises (exercise_library_id)
+    `);
+
     // Workout Templates table
     await client.query(`
       CREATE TABLE IF NOT EXISTS workout_templates (

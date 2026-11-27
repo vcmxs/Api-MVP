@@ -2,6 +2,7 @@
 const Workout = require('../models/Workout');
 const NotificationController = require('./notification.controller');
 const pool = require('../config/database');
+const { resolveExerciseLocale } = require('../utils/exercise-language');
 
 /**
  * Load types accepted in `weight_unit`. `plates` stores a machine plate count
@@ -14,6 +15,11 @@ function normalizeWeightUnit(unit) {
     if (raw === 'plate') return 'plates';
     if (raw === 'lbs') return 'lb';
     return LOAD_UNITS.includes(raw) ? raw : 'kg';
+}
+
+/** Active language for exercise names in this request (`?lang`, JWT, header). */
+function exerciseLocale(req) {
+    return resolveExerciseLocale(req);
 }
 
 /**
@@ -86,7 +92,9 @@ exports.createWorkoutPlan = async (req, res) => {
             completedAt: workoutPlan.completed_at,
             exercises: insertedExercises.map(ex => ({
                 id: ex.id.toString(),
-                name: ex.name,
+                name: ex.display_name ?? ex.name,
+                nameCanonical: ex.name_snapshot ?? ex.name,
+                exerciseLibraryId: ex.exercise_library_id ?? null,
                 sets: ex.sets,
                 reps: ex.reps,
                 targetWeight: parseFloat(ex.target_weight),
@@ -193,7 +201,7 @@ exports.getSharedSessionById = async (req, res) => {
 
         // For each plan, fetch logic equivalent to findByIdWithExercises and attach logs
         for (const planRow of plansResult.rows) {
-            const workout = await Workout.findByIdWithExercises(planRow.id);
+            const workout = await Workout.findByIdWithExercises(planRow.id, exerciseLocale(req));
             if (workout) {
                 // Attach logs
                 for (const ex of workout.exercises) {
@@ -237,7 +245,9 @@ exports.getSharedSessionById = async (req, res) => {
                     completedAt: workout.completed_at,
                     exercises: workout.exercises.map(ex => ({
                         id: ex.id.toString(),
-                        name: ex.name,
+                        name: ex.display_name ?? ex.name,
+                        nameCanonical: ex.name_snapshot ?? ex.name,
+                        exerciseLibraryId: ex.exercise_library_id ?? null,
                         sets: ex.sets,
                         reps: ex.reps,
                         targetWeight: parseFloat(ex.target_weight),
@@ -270,7 +280,7 @@ exports.getSharedSessionById = async (req, res) => {
  */
 exports.getWorkoutPlanById = async (req, res) => {
     try {
-        const workout = await Workout.findByIdWithExercises(req.params.workoutPlanId);
+        const workout = await Workout.findByIdWithExercises(req.params.workoutPlanId, exerciseLocale(req));
 
         if (!workout) {
             return res.status(404).json({ error: 'Not Found', message: 'Workout plan not found' });
@@ -315,7 +325,9 @@ exports.getWorkoutPlanById = async (req, res) => {
             logs: allLogs, // Feed it directly to root for legacy UI logic
             exercises: workout.exercises.map(ex => ({
                 id: ex.id.toString(),
-                name: ex.name,
+                name: ex.display_name ?? ex.name,
+                nameCanonical: ex.name_snapshot ?? ex.name,
+                exerciseLibraryId: ex.exercise_library_id ?? null,
                 sets: ex.sets,
                 reps: ex.reps,
                 targetWeight: parseFloat(ex.target_weight),
@@ -366,7 +378,7 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
         // Load exercises for each workout plan
         const workoutsWithExercises = await Promise.all(
             workouts.map(async (wp) => {
-                const exercises = await Workout.getExercises(wp.id);
+                const exercises = await Workout.getExercises(wp.id, exerciseLocale(req));
                 return {
                     id: wp.id.toString(),
                     name: wp.name,
@@ -382,7 +394,9 @@ exports.getTraineeWorkoutPlans = async (req, res) => {
                     completedAt: wp.completed_at,
                     exercises: exercises.map(ex => ({
                         id: ex.id.toString(),
-                        name: ex.name,
+                        name: ex.display_name ?? ex.name,
+                        nameCanonical: ex.name_snapshot ?? ex.name,
+                        exerciseLibraryId: ex.exercise_library_id ?? null,
                         sets: ex.sets,
                         reps: ex.reps,
                         targetWeight: parseFloat(ex.target_weight),
@@ -471,7 +485,9 @@ exports.updateWorkoutPlan = async (req, res) => {
                     status: workout.status,
                     exercises: workout.exercises.map(ex => ({
                         id: ex.id.toString(),
-                        name: ex.name,
+                        name: ex.display_name ?? ex.name,
+                        nameCanonical: ex.name_snapshot ?? ex.name,
+                        exerciseLibraryId: ex.exercise_library_id ?? null,
                         sets: ex.sets,
                         reps: ex.reps,
                         targetWeight: parseFloat(ex.target_weight),
@@ -927,7 +943,7 @@ exports.getProgression = async (req, res) => {
             return res.status(400).json({ error: 'Bad Request', message: 'Exercise name is required' });
         }
 
-        const logs = await Workout.getProgression(userId, exercise);
+        const logs = await Workout.getProgression(userId, exercise, exerciseLocale(req));
 
         // Calculate 1RM and format data
         const progression = logs.map(log => {
@@ -965,7 +981,7 @@ exports.getProgression = async (req, res) => {
 exports.getUniqueExercises = async (req, res) => {
     try {
         const { userId } = req.params;
-        const exercises = await Workout.getUniqueExercises(userId);
+        const exercises = await Workout.getUniqueExercises(userId, exerciseLocale(req));
         res.json({ exercises });
     } catch (err) {
         console.error('Get unique exercises error:', err);

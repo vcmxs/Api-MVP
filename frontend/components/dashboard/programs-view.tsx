@@ -38,6 +38,9 @@ interface ApiProgram {
 interface ProgramExercise {
   id?: number
   name: string
+  nameCanonical?: string
+  exerciseLibraryId?: number | null
+  exercise_library_id?: number | null
   sets: number
   reps: number
   targetWeight?: number
@@ -340,7 +343,9 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
   }
 
   const updateCreateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) =>
-    setCreateExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
+    setCreateExercises(p => p.map(e => e.id === id
+      ? { ...e, [field]: value, ...(field === "name" ? { exerciseLibraryId: undefined } : {}) }
+      : e))
 
   const removeCreateEx = (id: string) =>
     setCreateExercises(p => p.filter(e => e.id !== id))
@@ -348,10 +353,12 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
   const createReorder = useExerciseReorder((from, to) =>
     setCreateExercises(p => moveItem(p, from, to)))
 
-  const handlePickEx = ({ name: n, isCardio }: { name: string; isCardio: boolean }) => {
+  const handlePickEx = ({ name: n, isCardio, exerciseLibraryId }: { name: string; isCardio: boolean; exerciseLibraryId?: number | null }) => {
     if (!exPickerTarget) return
     // The picker closes itself after a pick, so just fill the row that opened it.
-    setCreateExercises(p => p.map(e => e.id === exPickerTarget ? { ...e, name: n, isCardio } : e))
+    setCreateExercises(p => p.map(e => e.id === exPickerTarget
+      ? { ...e, name: n, isCardio, exerciseLibraryId: exerciseLibraryId ?? undefined }
+      : e))
   }
 
   const handleExPickerDone = () => {
@@ -373,6 +380,7 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
           body: JSON.stringify({
             userId: user.id, name: createName.trim(), programId: programFolderId,
             exercises: validEx.map((e, i) => ({
+              exerciseLibraryId: e.exerciseLibraryId ?? null,
               name: e.name.trim(), sets: e.sets, reps: e.reps, targetWeight: e.weight,
               weightUnit: e.weightUnit, restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
               trackRpe: false, trackRir: false, isCardio: e.isCardio,
@@ -546,6 +554,8 @@ function WorkoutPickerPanel({ open, onClose, onSelect, available, programFolderI
 
 interface BuilderEx {
   id: string; name: string; sets: number; reps: number; weight: number
+  /** Catalog row behind the display name; lets the API localise it later. */
+  exerciseLibraryId?: number
   /** "kg" for bar load, "plates" for a machine plate stack (stored in `weight_unit`). */
   weightUnit: LoadUnit
   notes: string; isCardio: boolean; isSuperset?: boolean
@@ -553,6 +563,7 @@ interface BuilderEx {
 
 const mapApiExToBuilderEx = (ex: any): BuilderEx => ({
   id: ex.id ? `ex-${ex.id}` : `ex-${Date.now()}-${Math.random()}`,
+  exerciseLibraryId: ex.exerciseLibraryId ?? ex.exercise_library_id ?? undefined,
   name: ex.name || "",
   sets: ex.sets || 3,
   reps: ex.reps || 10,
@@ -565,6 +576,7 @@ const mapApiExToBuilderEx = (ex: any): BuilderEx => ({
 
 const mapLocalWorkoutExercise = (exercise: any, index: number): BuilderEx => ({
   id: exercise.id ? String(exercise.id) : `ex-local-${index}`,
+  exerciseLibraryId: exercise.exerciseLibraryId ?? exercise.exercise_library_id ?? undefined,
   name: exercise.name || "",
   sets: Number(exercise.sets) || 3,
   reps: Number(exercise.reps) || 10,
@@ -735,14 +747,18 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
   }, [open, editWorkoutId, editWorkoutName, editWorkoutDesc, editWorkoutExercises])
 
   const addEx = () => { const id = newExerciseRowId(); setExercises(p => [...p, { id, name: "", sets: 3, reps: 10, weight: 0, weightUnit: "kg", notes: "", isCardio: false }]); setPickerTargetId(id) }
-  const updateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) => setExercises(p => p.map(e => e.id === id ? { ...e, [field]: value } : e))
+  const updateEx = (id: string, field: keyof BuilderEx, value: string | number | boolean) => setExercises(p => p.map(e => e.id === id
+    ? { ...e, [field]: value, ...(field === "name" ? { exerciseLibraryId: undefined } : {}) }
+    : e))
   const removeEx = (id: string) => setExercises(p => p.filter(e => e.id !== id))
   const reorder = useExerciseReorder((from, to) => setExercises(p => moveItem(p, from, to)))
 
-  const handlePickEx = ({ name: n, isCardio }: { name: string; isCardio: boolean }) => {
+  const handlePickEx = ({ name: n, isCardio, exerciseLibraryId }: { name: string; isCardio: boolean; exerciseLibraryId?: number | null }) => {
     if (!pickerTargetId) return
     // The picker closes itself after a pick, so just fill the row that opened it.
-    setExercises(p => p.map(e => e.id === pickerTargetId ? { ...e, name: n, isCardio } : e))
+    setExercises(p => p.map(e => e.id === pickerTargetId
+      ? { ...e, name: n, isCardio, exerciseLibraryId: exerciseLibraryId ?? undefined }
+      : e))
   }
   const handlePickerDone = () => { setExercises(p => p.filter(e => e.name.trim())); setPickerTargetId(null) }
 
@@ -776,6 +792,7 @@ function WorkoutBuilderSheet({ open, onOpenChange, programId, programColor, onCr
           body: JSON.stringify({
             userId: user.id, name: name.trim(), description: description.trim() || undefined, programId,
             exercises: savedExercises.map((e, i) => ({
+              exerciseLibraryId: e.exerciseLibraryId ?? null,
               name: e.name, sets: e.sets, reps: e.reps, targetWeight: e.weight,
               weightUnit: e.weightUnit, restTime: i > 0 && e.isSuperset ? -1 : 60, notes: e.notes || "", exerciseOrder: i,
               trackRpe: false, trackRir: false, isCardio: e.isCardio,
@@ -1651,6 +1668,7 @@ function AssignPlanModal({ plan, open, onOpenChange, onAssigned }: {
           const targetWeight = Math.round((baseWeight + increment * steps) * 100) / 100;
 
           return {
+            exerciseLibraryId: ex.exerciseLibraryId ?? ex.exercise_library_id ?? null,
             name: ex.name, sets: ex.sets, reps: ex.reps, targetWeight,
             weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", restTime: i > 0 ? (ex.restTime ?? ex.rest_time ?? 60) : 60, notes: ex.notes ?? "", exerciseOrder: i,
             track_rpe: 0, track_rir: 0, is_cardio: (ex.is_cardio || ex.isCardio) ? 1 : 0,
@@ -2034,7 +2052,9 @@ function FolderDetailView({ program, onBack, onWorkoutCountChange, onRenameFolde
   const toAssignWorkout = (w: ApiProgramWorkout) => ({
     id: w.id, name: w.name, description: w.description,
     exercises: (w.exercises ?? []).map(ex => ({
-      id: ex.id ?? 0, name: ex.name, sets: ex.sets, reps: ex.reps,
+      id: ex.id ?? 0, name: ex.name, nameCanonical: ex.nameCanonical,
+      exerciseLibraryId: ex.exerciseLibraryId ?? ex.exercise_library_id,
+      sets: ex.sets, reps: ex.reps,
       targetWeight: ex.targetWeight ?? ex.target_weight,
       weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg", notes: ex.notes,
       // The API stores a bi-serie row as `restTime: -1`; the assign modal reads

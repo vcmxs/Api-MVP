@@ -47,7 +47,7 @@ interface ExistingWorkout {
   traineeId?: number
   traineeName?: string
   status?: string
-  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number; rpe?: number | null; rir?: number | null; trackRpe?: boolean | number; trackRir?: boolean | number; targetDistance?: number; targetDuration?: number; target_distance?: number; target_duration?: number; logs?: ExistingSetLog[] }[]
+  exercises?: { id: number; name: string; nameCanonical?: string; exerciseLibraryId?: number | null; exercise_library_id?: number | null; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number; rpe?: number | null; rir?: number | null; trackRpe?: boolean | number; trackRir?: boolean | number; targetDistance?: number; targetDuration?: number; target_distance?: number; target_duration?: number; logs?: ExistingSetLog[] }[]
 }
 
 interface ApiProgram {
@@ -61,7 +61,7 @@ interface ApiProgramWorkout {
   id: number
   name: string
   description?: string
-  exercises?: { id: number; name: string; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number }[]
+  exercises?: { id: number; name: string; nameCanonical?: string; exerciseLibraryId?: number | null; exercise_library_id?: number | null; sets: number; reps: number; targetWeight?: number; target_weight?: number; weightUnit?: string; weight_unit?: string; notes?: string; is_cardio?: boolean | number; track_rpe?: boolean | number; track_rir?: boolean | number; restTime?: number; rest_time?: number }[]
 }
 
 interface Trainee {
@@ -93,6 +93,8 @@ interface BuilderExercise {
    * their logged sets; rows without it are inserted as new exercises.
    */
   exerciseId?: number
+  /** Catalog row behind the display name; lets the API localise it later. */
+  exerciseLibraryId?: number
   name: string
   sets: number
   reps: number
@@ -306,6 +308,7 @@ export function AssignWorkoutModal({
     setBuildExercises((workout.exercises ?? []).map((ex, i) => ({
       id: `ex-${ex.id}-${Date.now()}-${i}`,
       exerciseId: keepIds ? asRowId(ex.id) : undefined,
+      exerciseLibraryId: ex.exerciseLibraryId ?? ex.exercise_library_id ?? undefined,
       name: ex.name,
       sets: ex.sets,
       reps: ex.reps,
@@ -378,7 +381,9 @@ export function AssignWorkoutModal({
   }
 
   const updateBuilderEx = (id: string, field: keyof BuilderExercise, value: string | number | boolean) =>
-    setBuildExercises(prev => prev.map(ex => ex.id === id ? { ...ex, [field]: value } : ex))
+    setBuildExercises(prev => prev.map(ex => ex.id === id
+      ? { ...ex, [field]: value, ...(field === "name" ? { exerciseLibraryId: undefined } : {}) }
+      : ex))
 
   const removeBuilderEx = (id: string) =>
     setBuildExercises(prev => prev.filter(ex => ex.id !== id))
@@ -387,7 +392,7 @@ export function AssignWorkoutModal({
     setBuildExercises(prev => moveItem(prev, from, to)))
 
 
-  const handlePickEx = ({ name: exName, isCardio }: { name: string; isCardio: boolean }) => {
+  const handlePickEx = ({ name: exName, isCardio, exerciseLibraryId }: { name: string; isCardio: boolean; exerciseLibraryId?: number | null }) => {
     if (!pickerTargetId) return
     // The picker closes itself after a pick, so just fill the row that opened it.
     // Picking a *different* exercise turns the row into a replacement, not a
@@ -395,7 +400,13 @@ export function AssignWorkoutModal({
     // logged sets) and insert the new one, instead of renaming a row and
     // inheriting someone else's history.
     setBuildExercises(prev => prev.map(ex => ex.id === pickerTargetId
-      ? { ...ex, name: exName, isCardio, exerciseId: ex.name === exName ? ex.exerciseId : undefined }
+      ? {
+          ...ex,
+          name: exName,
+          isCardio,
+          exerciseLibraryId: exerciseLibraryId ?? undefined,
+          exerciseId: ex.name === exName ? ex.exerciseId : undefined,
+        }
       : ex))
   }
 
@@ -466,6 +477,7 @@ export function AssignWorkoutModal({
       const draftRows: DraftExercise[] = buildExercises.map(ex => ({
         rowId: ex.id,
         exerciseId: ex.exerciseId,
+        exerciseLibraryId: ex.exerciseLibraryId,
         name: ex.name,
         sets: ex.sets,
         reps: ex.reps,
@@ -673,7 +685,9 @@ export function AssignWorkoutModal({
                           const asExisting: ExistingWorkout = {
                             id: w.id, name: w.name, description: w.description,
                             exercises: (w.exercises ?? []).map(ex => ({
-                              id: ex.id, name: ex.name, sets: ex.sets, reps: ex.reps,
+                              id: ex.id, name: ex.name, nameCanonical: ex.nameCanonical,
+                              exerciseLibraryId: ex.exerciseLibraryId ?? ex.exercise_library_id,
+                              sets: ex.sets, reps: ex.reps,
                               targetWeight: ex.targetWeight ?? ex.target_weight,
                               weightUnit: ex.weightUnit ?? ex.weight_unit ?? "kg",
                               notes: ex.notes, is_cardio: ex.is_cardio,

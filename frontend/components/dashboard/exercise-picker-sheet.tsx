@@ -13,7 +13,12 @@ import { ExerciseReferenceDialog } from "./exercise-reference-dialog"
 
 /** What an exercise pick hands back to the routine being built. */
 export interface PickedExercise {
+  /** Display name in the active language (what the builder shows). */
   name: string
+  /** Catalog name stored in `exercises.name`; never translated. */
+  nameCanonical?: string | null
+  /** Catalog id used to resolve the translation when the plan is read back. */
+  exerciseLibraryId?: number | null
   isCardio: boolean
   thumbUrl?: string | null
 }
@@ -22,6 +27,7 @@ export interface PickedExercise {
 interface CatalogExercise {
   id: number
   name: string
+  name_canonical?: string | null
   muscle_category?: string | null
   muscle_group?: string | null
   equipment?: string | null
@@ -322,6 +328,8 @@ export function ExercisePickerSheet({
   const handlePick = (exercise: CatalogExercise) => {
     onSelect({
       name: exercise.name,
+      nameCanonical: exercise.name_canonical ?? exercise.name,
+      exerciseLibraryId: exercise.id,
       isCardio: isCardioExercise(exercise),
       thumbUrl: exercise.thumb_url ?? null,
     })
