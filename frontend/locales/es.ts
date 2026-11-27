@@ -508,7 +508,7 @@ const es: TranslationKeys = {
   exercisePicker: {
     title: "Añadir ejercicios",
     subtitle: "Toca una tarjeta para añadirla · el botón ? abre la técnica y el historial",
-    searchPlaceholder: "Buscar ejercicios…",
+    searchPlaceholder: "Buscar ejercicios, músculos o equipo…",
     clearSearch: "Limpiar búsqueda",
     all: "Todos",
     loadMore: "Ver más",

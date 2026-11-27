@@ -14,6 +14,7 @@ const apiRoutes = require('./routes');
 const checkExpiredSubscriptions = require('./cron/checkSubscriptions');
 const { getExerciseVideo } = require('./services/youtubeSearchService');
 const { resolveExerciseLocale } = require('./utils/exercise-language');
+const { expandExerciseToken, normalizeExerciseSearch } = require('./utils/exercise-search');
 
 const app = express();
 const server = http.createServer(app); // Create HTTP server
@@ -232,14 +233,9 @@ const EXERCISE_LIST_COLUMNS = `
   el.source, el.dataset_id, el.gif_file, el.thumb_file
 `;
 
-/** Same normalization as frontend/lib/exercise-media.ts — keep both in sync. */
+/** Same normalization as utils/exercise-search.js and frontend/lib/exercise-media.ts. */
 function normalizeExerciseName(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+  return normalizeExerciseSearch(value);
 }
 
 /** Turns the stored media file name into a public CDN URL (null when unset). */
@@ -286,14 +282,87 @@ app.get('/api/v1/exercises', async (req, res) => {
     conditions.push(`el.source = $${params.length}`);
   }
 
-  // Every token must appear in the normalized name ("curl barra" → both).
-  const tokens = normalizeExerciseName(search).split(' ').filter(Boolean);
+  // Every token must appear somewhere in the bilingual haystack: the name
+  // (canonical + every published translation) or the taxonomy (muscle group,
+  // body part, target muscle, equipment, synergists). Tokens are expanded with
+  // the ES↔EN aliases from utils/exercise-search.js so "pecho" finds PECTORAL
+  // and "mancuerna" finds `dumbbell`.
+  const normalizedSearch = normalizeExerciseSearch(search).slice(0, 120);
+  const tokens = normalizedSearch.split(' ').filter(Boolean);
+  const nameAll = [];
+  const nameAny = [];
+  const taxonomyScore = [];
+
   for (const token of tokens) {
-    params.push(`%${token}%`);
-    conditions.push(`COALESCE(t.name_norm, el.name_norm) LIKE $${params.length}`);
+    const tokenConditions = [];
+    const nameConditions = [];
+    const taxonomyConditions = [];
+    for (const alias of expandExerciseToken(token)) {
+      params.push(`%${alias}%`);
+      const placeholder = `$${params.length}`;
+      tokenConditions.push(`n.haystack LIKE ${placeholder} OR x.haystack LIKE ${placeholder}`);
+      nameConditions.push(`n.haystack LIKE ${placeholder}`);
+      taxonomyConditions.push(`x.haystack LIKE ${placeholder}`);
+    }
+    conditions.push(`(${tokenConditions.join(' OR ')})`);
+    nameAll.push(`(${nameConditions.join(' OR ')})`);
+    nameAny.push(...nameConditions);
+    taxonomyScore.push(`(CASE WHEN (${taxonomyConditions.join(' OR ')}) THEN 15 ELSE 0 END)`);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // The lateral haystacks are only needed when there is something to search.
+  // They are expressions instead of stored columns on purpose: 1.4k rows are a
+  // trivial seq scan, the taxonomy must stay in sync with the dataset importer,
+  // and the translation table can change without touching exercise_library.
+  // `tr` pulls every published locale into the haystack so a Spanish query also
+  // matches when the active UI is English (the dataset stores English names),
+  // while `display_norm` stays in the active locale for the relevance tiers.
+  const searchJoins = tokens.length
+    ? `CROSS JOIN LATERAL (
+         SELECT
+           concat_ws(' ',
+             COALESCE(el.name_norm, exercise_normalize_name(el.name)),
+             COALESCE(t.name_norm, exercise_normalize_name(t.name)),
+             (
+               SELECT string_agg(COALESCE(tr.name_norm, exercise_normalize_name(tr.name)), ' ')
+                 FROM exercise_translations tr
+                WHERE tr.exercise_id = el.id
+                  AND tr.status = 'published'
+             )
+           ) AS haystack,
+           exercise_normalize_name(COALESCE(t.name, el.name)) AS display_norm
+       ) n
+       CROSS JOIN LATERAL (
+         SELECT exercise_normalize_name(concat_ws(' ',
+           el.muscle_category, el.body_part, el.target_muscle,
+           el.muscle_group, el.equipment, el.secondary_muscles::text
+         )) AS haystack
+       ) x`
+    : '';
+
+  // Relevance is additive so one incidental name hit cannot outrank a real
+  // taxonomy hit: an exact name still wins (100), then a name prefix (20), all
+  // tokens in the name (8 + 4), any token in the name (4) and 15 per token that
+  // matches muscle/equipment. Searching "pecho" therefore returns PECTORAL
+  // exercises before "Jalón al pecho", while "curl barra" keeps the curl with a
+  // barbell on top.
+  let orderBy = `(el.source = 'catalog') DESC, el.muscle_category, COALESCE(t.name, el.name)`;
+  if (tokens.length) {
+    params.push(normalizedSearch);
+    const exactParam = `$${params.length}`;
+    params.push(`${normalizedSearch}%`);
+    const prefixParam = `$${params.length}`;
+
+    orderBy = `(
+        CASE WHEN n.display_norm = ${exactParam} THEN 100 ELSE 0 END
+        + CASE WHEN n.display_norm LIKE ${prefixParam} THEN 20 ELSE 0 END
+        + CASE WHEN (${nameAll.join(' AND ')}) THEN 8 ELSE 0 END
+        + CASE WHEN (${nameAny.join(' OR ')}) THEN 4 ELSE 0 END
+        + ${taxonomyScore.join(' + ')}
+      ) DESC, ${orderBy}`;
+  }
 
   try {
     params.push(limit);
@@ -308,8 +377,9 @@ app.get('/api/v1/exercises', async (req, res) => {
                 ON t.exercise_id = el.id
                AND t.locale = $1
                AND t.status = 'published'
+         ${searchJoins}
          ${where}
-        ORDER BY (el.source = 'catalog') DESC, el.muscle_category, COALESCE(t.name, el.name)
+        ORDER BY ${orderBy}
         LIMIT ${limitParam} OFFSET ${offsetParam}`,
       params
     );

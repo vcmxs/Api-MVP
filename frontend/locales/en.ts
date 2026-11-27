@@ -506,7 +506,7 @@ const en = {
   exercisePicker: {
     title: "Add exercises",
     subtitle: "Tap a card to add it · the ? button opens the technique and history",
-    searchPlaceholder: "Search exercises…",
+    searchPlaceholder: "Search exercises, muscles or equipment…",
     clearSearch: "Clear search",
     all: "All",
     loadMore: "Load more",
